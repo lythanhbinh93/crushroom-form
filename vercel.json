@@ -5,7 +5,11 @@
       "dest": "/assets/$1"
     },
     {
-      "src": "/(.*)",
+      "src": "/admin.html",
+      "dest": "/admin.html"
+    },
+    {
+      "src": "/",
       "dest": "/index.html"
     }
   ]
