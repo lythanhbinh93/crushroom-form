@@ -1,0 +1,314 @@
+.container-layout {
+  max-width: 600px;
+  padding: 30px;
+  position: relative;
+  transition: box-shadow 0.25s, -webkit-box-shadow 0.25s;
+  border-radius: 2px;
+  box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 3px 1px -2px rgba(0, 0, 0, 0.12), 0 1px 5px 0 rgba(0, 0, 0, 0.2);
+  margin: 80px auto;
+}
+.header .title-heading {
+  font-size: 26px;
+  text-align: center;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.header .description p {
+  color: #6c757d;
+  font-size: 16px;
+  text-align: center;
+  font-weight: 600;
+  line-height: 1.7;
+}
+.form-control {
+  margin-bottom: 1.5rem;
+  font-size: 14px;
+  position: relative;
+  padding: 0 5px;
+  width: 100%;
+}
+.form-control label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+  line-height: 20px;
+  text-transform: initial;
+  letter-spacing: initial;
+  cursor: pointer;
+  font-size: 14px;
+}
+.form-phone {
+  display: flex;
+}
+.globo-form-icon {
+  width: 41px;
+  padding: 0 5px;
+  background: #f1f1f1;
+  border-radius: 2px 0 0 2px;
+  box-shadow: 0 1px 3px rgba(50, 50, 93, 0.15), 0 1px 0 rgba(0, 0, 0, 0.02);
+  display: inherit;
+  align-items: center;
+  justify-content: center;
+}
+.globo-form-icon svg {
+  width: 20px;
+  height: 20px;
+  opacity: 0.5;
+}
+.globo-form-control .globo-form-input {
+  display: flex;
+}
+.form-phone .iti {
+  display: block !important;
+  width: 100% !important;
+}
+.form-phone input,
+.form-phone textarea,
+.form-phone select {
+  display: block;
+  height: 41px;
+  padding: 10px 12px;
+  color: #000;
+  background-color: #f1f1f1;
+  border-radius: 2px;
+  font-size: 14px;
+  position: relative;
+  flex: 1 1 auto;
+  margin-bottom: 0;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(50, 50, 93, 0.15), 0 1px 0 rgba(0, 0, 0, 0.02);
+  transition: box-shadow 0.15s ease;
+  outline: none;
+  background-image: none !important;
+}
+
+.help-text.globo-description {
+  color: #6c757d;
+  margin-top: 0.25rem;
+  font-size: 12px;
+  font-weight: 600;
+}
+.globo-form-input {
+  display: flex;
+}
+.flex-wrap {
+  display: flex;
+  flex-wrap: wrap;
+}
+.globo-list-control {
+  padding: 0 5px;
+  position: relative;
+  width: 100%;
+}
+.radio-wrapper {
+  position: relative;
+  display: block;
+  min-height: 24px;
+  padding-left: 28px;
+  text-align: left;
+}
+.radio-wrapper .radio-input {
+  display: none;
+}
+.radio-wrapper .radio-label {
+  font-weight: 600;
+  line-height: 24px;
+  text-align: left;
+  box-sizing: border-box;
+  display: inline-block;
+  position: relative;
+  margin-bottom: 0;
+  cursor: pointer;
+  font-size: 14px;
+}
+.radio-input ~ .radio-label:before,
+.radio-input ~ .radio-label:after {
+  position: absolute;
+  top: 1px;
+  left: -28px;
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  content: "";
+  border: 1px solid;
+  box-sizing: border-box;
+}
+.radio-input ~ .radio-label:before {
+  pointer-events: none;
+  user-select: none;
+  background-color: #fff;
+  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(50, 50, 93, 0.15), 0 1px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+.radio-wrapper .radio-input:checked ~ .radio-label:after {
+  background: rgba(0, 0, 0, 1);
+  background: radial-gradient(rgba(0, 0, 0, 1) 40%, #fff 45%);
+  border-color: rgba(0, 0, 0, 1);
+}
+.dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px dashed color-mix(in srgb, rgba(0, 0, 0, 1) 80%, transparent);
+  background-color: #f1f1f1;
+  transition: all 0.3s;
+}
+.form-control .has-error {
+  border-color: #dc3545;
+  border-width: 1px;
+  border-style: solid;
+}
+.dropzone--content {
+  display: flex;
+  -webkit-box-align: center;
+  align-items: center;
+}
+.dropzone--placeholder {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.dropzone--placeholder--description {
+  font-size: 12px;
+}
+.dropzone--placeholder--button {
+  background: #fff;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: visible;
+  color: #222;
+}
+.dropzone--placeholder--button:hover {
+  background: #fff;
+  border: 1px solid #ccc;
+}
+
+.globo-form-input textarea {
+  resize: none;
+  display: block;
+  height: initial;
+  padding: 10px 12px;
+  color: #000;
+  background-color: #f1f1f1;
+  border-radius: 2px;
+  font-size: 14px;
+  position: relative;
+  flex: 1 1 auto;
+  margin-bottom: 0;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(50, 50, 93, 0.15), 0 1px 0 rgba(0, 0, 0, 0.02);
+  transition: box-shadow 0.15s ease;
+  outline: none;
+  background-image: none !important;
+}
+
+.gfb__footer [type="button"],
+.gfb__footer [type="submit"] {
+  text-transform: none;
+  display: inline-block;
+  text-align: center;
+  vertical-align: middle;
+  user-select: none;
+  transition: all 0.25s ease-in-out;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 14px;
+  border-radius: 2px;
+  padding: 11px 22px;
+  min-width: 100px;
+  background-color: rgba(0, 0, 0, 1);
+  color: #ffffff;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 1);
+  width: 100%;
+  box-sizing: border-box;
+}
+.show-block {
+  display: none;
+}
+.messages {
+  color: #dc3545;
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 12px;
+}
+.dropzone--preview--area{
+  max-width: 150px;
+  display: none;
+  position: relative;
+}
+
+.couplepix-close.t4s-drawer__close{
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: white;
+  width: 40px;
+  height: 40px;
+}
+.globo-form-app:disabled{
+  cursor: default;
+}
+
+/* CSS */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* button {
+  all: initial;
+}
+
+
+button:hover {
+  background-color: #f0f0f0;
+}
+
+button:active {
+  border-color: #999;
+  background-color: #e6e6e6;
+} */
+
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  z-index: 9999;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.croppie-container .cr-boundary {
+  background-color: black;
+}
+
+
