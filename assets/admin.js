@@ -126,28 +126,27 @@ document.addEventListener('DOMContentLoaded', function() {
       const thumbnailUrl = imageId
         ? `https://drive.google.com/thumbnail?id=${imageId}&sz=w400`
         : imageUrl;
+      const directUrl = imageId
+        ? `https://drive.google.com/uc?export=view&id=${imageId}`
+        : imageUrl;
 
       return `
-        <div class="session-image">
-          <img src="${thumbnailUrl}" alt="Ảnh ${idx + 1}" loading="lazy"
-               data-full-url="${imageUrl}"
-               onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3E⚠️ Lỗi%3C/text%3E%3C/svg%3E'">
-          <div class="image-overlay">
-            <a href="${imageUrl}" target="_blank" class="overlay-btn">Xem trên Drive →</a>
+        <div class="session-image-wrapper">
+          <div class="session-image">
+            <img src="${thumbnailUrl}" alt="Ảnh ${idx + 1}" loading="lazy"
+                 data-full-url="${imageUrl}"
+                 onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3E⚠️ Lỗi%3C/text%3E%3C/svg%3E'">
+            <div class="image-overlay">
+              <a href="${imageUrl}" target="_blank" class="overlay-btn">Xem trên Drive →</a>
+            </div>
           </div>
+          <button class="btn-copy-single" onclick="copySingleImage(this, '${directUrl}')" data-image-url="${directUrl}">
+            <span class="btn-icon">📋</span>
+            Sao chép ảnh ${idx + 1}
+          </button>
         </div>
       `;
     }).join('');
-
-    // Copy button
-    const copyBtnHTML = `
-      <div class="session-actions">
-        <button class="btn-copy" onclick="copyImages(this)" data-images='${JSON.stringify(images)}'>
-          <span class="btn-icon">📋</span>
-          Sao chép ảnh
-        </button>
-      </div>
-    `;
 
     sessionCard.innerHTML = `
       ${headerHTML}
@@ -155,7 +154,6 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="session-images-row">
         ${imagesHTML}
       </div>
-      ${copyBtnHTML}
     `;
 
     imagesGrid.appendChild(sessionCard);
@@ -179,53 +177,49 @@ document.addEventListener('DOMContentLoaded', function() {
     noResults.style.display = 'none';
   }
 
-  // Make copyImages available globally for onclick handler
-  window.copyImages = function(button) {
-    const images = JSON.parse(button.getAttribute('data-images'));
+  // Copy single image function
+  window.copySingleImage = async function(button, imageUrl) {
+    const originalHTML = button.innerHTML;
 
-    // Create modal to show images
-    const modal = document.createElement('div');
-    modal.className = 'image-copy-modal';
-    modal.innerHTML = `
-      <div class="modal-overlay" onclick="this.parentElement.remove()"></div>
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>📋 Sao chép ảnh</h3>
-          <button class="modal-close" onclick="this.closest('.image-copy-modal').remove()">✕</button>
-        </div>
-        <div class="modal-body">
-          <p class="modal-instruction">
-            💡 <strong>Cách sao chép:</strong> Click chuột phải vào ảnh → chọn "Copy image" → dán vào chat
-          </p>
-          <div class="modal-images">
-            ${images.map((url, idx) => {
-              const imageId = extractGoogleDriveId(url);
-              const directUrl = imageId
-                ? `https://drive.google.com/uc?export=view&id=${imageId}`
-                : url;
-              return `
-                <div class="modal-image-item">
-                  <img src="${directUrl}" alt="Ảnh ${idx + 1}" crossorigin="anonymous">
-                  <div class="image-actions">
-                    <a href="${directUrl}" target="_blank" class="btn-view">Mở tab mới</a>
-                    <a href="${directUrl}" download="image-${idx + 1}.jpg" class="btn-download">Tải về</a>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      </div>
-    `;
+    try {
+      button.disabled = true;
+      button.innerHTML = '<span class="btn-icon">⏳</span> Đang tải...';
 
-    document.body.appendChild(modal);
+      // Fetch image
+      const response = await fetch(imageUrl);
+      if (!response.ok) throw new Error('Không thể tải ảnh');
 
-    // Close on Escape key
-    document.addEventListener('keydown', function closeOnEsc(e) {
-      if (e.key === 'Escape') {
-        modal.remove();
-        document.removeEventListener('keydown', closeOnEsc);
-      }
-    });
+      const blob = await response.blob();
+
+      // Copy to clipboard
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob })
+      ]);
+
+      // Success
+      button.innerHTML = '<span class="btn-icon">✅</span> Đã sao chép!';
+      button.style.background = '#10b981';
+
+      setTimeout(() => {
+        button.innerHTML = originalHTML;
+        button.style.background = '';
+        button.disabled = false;
+      }, 2000);
+
+    } catch (error) {
+      console.error('Copy error:', error);
+
+      // Show error and open image in new tab as fallback
+      button.innerHTML = '<span class="btn-icon">❌</span> Lỗi - Click để mở';
+      button.style.background = '#ef4444';
+
+      setTimeout(() => {
+        // Open image in new tab for manual copy
+        window.open(imageUrl, '_blank');
+        button.innerHTML = originalHTML;
+        button.style.background = '';
+        button.disabled = false;
+      }, 1500);
+    }
   };
 });

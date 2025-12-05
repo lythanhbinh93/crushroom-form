@@ -262,14 +262,22 @@ body {
 /* Images Row (Horizontal) */
 .session-images-row {
   display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 20px;
   overflow-x: auto;
   padding: 8px 0;
 }
 
+/* Image Wrapper with Copy Button */
+.session-image-wrapper {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .session-image {
-  flex: 0 0 250px;
+  width: 250px;
+  height: 250px;
   position: relative;
   border-radius: 8px;
   overflow: hidden;
@@ -283,8 +291,8 @@ body {
 }
 
 .session-image img {
-  width: 250px;
-  height: 250px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   display: block;
 }
@@ -321,15 +329,10 @@ body {
   color: white;
 }
 
-/* Copy Button */
-.session-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.btn-copy {
-  padding: 12px 24px;
+/* Copy Button for Each Image */
+.btn-copy-single {
+  width: 250px;
+  padding: 12px 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -340,15 +343,16 @@ body {
   transition: all 0.3s;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
 }
 
-.btn-copy:hover:not(:disabled) {
+.btn-copy-single:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
 }
 
-.btn-copy:disabled {
+.btn-copy-single:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
@@ -392,164 +396,6 @@ body {
   font-size: 14px;
 }
 
-/* Image Copy Modal */
-.image-copy-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.modal-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-}
-
-.modal-content {
-  position: relative;
-  background: white;
-  border-radius: 16px;
-  max-width: 900px;
-  width: 100%;
-  max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalSlideIn 0.3s ease-out;
-}
-
-@keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 28px;
-  border-bottom: 2px solid #f0f0f0;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: #333;
-}
-
-.modal-close {
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: #f5f5f5;
-  border-radius: 8px;
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #666;
-}
-
-.modal-close:hover {
-  background: #e0e0e0;
-  color: #333;
-}
-
-.modal-body {
-  padding: 28px;
-  max-height: calc(90vh - 100px);
-  overflow-y: auto;
-}
-
-.modal-instruction {
-  background: linear-gradient(135deg, #667eea15, #764ba215);
-  padding: 16px 20px;
-  border-radius: 8px;
-  border-left: 4px solid #667eea;
-  margin-bottom: 24px;
-  color: #333;
-  line-height: 1.6;
-}
-
-.modal-images {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-}
-
-.modal-image-item {
-  background: #f8f9fa;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.modal-image-item img {
-  width: 100%;
-  height: auto;
-  display: block;
-  cursor: pointer;
-  transition: transform 0.3s;
-}
-
-.modal-image-item img:hover {
-  transform: scale(1.05);
-}
-
-.image-actions {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-}
-
-.btn-view,
-.btn-download {
-  flex: 1;
-  padding: 10px 16px;
-  text-align: center;
-  text-decoration: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.btn-view {
-  background: #667eea;
-  color: white;
-}
-
-.btn-view:hover {
-  background: #5568d3;
-}
-
-.btn-download {
-  background: #10b981;
-  color: white;
-}
-
-.btn-download:hover {
-  background: #059669;
-}
-
 @media (max-width: 768px) {
   .admin-header h1 {
     font-size: 1.8rem;
@@ -568,38 +414,13 @@ body {
   }
 
   .session-image {
-    flex: 0 0 200px;
-  }
-
-  .session-image img {
     width: 200px;
     height: 200px;
   }
 
-  .session-actions {
-    justify-content: stretch;
-  }
-
-  .btn-copy {
-    flex: 1;
-    justify-content: center;
-  }
-
-  /* Modal responsive */
-  .modal-content {
-    max-width: 100%;
-    margin: 10px;
-  }
-
-  .modal-images {
-    grid-template-columns: 1fr;
-  }
-
-  .modal-header {
-    padding: 16px 20px;
-  }
-
-  .modal-body {
-    padding: 20px;
+  .btn-copy-single {
+    width: 200px;
+    font-size: 13px;
+    padding: 10px 12px;
   }
 }
