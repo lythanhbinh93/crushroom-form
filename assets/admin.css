@@ -327,25 +327,186 @@ body {
   font-size: 14px;
 }
 
+/* Mobile Optimization */
 @media (max-width: 768px) {
+  body {
+    padding: 12px;
+  }
+
+  .admin-container {
+    max-width: 100%;
+  }
+
+  .admin-header {
+    margin-bottom: 24px;
+  }
+
   .admin-header h1 {
-    font-size: 1.8rem;
+    font-size: 1.75rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+
+  .search-section {
+    padding: 20px 16px;
+    margin-bottom: 20px;
   }
 
   .search-box {
     flex-direction: column;
+    gap: 10px;
+  }
+
+  #phone-search {
+    padding: 12px 16px;
+    font-size: 16px;
   }
 
   .btn-primary {
     justify-content: center;
+    padding: 12px 20px;
+  }
+
+  .results-section {
+    padding: 20px 16px;
+  }
+
+  .results-header {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+  }
+
+  .results-header h2 {
+    font-size: 1.4rem;
+  }
+
+  .upload-session-card {
+    padding: 16px;
+  }
+
+  .session-badge {
+    font-size: 13px;
+    padding: 6px 14px;
+  }
+
+  .session-info {
+    padding: 12px;
+    margin-bottom: 16px;
   }
 
   .info-row {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .session-info .info-label {
+    font-size: 10px;
+  }
+
+  .session-info .info-value {
+    font-size: 14px;
+  }
+
+  .session-images-row {
+    gap: 12px;
+    padding: 4px 0;
   }
 
   .session-image {
-    width: 200px;
-    height: 200px;
+    width: 160px;
+    height: 160px;
+  }
+
+  .no-results {
+    padding: 60px 24px;
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+  }
+
+  .empty-state h3 {
+    font-size: 1.25rem;
+  }
+
+  .empty-state p {
+    font-size: 14px;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  body {
+    padding: 8px;
+  }
+
+  .admin-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .search-section {
+    padding: 16px 12px;
+  }
+
+  #phone-search {
+    padding: 10px 14px;
+    font-size: 16px;
+  }
+
+  .btn-primary {
+    padding: 10px 16px;
+    font-size: 15px;
+  }
+
+  .results-section {
+    padding: 16px 12px;
+  }
+
+  .results-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .result-info {
+    font-size: 13px;
+  }
+
+  .upload-session-card {
+    padding: 12px;
+  }
+
+  .session-badge {
+    font-size: 12px;
+    padding: 5px 12px;
+  }
+
+  .session-info {
+    padding: 10px;
+  }
+
+  .session-images-row {
+    gap: 10px;
+  }
+
+  .session-image {
+    width: 140px;
+    height: 140px;
+  }
+
+  .no-results {
+    padding: 40px 16px;
+  }
+
+  .empty-icon {
+    font-size: 3.5rem;
+  }
+
+  .empty-state h3 {
+    font-size: 1.1rem;
   }
 }
