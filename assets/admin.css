@@ -275,16 +275,13 @@ body {
 .session-image {
   width: 250px;
   height: 250px;
-  position: relative;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s, box-shadow 0.3s;
-  cursor: pointer;
+  transition: box-shadow 0.3s;
 }
 
 .session-image:hover {
-  transform: translateY(-4px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
@@ -293,35 +290,6 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-.image-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-  padding: 16px;
-  opacity: 0;
-  transition: opacity 0.3s;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.session-image:hover .image-overlay {
-  opacity: 1;
-}
-
-.image-label {
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.image-hint {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 12px;
 }
 
 .no-results {
@@ -379,9 +347,5 @@ body {
   .session-image {
     width: 200px;
     height: 200px;
-  }
-
-  .image-hint {
-    font-size: 11px;
   }
 }
