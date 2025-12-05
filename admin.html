@@ -3,62 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin - Ảnh khách đã gửi</title>
-  <link rel="stylesheet" href="assets/admin.css">
+  <title>Admin Panel - CouplePix Image Viewer</title>
+  <link rel="stylesheet" href="./assets/admin.css">
 </head>
 <body>
-  <header class="admin-header">
-    <div>
-      <p class="eyebrow">Crushroom Admin</p>
-      <h1>Ảnh khách đã gửi</h1>
-      <p class="subtitle">Trang này giúp kiểm tra nhanh ảnh mà khách đã upload qua form.</p>
-      <p class="subtitle small">Lưu ý: Sheet ID & Tên sheet sẽ được tự động lưu trên trình duyệt của bạn (mặc định là sheet sản xuất).</p>
+  <div class="admin-container">
+    <div class="admin-header">
+      <h1>🖼️ CouplePix Admin Panel</h1>
+      <p class="subtitle">Kiểm tra ảnh khách hàng đã upload</p>
     </div>
-    <div class="help">
-      <p><strong>Hướng dẫn:</strong> Điền đúng ID Google Sheet và tên sheet chứa dữ liệu. Trang sẽ tự tải dữ liệu và hiển thị ảnh.</p>
-    </div>
-  </header>
 
-  <section class="controls">
-    <div class="control-group">
-      <label for="sheetId">Google Sheet ID</label>
-      <input id="sheetId" type="text" placeholder="Ví dụ: 1AbCdEFgh...">
+    <div class="search-section">
+      <div class="search-box">
+        <input
+          type="text"
+          id="phone-search"
+          placeholder="Nhập số điện thoại khách hàng (VD: 0918260494)"
+          autofocus
+        >
+        <button id="search-btn" class="btn-primary">
+          <span class="btn-icon">🔍</span>
+          Tìm kiếm
+        </button>
+      </div>
+      <p class="search-hint">💡 Tip: Paste số điện thoại và nhấn Enter hoặc click Tìm kiếm</p>
     </div>
-    <div class="control-group">
-      <label for="sheetName">Tên Sheet</label>
-      <input id="sheetName" type="text" placeholder="Ví dụ: Form Responses 1">
-    </div>
-    <div class="control-group">
-      <label for="phoneFilter">Lọc theo số điện thoại</label>
-      <input id="phoneFilter" type="text" placeholder="Nhập số hoặc ký tự bất kỳ">
-    </div>
-    <div class="control-actions">
-      <button id="loadButton" type="button">Tải dữ liệu</button>
-      <span id="status" role="status"></span>
-    </div>
-  </section>
 
-  <main>
-    <div class="table-wrapper">
-      <table id="submissionTable">
-        <thead>
-          <tr>
-            <th>Thời gian</th>
-            <th>Số điện thoại</th>
-            <th>Ghi chú</th>
-            <th>Ảnh 1</th>
-            <th>Ảnh 2</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="empty-row">
-            <td colspan="5">Chưa có dữ liệu. Nhấn “Tải dữ liệu” để bắt đầu.</td>
-          </tr>
-        </tbody>
-      </table>
+    <div id="loading" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      <p>Đang tìm kiếm...</p>
     </div>
-  </main>
 
-  <script src="assets/admin.js"></script>
+    <div id="error-message" class="error-message" style="display: none;"></div>
+
+    <div id="results" class="results-section" style="display: none;">
+      <div class="results-header">
+        <h2>Kết quả tìm kiếm</h2>
+        <p id="result-info" class="result-info"></p>
+      </div>
+
+      <div class="customer-info">
+        <h3>📋 Thông tin khách hàng</h3>
+        <div id="customer-details" class="info-grid"></div>
+      </div>
+
+      <div class="images-container">
+        <h3>🖼️ Hình ảnh đã upload</h3>
+        <div id="images-grid" class="images-grid"></div>
+      </div>
+    </div>
+
+    <div id="no-results" class="no-results" style="display: none;">
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h3>Không tìm thấy kết quả</h3>
+        <p>Không có ảnh nào với số điện thoại này.</p>
+        <p class="hint">Vui lòng kiểm tra lại số điện thoại hoặc thử số khác.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="./assets/admin.js"></script>
 </body>
 </html>
