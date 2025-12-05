@@ -377,34 +377,49 @@ document.addEventListener('DOMContentLoaded', function () {
       submitBtn.style.display = 'none';
       submitButton.disabled = true;
 
-      // Tạo FormData và thêm tên file
-      const formData = new FormData(form);
-
       // Lấy số điện thoại và format (chỉ giữ số)
-      // Thử lấy từ input trực tiếp hoặc từ FormData
       const phoneInput = document.getElementById('mobile_code');
       let phoneNumber = phoneInput ? phoneInput.value.replace(/\D/g, '') : '';
-
-      // Nếu không có, thử lấy từ FormData field 'Name'
-      if (!phoneNumber) {
-        phoneNumber = formData.get('Name') ? formData.get('Name').replace(/\D/g, '') : '';
-      }
 
       // Debug log
       console.log('Phone input value:', phoneInput ? phoneInput.value : 'not found');
       console.log('Phone number (cleaned):', phoneNumber);
 
-      // Thêm tên file cho ảnh 1 (fallback về timestamp nếu không có phone)
-      const filename1 = phoneNumber || 'image_' + Date.now();
-      formData.append('Filename1', filename1);
-      console.log('Filename1:', filename1);
+      // Tạo FormData mới và copy tất cả fields từ form
+      const formData = new FormData();
 
-      // Kiểm tra nếu có ảnh 2 thì thêm tên file với suffix _2
+      // Copy tất cả fields từ form
+      const originalFormData = new FormData(form);
+      for (let [key, value] of originalFormData.entries()) {
+        formData.append(key, value);
+        console.log('FormData field:', key, '=', value ? value.substring(0, 50) + '...' : '(empty)');
+      }
+
+      // Nếu không có phone từ input, thử lấy từ field 'Name'
+      if (!phoneNumber && formData.get('Name')) {
+        phoneNumber = formData.get('Name').replace(/\D/g, '');
+        console.log('Phone from Name field:', phoneNumber);
+      }
+
+      // Thêm tên file
+      const filename1 = phoneNumber || 'image_' + Date.now();
+      formData.set('Filename1', filename1);
+      console.log('==> Filename1:', filename1);
+
+      // Kiểm tra nếu có ảnh 2
       const imgData2 = document.getElementById('ImgData2').value;
       if (imgData2 && imgData2.trim() !== '') {
         const filename2 = phoneNumber ? phoneNumber + '_2' : 'image_' + Date.now() + '_2';
-        formData.append('Filename2', filename2);
-        console.log('Filename2:', filename2);
+        formData.set('Filename2', filename2);
+        console.log('==> Filename2:', filename2);
+      }
+
+      // Log tất cả FormData để debug
+      console.log('=== Final FormData ===');
+      for (let [key, value] of formData.entries()) {
+        if (key.includes('Filename') || key === 'Name') {
+          console.log(key + ':', value);
+        }
       }
 
       fetch(scriptURL, { method: 'POST', body: formData})
