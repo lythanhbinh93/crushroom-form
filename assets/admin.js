@@ -36,21 +36,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Call Google Apps Script API
     fetch(SCRIPT_URL + '?action=search&phone=' + phone)
-      .then(response => response.json())
+      .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => {
-        console.log('Response:', data);
+        console.log('Response data:', data);
         loading.style.display = 'none';
 
         if (data.success && data.results && data.results.length > 0) {
           displayResults(data.results, phone);
-        } else {
+        } else if (data.success && data.results && data.results.length === 0) {
           noResults.style.display = 'block';
+        } else {
+          showError(data.error || 'Không tìm thấy kết quả');
         }
       })
       .catch(error => {
-        console.error('Error:', error);
+        console.error('Fetch error:', error);
         loading.style.display = 'none';
-        showError('Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại.');
+        showError(`Lỗi: ${error.message}. Vui lòng kiểm tra console để biết chi tiết.`);
       });
   }
 
