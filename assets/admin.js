@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const imagesHTML = images.map((imageUrl, idx) => {
       const imageId = extractGoogleDriveId(imageUrl);
       const thumbnailUrl = imageId
-        ? `https://drive.google.com/thumbnail?id=${imageId}&sz=w400`
+        ? `https://drive.google.com/thumbnail?id=${imageId}&sz=w2000`
         : imageUrl;
       const directUrl = imageId
         ? `https://drive.google.com/uc?export=view&id=${imageId}`
