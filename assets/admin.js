@@ -112,12 +112,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Extract image ID from Google Drive URL
     const imageId = extractGoogleDriveId(imageUrl);
-    const directImageUrl = imageId 
-      ? `https://drive.google.com/uc?export=view&id=${imageId}`
+
+    // Use Google Drive thumbnail API (works better for previews)
+    const thumbnailUrl = imageId
+      ? `https://drive.google.com/thumbnail?id=${imageId}&sz=w400`
       : imageUrl;
 
     card.innerHTML = `
-      <img src="${directImageUrl}" alt="${title}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22300%22 height=%22300%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23999%22%3EKhông tải được ảnh%3C/text%3E%3C/svg%3E'">
+      <img src="${thumbnailUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'padding:60px;text-align:center;background:#f5f5f5\\'><p style=\\'color:#999;margin-bottom:12px\\'>⚠️ Không tải được ảnh</p><a href=\\'${imageUrl}\\' target=\\'_blank\\' style=\\'color:#667eea;text-decoration:none\\'>Xem trên Drive →</a></div>'">
       <div class="image-info">
         <div class="image-title">${title}</div>
         <a href="${imageUrl}" target="_blank" class="image-link">
