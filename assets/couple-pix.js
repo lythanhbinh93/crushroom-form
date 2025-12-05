@@ -304,11 +304,32 @@ document.addEventListener('DOMContentLoaded', function () {
     clearError()
     let hasError = false; // Biến để kiểm tra có lỗi hay không
 
+    // Validate phone number
     if (phoneNumber === '') {
-      phoneError.textContent = 'Please fill in field';
+      phoneError.textContent = 'Vui lòng nhập số điện thoại';
       phoneError.style.display = 'block';
       document.querySelector('.form-phone #mobile_code').classList.add('has-error');
       hasError = true;
+    } else {
+      // Chỉ giữ lại số
+      const digitsOnly = phoneNumber.replace(/\D/g, '');
+
+      // Kiểm tra độ dài hợp lệ (8-12 số cho số điện thoại Việt Nam)
+      if (digitsOnly.length < 8 || digitsOnly.length > 12) {
+        phoneError.textContent = 'Số điện thoại không hợp lệ (cần 8-12 chữ số)';
+        phoneError.style.display = 'block';
+        document.querySelector('.form-phone #mobile_code').classList.add('has-error');
+        hasError = true;
+      }
+
+      // Kiểm tra xem có quá nhiều ký tự không phải số không (để phát hiện ghi chú)
+      const nonDigitCount = phoneNumber.length - digitsOnly.length;
+      if (nonDigitCount > 5) {
+        phoneError.textContent = 'Vui lòng chỉ nhập số điện thoại (không nhập ghi chú ở đây)';
+        phoneError.style.display = 'block';
+        document.querySelector('.form-phone #mobile_code').classList.add('has-error');
+        hasError = true;
+      }
     }
     if (fileInput.files.length === 0) {
       fileError.textContent = 'Please fill in field';
