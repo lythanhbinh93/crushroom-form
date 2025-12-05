@@ -180,58 +180,52 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Make copyImages available globally for onclick handler
-  window.copyImages = async function(button) {
-    try {
-      const images = JSON.parse(button.getAttribute('data-images'));
-      button.disabled = true;
-      button.innerHTML = '<span class="btn-icon">⏳</span> Đang tải...';
+  window.copyImages = function(button) {
+    const images = JSON.parse(button.getAttribute('data-images'));
 
-      // Download images and copy to clipboard
-      const imageBlobs = await Promise.all(
-        images.map(url => {
-          const imageId = extractGoogleDriveId(url);
-          const downloadUrl = imageId
-            ? `https://drive.google.com/uc?export=download&id=${imageId}`
-            : url;
+    // Create modal to show images
+    const modal = document.createElement('div');
+    modal.className = 'image-copy-modal';
+    modal.innerHTML = `
+      <div class="modal-overlay" onclick="this.parentElement.remove()"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>📋 Sao chép ảnh</h3>
+          <button class="modal-close" onclick="this.closest('.image-copy-modal').remove()">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-instruction">
+            💡 <strong>Cách sao chép:</strong> Click chuột phải vào ảnh → chọn "Copy image" → dán vào chat
+          </p>
+          <div class="modal-images">
+            ${images.map((url, idx) => {
+              const imageId = extractGoogleDriveId(url);
+              const directUrl = imageId
+                ? `https://drive.google.com/uc?export=view&id=${imageId}`
+                : url;
+              return `
+                <div class="modal-image-item">
+                  <img src="${directUrl}" alt="Ảnh ${idx + 1}" crossorigin="anonymous">
+                  <div class="image-actions">
+                    <a href="${directUrl}" target="_blank" class="btn-view">Mở tab mới</a>
+                    <a href="${directUrl}" download="image-${idx + 1}.jpg" class="btn-download">Tải về</a>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
 
-          return fetch(downloadUrl)
-            .then(res => res.blob())
-            .catch(() => null);
-        })
-      );
+    document.body.appendChild(modal);
 
-      // Filter out failed downloads
-      const validBlobs = imageBlobs.filter(blob => blob !== null);
-
-      if (validBlobs.length === 0) {
-        throw new Error('Không thể tải ảnh');
+    // Close on Escape key
+    document.addEventListener('keydown', function closeOnEsc(e) {
+      if (e.key === 'Escape') {
+        modal.remove();
+        document.removeEventListener('keydown', closeOnEsc);
       }
-
-      // Copy to clipboard
-      await navigator.clipboard.write(
-        validBlobs.map(blob => new ClipboardItem({ [blob.type]: blob }))
-      );
-
-      // Success feedback
-      button.innerHTML = '<span class="btn-icon">✅</span> Đã sao chép!';
-      button.style.background = '#10b981';
-
-      setTimeout(() => {
-        button.innerHTML = '<span class="btn-icon">📋</span> Sao chép ảnh';
-        button.style.background = '';
-        button.disabled = false;
-      }, 2000);
-
-    } catch (error) {
-      console.error('Copy error:', error);
-      button.innerHTML = '<span class="btn-icon">❌</span> Lỗi sao chép';
-      button.style.background = '#ef4444';
-
-      setTimeout(() => {
-        button.innerHTML = '<span class="btn-icon">📋</span> Sao chép ảnh';
-        button.style.background = '';
-        button.disabled = false;
-      }, 2000);
-    }
+    });
   };
 });
