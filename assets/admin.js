@@ -177,49 +177,52 @@ document.addEventListener('DOMContentLoaded', function() {
     noResults.style.display = 'none';
   }
 
-  // Copy single image function
-  window.copySingleImage = async function(button, imageUrl) {
-    const originalHTML = button.innerHTML;
+  // Show image in modal for easy copying
+  window.copySingleImage = function(button, imageUrl) {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'copy-image-modal';
+    modal.innerHTML = `
+      <div class="copy-modal-overlay" onclick="this.parentElement.remove()"></div>
+      <div class="copy-modal-content">
+        <div class="copy-modal-header">
+          <h3>📋 Sao chép ảnh</h3>
+          <button class="copy-modal-close" onclick="this.closest('.copy-image-modal').remove()">✕</button>
+        </div>
+        <div class="copy-modal-body">
+          <div class="copy-instruction">
+            <div class="copy-instruction-text">
+              <strong>🖱️ Cách 1:</strong> Click chuột phải vào ảnh → Chọn <strong>"Copy image"</strong> → Paste vào chat
+            </div>
+            <div class="copy-instruction-text">
+              <strong>💾 Cách 2:</strong> Click nút "Tải về" bên dưới
+            </div>
+          </div>
+          <div class="copy-image-container">
+            <img src="${imageUrl}" alt="Image" crossorigin="anonymous" />
+          </div>
+          <div class="copy-modal-actions">
+            <a href="${imageUrl}" target="_blank" class="copy-btn-secondary">Mở tab mới</a>
+            <a href="${imageUrl}" download class="copy-btn-primary">Tải về</a>
+          </div>
+        </div>
+      </div>
+    `;
 
-    try {
-      button.disabled = true;
-      button.innerHTML = '<span class="btn-icon">⏳</span> Đang tải...';
+    document.body.appendChild(modal);
 
-      // Fetch image
-      const response = await fetch(imageUrl);
-      if (!response.ok) throw new Error('Không thể tải ảnh');
+    // Close on Escape
+    const closeHandler = (e) => {
+      if (e.key === 'Escape') {
+        modal.remove();
+        document.removeEventListener('keydown', closeHandler);
+      }
+    };
+    document.addEventListener('keydown', closeHandler);
 
-      const blob = await response.blob();
-
-      // Copy to clipboard
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob })
-      ]);
-
-      // Success
-      button.innerHTML = '<span class="btn-icon">✅</span> Đã sao chép!';
-      button.style.background = '#10b981';
-
-      setTimeout(() => {
-        button.innerHTML = originalHTML;
-        button.style.background = '';
-        button.disabled = false;
-      }, 2000);
-
-    } catch (error) {
-      console.error('Copy error:', error);
-
-      // Show error and open image in new tab as fallback
-      button.innerHTML = '<span class="btn-icon">❌</span> Lỗi - Click để mở';
-      button.style.background = '#ef4444';
-
-      setTimeout(() => {
-        // Open image in new tab for manual copy
-        window.open(imageUrl, '_blank');
-        button.innerHTML = originalHTML;
-        button.style.background = '';
-        button.disabled = false;
-      }, 1500);
-    }
+    // Remove handler when modal is removed
+    modal.addEventListener('DOMNodeRemoved', function() {
+      document.removeEventListener('keydown', closeHandler);
+    });
   };
 });
