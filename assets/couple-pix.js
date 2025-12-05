@@ -381,11 +381,18 @@ document.addEventListener('DOMContentLoaded', function () {
       const formData = new FormData(form);
 
       // Lấy số điện thoại và format (chỉ giữ số)
+      // Thử lấy từ input trực tiếp hoặc từ FormData
       const phoneInput = document.getElementById('mobile_code');
-      const phoneNumber = phoneInput ? phoneInput.value.replace(/\D/g, '') : '';
+      let phoneNumber = phoneInput ? phoneInput.value.replace(/\D/g, '') : '';
+
+      // Nếu không có, thử lấy từ FormData field 'Name'
+      if (!phoneNumber) {
+        phoneNumber = formData.get('Name') ? formData.get('Name').replace(/\D/g, '') : '';
+      }
 
       // Debug log
-      console.log('Phone number:', phoneNumber);
+      console.log('Phone input value:', phoneInput ? phoneInput.value : 'not found');
+      console.log('Phone number (cleaned):', phoneNumber);
 
       // Thêm tên file cho ảnh 1 (fallback về timestamp nếu không có phone)
       const filename1 = phoneNumber || 'image_' + Date.now();
