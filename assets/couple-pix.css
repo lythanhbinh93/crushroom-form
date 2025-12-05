@@ -253,6 +253,25 @@
   position: relative;
 }
 
+.dropzone--preview--area .img-preview {
+  width: 100%;
+  max-width: 150px;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.dropzone--preview--area .img-preview img {
+  width: 100%;
+  height: auto;
+  max-width: 150px;
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
 .couplepix-close.t4s-drawer__close{
   position: absolute;
   top: 0;
