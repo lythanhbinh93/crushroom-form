@@ -377,7 +377,22 @@ document.addEventListener('DOMContentLoaded', function () {
       submitBtn.style.display = 'none';
       submitButton.disabled = true;
 
-      fetch(scriptURL, { method: 'POST', body: new FormData(form)})
+      // Tạo FormData và thêm tên file
+      const formData = new FormData(form);
+
+      // Lấy số điện thoại và format (chỉ giữ số)
+      const phoneNumber = document.getElementById('mobile_code').value.replace(/\D/g, '');
+
+      // Thêm tên file cho ảnh 1
+      formData.append('Filename1', phoneNumber);
+
+      // Kiểm tra nếu có ảnh 2 thì thêm tên file với suffix _2
+      const imgData2 = document.getElementById('ImgData2').value;
+      if (imgData2 && imgData2.trim() !== '') {
+        formData.append('Filename2', phoneNumber + '_2');
+      }
+
+      fetch(scriptURL, { method: 'POST', body: formData})
       .then(response => {
         alert("Bạn đã gửi ảnh thành công." );
         // console.log("hihi")
