@@ -381,15 +381,23 @@ document.addEventListener('DOMContentLoaded', function () {
       const formData = new FormData(form);
 
       // Lấy số điện thoại và format (chỉ giữ số)
-      const phoneNumber = document.getElementById('mobile_code').value.replace(/\D/g, '');
+      const phoneInput = document.getElementById('mobile_code');
+      const phoneNumber = phoneInput ? phoneInput.value.replace(/\D/g, '') : '';
 
-      // Thêm tên file cho ảnh 1
-      formData.append('Filename1', phoneNumber);
+      // Debug log
+      console.log('Phone number:', phoneNumber);
+
+      // Thêm tên file cho ảnh 1 (fallback về timestamp nếu không có phone)
+      const filename1 = phoneNumber || 'image_' + Date.now();
+      formData.append('Filename1', filename1);
+      console.log('Filename1:', filename1);
 
       // Kiểm tra nếu có ảnh 2 thì thêm tên file với suffix _2
       const imgData2 = document.getElementById('ImgData2').value;
       if (imgData2 && imgData2.trim() !== '') {
-        formData.append('Filename2', phoneNumber + '_2');
+        const filename2 = phoneNumber ? phoneNumber + '_2' : 'image_' + Date.now() + '_2';
+        formData.append('Filename2', filename2);
+        console.log('Filename2:', filename2);
       }
 
       fetch(scriptURL, { method: 'POST', body: formData})
