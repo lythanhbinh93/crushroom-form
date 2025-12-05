@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
       return `
         <div class="session-image-wrapper">
           <div class="session-image">
-            <img src="${directUrl}" alt="Ảnh ${idx + 1}" loading="lazy"
+            <img src="${thumbnailUrl}" alt="Ảnh ${idx + 1}" loading="lazy"
                  onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3E⚠️ Lỗi%3C/text%3E%3C/svg%3E'">
           </div>
         </div>
