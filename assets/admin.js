@@ -57,6 +57,13 @@ document.addEventListener('DOMContentLoaded', function() {
   function displayResults(data, phone) {
     results.style.display = 'block';
 
+    // Sort by date (newest first)
+    data.sort((a, b) => {
+      const dateA = a.Date ? new Date(a.Date) : new Date(0);
+      const dateB = b.Date ? new Date(b.Date) : new Date(0);
+      return dateB - dateA;
+    });
+
     // Display result info
     resultInfo.textContent = `Tìm thấy ${data.length} kết quả cho số điện thoại: ${phone}`;
 
@@ -64,71 +71,88 @@ document.addEventListener('DOMContentLoaded', function() {
     customerDetails.innerHTML = '';
     imagesGrid.innerHTML = '';
 
+    // Create separate card for each upload session
     data.forEach((row, index) => {
-      // Display customer info (only for first result)
-      if (index === 0) {
-        displayCustomerInfo(row);
-      }
-
-      // Display images
-      displayImages(row, index + 1);
+      createUploadSessionCard(row, index === 0);
     });
   }
 
-  function displayCustomerInfo(row) {
-    const fields = [
-      { label: 'Số điện thoại', value: row.Name || 'N/A' },
-      { label: 'Loại ảnh', value: row.radio === 'one-image' ? 'Chỉ 1 ảnh' : 'Mỗi sản phẩm 1 ảnh' },
-      { label: 'Ghi chú', value: row.message || 'Không có' },
-      { label: 'Ngày upload', value: row.Date ? new Date(row.Date).toLocaleString('vi-VN') : 'N/A' }
-    ];
+  function createUploadSessionCard(row, isNewest) {
+    const sessionCard = document.createElement('div');
+    sessionCard.className = 'upload-session-card' + (isNewest ? ' newest' : '');
 
-    fields.forEach(field => {
-      const infoItem = document.createElement('div');
-      infoItem.className = 'info-item';
-      infoItem.innerHTML = `
-        <div class="info-label">${field.label}</div>
-        <div class="info-value">${field.value}</div>
-      `;
-      customerDetails.appendChild(infoItem);
-    });
-  }
+    // Header with "Newest" badge
+    const headerHTML = isNewest
+      ? '<div class="session-badge">✨ Ảnh mới nhất</div>'
+      : '';
 
-  function displayImages(row, rowNumber) {
-    // Image 1
-    if (row['image-1']) {
-      createImageCard(row['image-1'], `Ảnh ${rowNumber}`, rowNumber);
-    }
-
-    // Image 2
-    if (row['image-2']) {
-      createImageCard(row['image-2'], `Ảnh ${rowNumber}-2`, rowNumber);
-    }
-  }
-
-  function createImageCard(imageUrl, title, rowNumber) {
-    const card = document.createElement('div');
-    card.className = 'image-card';
-
-    // Extract image ID from Google Drive URL
-    const imageId = extractGoogleDriveId(imageUrl);
-
-    // Use Google Drive thumbnail API (works better for previews)
-    const thumbnailUrl = imageId
-      ? `https://drive.google.com/thumbnail?id=${imageId}&sz=w400`
-      : imageUrl;
-
-    card.innerHTML = `
-      <img src="${thumbnailUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'padding:60px;text-align:center;background:#f5f5f5\\'><p style=\\'color:#999;margin-bottom:12px\\'>⚠️ Không tải được ảnh</p><a href=\\'${imageUrl}\\' target=\\'_blank\\' style=\\'color:#667eea;text-decoration:none\\'>Xem trên Drive →</a></div>'">
-      <div class="image-info">
-        <div class="image-title">${title}</div>
-        <a href="${imageUrl}" target="_blank" class="image-link">
-          Xem trên Drive →
-        </a>
+    // Customer info
+    const infoHTML = `
+      <div class="session-info">
+        <div class="info-row">
+          <div class="info-item">
+            <span class="info-label">SỐ ĐIỆN THOẠI</span>
+            <span class="info-value">${row.Name || 'N/A'}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">LOẠI ẢNH</span>
+            <span class="info-value">${row.radio === 'one-image' ? 'Chỉ 1 ảnh' : 'Nhiều ảnh'}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">GHI CHÚ</span>
+            <span class="info-value">${row.message || 'Không có'}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">NGÀY UPLOAD</span>
+            <span class="info-value">${row.Date ? new Date(row.Date).toLocaleString('vi-VN') : 'N/A'}</span>
+          </div>
+        </div>
       </div>
     `;
 
-    imagesGrid.appendChild(card);
+    // Images
+    const images = [];
+    if (row['image-1']) images.push(row['image-1']);
+    if (row['image-2']) images.push(row['image-2']);
+
+    const imagesHTML = images.map((imageUrl, idx) => {
+      const imageId = extractGoogleDriveId(imageUrl);
+      const thumbnailUrl = imageId
+        ? `https://drive.google.com/thumbnail?id=${imageId}&sz=w400`
+        : imageUrl;
+
+      return `
+        <div class="session-image">
+          <img src="${thumbnailUrl}" alt="Ảnh ${idx + 1}" loading="lazy"
+               data-full-url="${imageUrl}"
+               onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3E⚠️ Lỗi%3C/text%3E%3C/svg%3E'">
+          <div class="image-overlay">
+            <a href="${imageUrl}" target="_blank" class="overlay-btn">Xem trên Drive →</a>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Copy button
+    const copyBtnHTML = `
+      <div class="session-actions">
+        <button class="btn-copy" onclick="copyImages(this)" data-images='${JSON.stringify(images)}'>
+          <span class="btn-icon">📋</span>
+          Sao chép ảnh
+        </button>
+      </div>
+    `;
+
+    sessionCard.innerHTML = `
+      ${headerHTML}
+      ${infoHTML}
+      <div class="session-images-row">
+        ${imagesHTML}
+      </div>
+      ${copyBtnHTML}
+    `;
+
+    imagesGrid.appendChild(sessionCard);
   }
 
   function extractGoogleDriveId(url) {
@@ -148,4 +172,60 @@ document.addEventListener('DOMContentLoaded', function() {
     results.style.display = 'none';
     noResults.style.display = 'none';
   }
+
+  // Make copyImages available globally for onclick handler
+  window.copyImages = async function(button) {
+    try {
+      const images = JSON.parse(button.getAttribute('data-images'));
+      button.disabled = true;
+      button.innerHTML = '<span class="btn-icon">⏳</span> Đang tải...';
+
+      // Download images and copy to clipboard
+      const imageBlobs = await Promise.all(
+        images.map(url => {
+          const imageId = extractGoogleDriveId(url);
+          const downloadUrl = imageId
+            ? `https://drive.google.com/uc?export=download&id=${imageId}`
+            : url;
+
+          return fetch(downloadUrl)
+            .then(res => res.blob())
+            .catch(() => null);
+        })
+      );
+
+      // Filter out failed downloads
+      const validBlobs = imageBlobs.filter(blob => blob !== null);
+
+      if (validBlobs.length === 0) {
+        throw new Error('Không thể tải ảnh');
+      }
+
+      // Copy to clipboard
+      await navigator.clipboard.write(
+        validBlobs.map(blob => new ClipboardItem({ [blob.type]: blob }))
+      );
+
+      // Success feedback
+      button.innerHTML = '<span class="btn-icon">✅</span> Đã sao chép!';
+      button.style.background = '#10b981';
+
+      setTimeout(() => {
+        button.innerHTML = '<span class="btn-icon">📋</span> Sao chép ảnh';
+        button.style.background = '';
+        button.disabled = false;
+      }, 2000);
+
+    } catch (error) {
+      console.error('Copy error:', error);
+      button.innerHTML = '<span class="btn-icon">❌</span> Lỗi sao chép';
+      button.style.background = '#ef4444';
+
+      setTimeout(() => {
+        button.innerHTML = '<span class="btn-icon">📋</span> Sao chép ảnh';
+        button.style.background = '';
+        button.disabled = false;
+      }, 2000);
+    }
+  };
 });

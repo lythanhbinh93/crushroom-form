@@ -193,55 +193,168 @@ body {
 }
 
 .images-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 24px;
 }
 
-.image-card {
-  background: #f8f9fa;
+/* Upload Session Card */
+.upload-session-card {
+  background: white;
   border-radius: 12px;
-  overflow: hidden;
+  padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 2px solid transparent;
+  transition: all 0.3s;
+}
+
+.upload-session-card.newest {
+  border-color: #fbbf24;
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);
+}
+
+.session-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.3);
+}
+
+/* Session Info */
+.session-info {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.session-info .info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-info .info-label {
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.session-info .info-value {
+  font-size: 15px;
+  color: #333;
+  font-weight: 500;
+}
+
+/* Images Row (Horizontal) */
+.session-images-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+.session-image {
+  flex: 0 0 250px;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s, box-shadow 0.3s;
 }
 
-.image-card:hover {
+.session-image:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
-.image-card img {
-  width: 100%;
-  height: 300px;
+.session-image img {
+  width: 250px;
+  height: 250px;
   object-fit: cover;
   display: block;
 }
 
-.image-info {
+.image-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
   padding: 16px;
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
-.image-title {
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 8px;
-  font-size: 14px;
+.session-image:hover .image-overlay {
+  opacity: 1;
 }
 
-.image-link {
+.overlay-btn {
   display: inline-block;
-  padding: 8px 16px;
-  background: #667eea;
-  color: white;
+  padding: 8px 12px;
+  background: white;
+  color: #667eea;
   text-decoration: none;
   border-radius: 6px;
-  font-size: 13px;
-  transition: background 0.2s;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
 }
 
-.image-link:hover {
-  background: #764ba2;
+.overlay-btn:hover {
+  background: #667eea;
+  color: white;
+}
+
+/* Copy Button */
+.session-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn-copy {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-copy:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-copy:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  font-size: 16px;
 }
 
 .no-results {
@@ -292,7 +405,25 @@ body {
     justify-content: center;
   }
 
-  .images-grid {
+  .info-row {
     grid-template-columns: 1fr;
+  }
+
+  .session-image {
+    flex: 0 0 200px;
+  }
+
+  .session-image img {
+    width: 200px;
+    height: 200px;
+  }
+
+  .session-actions {
+    justify-content: stretch;
+  }
+
+  .btn-copy {
+    flex: 1;
+    justify-content: center;
   }
 }
