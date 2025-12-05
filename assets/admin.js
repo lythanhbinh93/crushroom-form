@@ -132,18 +132,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
       return `
         <div class="session-image-wrapper">
-          <div class="session-image">
-            <img src="${thumbnailUrl}" alt="Ảnh ${idx + 1}" loading="lazy"
-                 data-full-url="${imageUrl}"
+          <div class="session-image" title="Click chuột phải để copy hoặc tải về">
+            <img src="${directUrl}" alt="Ảnh ${idx + 1}" loading="lazy"
                  onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3E⚠️ Lỗi%3C/text%3E%3C/svg%3E'">
             <div class="image-overlay">
-              <a href="${imageUrl}" target="_blank" class="overlay-btn">Xem trên Drive →</a>
+              <div class="image-label">Ảnh ${idx + 1}</div>
+              <div class="image-hint">🖱️ Right-click để copy</div>
             </div>
           </div>
-          <button class="btn-copy-single" onclick="copySingleImage(this, '${directUrl}')" data-image-url="${directUrl}">
-            <span class="btn-icon">📋</span>
-            Sao chép ảnh ${idx + 1}
-          </button>
         </div>
       `;
     }).join('');
@@ -176,53 +172,4 @@ document.addEventListener('DOMContentLoaded', function() {
     results.style.display = 'none';
     noResults.style.display = 'none';
   }
-
-  // Show image in modal for easy copying
-  window.copySingleImage = function(button, imageUrl) {
-    // Create modal
-    const modal = document.createElement('div');
-    modal.className = 'copy-image-modal';
-    modal.innerHTML = `
-      <div class="copy-modal-overlay" onclick="this.parentElement.remove()"></div>
-      <div class="copy-modal-content">
-        <div class="copy-modal-header">
-          <h3>📋 Sao chép ảnh</h3>
-          <button class="copy-modal-close" onclick="this.closest('.copy-image-modal').remove()">✕</button>
-        </div>
-        <div class="copy-modal-body">
-          <div class="copy-instruction">
-            <div class="copy-instruction-text">
-              <strong>🖱️ Cách 1:</strong> Click chuột phải vào ảnh → Chọn <strong>"Copy image"</strong> → Paste vào chat
-            </div>
-            <div class="copy-instruction-text">
-              <strong>💾 Cách 2:</strong> Click nút "Tải về" bên dưới
-            </div>
-          </div>
-          <div class="copy-image-container">
-            <img src="${imageUrl}" alt="Image" crossorigin="anonymous" />
-          </div>
-          <div class="copy-modal-actions">
-            <a href="${imageUrl}" target="_blank" class="copy-btn-secondary">Mở tab mới</a>
-            <a href="${imageUrl}" download class="copy-btn-primary">Tải về</a>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Close on Escape
-    const closeHandler = (e) => {
-      if (e.key === 'Escape') {
-        modal.remove();
-        document.removeEventListener('keydown', closeHandler);
-      }
-    };
-    document.addEventListener('keydown', closeHandler);
-
-    // Remove handler when modal is removed
-    modal.addEventListener('DOMNodeRemoved', function() {
-      document.removeEventListener('keydown', closeHandler);
-    });
-  };
 });

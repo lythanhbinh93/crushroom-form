@@ -267,12 +267,9 @@ body {
   padding: 8px 0;
 }
 
-/* Image Wrapper with Copy Button */
+/* Image Wrapper */
 .session-image-wrapper {
   flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 .session-image {
@@ -283,6 +280,7 @@ body {
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s, box-shadow 0.3s;
+  cursor: pointer;
 }
 
 .session-image:hover {
@@ -302,251 +300,28 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
   padding: 16px;
   opacity: 0;
   transition: opacity 0.3s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .session-image:hover .image-overlay {
   opacity: 1;
 }
 
-.overlay-btn {
-  display: inline-block;
-  padding: 8px 12px;
-  background: white;
-  color: #667eea;
-  text-decoration: none;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.overlay-btn:hover {
-  background: #667eea;
+.image-label {
   color: white;
-}
-
-/* Copy Button for Each Image */
-.btn-copy-single {
-  width: 250px;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
 
-.btn-copy-single:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-}
-
-.btn-copy-single:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.btn-icon {
-  font-size: 16px;
-}
-
-/* Copy Image Modal */
-.copy-image-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.copy-modal-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-}
-
-.copy-modal-content {
-  position: relative;
-  background: white;
-  border-radius: 16px;
-  max-width: 800px;
-  width: 100%;
-  max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.copy-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 2px solid #f0f0f0;
-  background: linear-gradient(135deg, #667eea15, #764ba215);
-}
-
-.copy-modal-header h3 {
-  margin: 0;
-  font-size: 1.4rem;
-  color: #333;
-}
-
-.copy-modal-close {
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
-  font-size: 24px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #666;
-  font-weight: 300;
-}
-
-.copy-modal-close:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: #333;
-  transform: rotate(90deg);
-}
-
-.copy-modal-body {
-  padding: 24px;
-  max-height: calc(90vh - 140px);
-  overflow-y: auto;
-}
-
-.copy-instruction {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-  color: white;
-}
-
-.copy-instruction-text {
-  padding: 8px 0;
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-.copy-instruction-text:first-child {
-  padding-top: 0;
-}
-
-.copy-instruction-text:last-child {
-  padding-bottom: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  padding-top: 16px;
-  margin-top: 8px;
-}
-
-.copy-image-container {
-  background: #f8f9fa;
-  border-radius: 12px;
-  overflow: hidden;
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 300px;
-  border: 2px solid #e0e0e0;
-}
-
-.copy-image-container img {
-  max-width: 100%;
-  max-height: 60vh;
-  display: block;
-  cursor: pointer;
-  transition: transform 0.3s;
-}
-
-.copy-image-container img:hover {
-  transform: scale(1.02);
-}
-
-.copy-modal-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.copy-btn-primary,
-.copy-btn-secondary {
-  flex: 1;
-  padding: 14px 24px;
-  text-align: center;
-  text-decoration: none;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 600;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.copy-btn-primary {
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-}
-
-.copy-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
-}
-
-.copy-btn-secondary {
-  background: #f8f9fa;
-  color: #667eea;
-  border: 2px solid #667eea;
-}
-
-.copy-btn-secondary:hover {
-  background: #667eea;
-  color: white;
+.image-hint {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
 }
 
 .no-results {
@@ -606,35 +381,7 @@ body {
     height: 200px;
   }
 
-  .btn-copy-single {
-    width: 200px;
-    font-size: 13px;
-    padding: 10px 12px;
-  }
-
-  /* Modal responsive */
-  .copy-modal-content {
-    margin: 10px;
-  }
-
-  .copy-modal-body {
-    padding: 16px;
-  }
-
-  .copy-instruction {
-    padding: 16px;
-  }
-
-  .copy-instruction-text {
-    font-size: 14px;
-  }
-
-  .copy-modal-actions {
-    flex-direction: column;
-  }
-
-  .copy-btn-primary,
-  .copy-btn-secondary {
-    width: 100%;
+  .image-hint {
+    font-size: 11px;
   }
 }
