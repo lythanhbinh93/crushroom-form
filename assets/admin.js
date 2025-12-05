@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const results = document.getElementById('results');
   const noResults = document.getElementById('no-results');
   const resultInfo = document.getElementById('result-info');
-  const customerDetails = document.getElementById('customer-details');
   const imagesGrid = document.getElementById('images-grid');
 
   // Enter key to search
@@ -76,7 +75,6 @@ document.addEventListener('DOMContentLoaded', function() {
     resultInfo.textContent = `Tìm thấy ${data.length} kết quả cho số điện thoại: ${phone}`;
 
     // Clear previous results
-    customerDetails.innerHTML = '';
     imagesGrid.innerHTML = '';
 
     // Create separate card for each upload session
