@@ -620,6 +620,9 @@ def main():
                             'label': label
                         }
 
+        # Save image_label_to_url to session_state for use in Step 4
+        st.session_state.image_label_to_url = image_label_to_url
+
         # Initialize session_state for image selections if not exists
         if 'image_selections' not in st.session_state:
             st.session_state.image_selections = {}
@@ -910,6 +913,32 @@ def main():
     if st.button("📦 Tải Ảnh & Tạo ZIP cho TẤT CẢ đơn hàng", type="primary", disabled=len(unmapped_slots) > 0):
         with st.spinner("Đang tải ảnh và tạo file ZIP..."):
             try:
+                # Sync session_state selections to slots one more time before downloading
+                if 'image_selections' in st.session_state and 'image_label_to_url' in st.session_state:
+                    image_label_to_url = st.session_state.image_label_to_url
+
+                    for slot in st.session_state.slots:
+                        slot_stt = slot['global_idx']
+                        label_value = st.session_state.image_selections.get(slot_stt, '')
+
+                        # Handle None or empty string
+                        if not label_value or label_value == '':
+                            slot['image_url'] = None
+                            slot['thumbnail_url'] = None
+                        else:
+                            # Convert label back to URL using mapping
+                            url_value = image_label_to_url.get(str(label_value), None)
+                            if url_value:
+                                slot['image_url'] = url_value
+                                file_id = extract_gdrive_id(url_value)
+                                if file_id:
+                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60"
+                                else:
+                                    slot['thumbnail_url'] = None
+                            else:
+                                slot['image_url'] = None
+                                slot['thumbnail_url'] = None
+
                 # Download images
                 success_count = 0
                 fail_count = 0
