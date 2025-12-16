@@ -554,37 +554,50 @@ def main():
     else:
         # Collect ALL images with phone filter info
         all_image_options = ['']
+        image_label_to_url = {}  # Map label -> URL
+        url_to_label = {}  # Map URL -> label
         image_metadata = {}  # Map URL to metadata (phone, date, thumbnail)
 
         if st.session_state.all_gdrive_images:
             for phone, sessions in st.session_state.all_gdrive_images.items():
                 sorted_sessions = sorted(sessions, key=lambda x: x.get('Date', ''), reverse=True)
 
-                for session in sorted_sessions:
-                    date_str = session.get('Date', 'N/A')[:16] if session.get('Date') else 'N/A'
+                for session_idx, session in enumerate(sorted_sessions):
+                    date_str = session.get('Date', 'N/A')[:10] if session.get('Date') else 'N/A'
+                    session_label = f"Session {session_idx + 1} - {date_str}"
 
                     if session.get('image-1'):
                         url = session['image-1']
-                        all_image_options.append(url)
+                        label = f"📱 {phone} | {session_label} | Ảnh 1"
+
+                        all_image_options.append(label)
+                        image_label_to_url[label] = url
+                        url_to_label[url] = label
+
                         file_id = extract_gdrive_id(url)
                         thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
                             'thumbnail': thumbnail,
-                            'label': f"Ảnh 1 - {date_str}"
+                            'label': label
                         }
 
                     if session.get('image-2'):
                         url = session['image-2']
-                        all_image_options.append(url)
+                        label = f"📱 {phone} | {session_label} | Ảnh 2"
+
+                        all_image_options.append(label)
+                        image_label_to_url[label] = url
+                        url_to_label[url] = label
+
                         file_id = extract_gdrive_id(url)
                         thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
                             'thumbnail': thumbnail,
-                            'label': f"Ảnh 2 - {date_str}"
+                            'label': label
                         }
 
         # Create ONE big mapping table for ALL slots
@@ -592,10 +605,12 @@ def main():
         for slot in st.session_state.slots:
             current_url = slot.get('image_url', '')
 
-            # Get thumbnail for current selection
+            # Get thumbnail and label for current selection
             thumbnail_url = ''
+            current_label = ''
             if current_url and current_url in image_metadata:
                 thumbnail_url = image_metadata[current_url]['thumbnail']
+                current_label = url_to_label.get(current_url, '')
 
             mapping_data.append({
                 'STT': slot['global_idx'],
@@ -606,7 +621,7 @@ def main():
                 'SKU': slot['sku'],
                 'Note': slot['yy'],
                 'Preview': thumbnail_url,
-                'URL': current_url
+                'Chọn Ảnh': current_label
             })
 
         mapping_df = pd.DataFrame(mapping_data)
@@ -627,11 +642,11 @@ def main():
                 'Preview': st.column_config.ImageColumn(
                     'Preview',
                     help='Ảnh đã chọn',
-                    width='small'
+                    width='medium'
                 ),
-                'URL': st.column_config.SelectboxColumn(
+                'Chọn Ảnh': st.column_config.SelectboxColumn(
                     'Chọn Ảnh',
-                    help='Chọn ảnh từ Google Drive (lọc theo SĐT khi auto-map)',
+                    help='Chọn ảnh từ Google Drive (📱 SĐT | Ngày | Ảnh)',
                     options=all_image_options,
                     required=False,
                     width='large'
@@ -643,27 +658,34 @@ def main():
             height=600
         )
 
-        # Update ALL slots with selected images
+        # Update ALL slots with selected images (convert label back to URL)
         for idx, row in edited_mapping.iterrows():
             slot_stt = row['STT']
             for slot in st.session_state.slots:
                 if slot['global_idx'] == slot_stt:
-                    url_value = row['URL']
+                    label_value = row['Chọn Ảnh']
+
                     # Handle None, NaN, or empty string
-                    if pd.isna(url_value) or not url_value or url_value == '':
+                    if pd.isna(label_value) or not label_value or label_value == '':
                         slot['image_url'] = None
                         slot['thumbnail_url'] = None
                     else:
-                        slot['image_url'] = str(url_value)
-                        # Update thumbnail
-                        if str(url_value) in image_metadata:
-                            slot['thumbnail_url'] = image_metadata[str(url_value)]['thumbnail']
-                        else:
-                            file_id = extract_gdrive_id(str(url_value))
-                            if file_id:
-                                slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
+                        # Convert label back to URL
+                        url_value = image_label_to_url.get(str(label_value), None)
+                        if url_value:
+                            slot['image_url'] = url_value
+                            # Update thumbnail
+                            if url_value in image_metadata:
+                                slot['thumbnail_url'] = image_metadata[url_value]['thumbnail']
                             else:
-                                slot['thumbnail_url'] = None
+                                file_id = extract_gdrive_id(url_value)
+                                if file_id:
+                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
+                                else:
+                                    slot['thumbnail_url'] = None
+                        else:
+                            slot['image_url'] = None
+                            slot['thumbnail_url'] = None
                     break
 
         # Auto-assign button
