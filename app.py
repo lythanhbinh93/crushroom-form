@@ -114,50 +114,60 @@ def get_img_per_unit(row: pd.Series) -> int:
 
     return 1
 
-def expand_slots(df: pd.DataFrame, order_key: str) -> List[Dict]:
+def expand_all_slots(df: pd.DataFrame) -> List[Dict]:
     """
-    Expand rows into individual photo slots for a specific order.
-    Returns list of slot dicts with: idx, last4, sku, yy, suggested_name
+    Expand ALL orders into individual photo slots.
+    Returns list of slot dicts with: global_idx, order_key, slot_in_order, last4, sku, yy, suggested_name
     """
-    slots = []
-    slot_idx = 1
+    all_slots = []
+    global_idx = 1
 
-    # Filter rows for this order
-    order_rows = df[df['_order_key'] == order_key]
+    # Get unique orders
+    order_keys = df['_order_key'].unique()
 
-    for _, row in order_rows.iterrows():
-        if not row.get('_need_photo', False):
-            continue
+    for order_key in order_keys:
+        # Filter rows for this order
+        order_rows = df[df['_order_key'] == order_key]
+        slot_in_order = 1
 
-        qty = row.get('_qty', 1)
-        img_per_unit = row.get('_img_per_unit', 1)
-        total_slots = qty * img_per_unit
+        for _, row in order_rows.iterrows():
+            if not row.get('_need_photo', False):
+                continue
 
-        last4 = row.get('_last4', '0000')
-        sku = row.get('_sku', '')
-        yy = row.get('_yy', '')
+            qty = row.get('_qty', 1)
+            img_per_unit = row.get('_img_per_unit', 1)
+            total_slots = qty * img_per_unit
 
-        for _ in range(total_slots):
-            # Build suggested name (without extension)
-            name_parts = [f"{slot_idx}.", last4, sku]
-            if yy:
-                name_parts.append(yy)
+            last4 = row.get('_last4', '0000')
+            sku = row.get('_sku', '')
+            yy = row.get('_yy', '')
+            phone = row.get('Số điện thoại', '')
 
-            suggested_name = "_".join(name_parts)
+            for _ in range(total_slots):
+                # Build suggested name (without extension)
+                name_parts = [f"{slot_in_order}.", last4, sku]
+                if yy:
+                    name_parts.append(yy)
 
-            slots.append({
-                'idx': slot_idx,
-                'last4': last4,
-                'sku': sku,
-                'yy': yy,
-                'suggested_name': suggested_name,
-                'image_url': None,
-                'image_data': None
-            })
+                suggested_name = "_".join(name_parts)
 
-            slot_idx += 1
+                all_slots.append({
+                    'global_idx': global_idx,
+                    'order_key': order_key,
+                    'slot_in_order': slot_in_order,
+                    'phone': phone,
+                    'last4': last4,
+                    'sku': sku,
+                    'yy': yy,
+                    'suggested_name': suggested_name,
+                    'image_url': None,
+                    'image_data': None
+                })
 
-    return slots
+                slot_in_order += 1
+                global_idx += 1
+
+    return all_slots
 
 def fetch_images_from_gdrive(phone: str) -> List[Dict]:
     """
@@ -176,8 +186,36 @@ def fetch_images_from_gdrive(phone: str) -> List[Dict]:
             return data['results']
         return []
     except Exception as e:
-        st.error(f"Lỗi khi fetch ảnh từ Google Drive: {str(e)}")
+        st.error(f"Lỗi khi fetch ảnh từ Google Drive cho SĐT {phone}: {str(e)}")
         return []
+
+def fetch_all_images(df: pd.DataFrame) -> Dict[str, List[Dict]]:
+    """
+    Fetch images for all unique phone numbers in the dataframe.
+    Returns dict mapping phone -> list of image sessions
+    """
+    all_images = {}
+
+    # Get unique phone numbers from rows that need photos
+    photo_rows = df[df['_need_photo'] == True]
+    unique_phones = photo_rows['_phone_digits'].unique()
+
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    for idx, phone in enumerate(unique_phones):
+        if phone:
+            status_text.text(f"Đang tải ảnh cho SĐT {phone}... ({idx + 1}/{len(unique_phones)})")
+            progress_bar.progress((idx + 1) / len(unique_phones))
+
+            images = fetch_images_from_gdrive(phone)
+            if images:
+                all_images[phone] = images
+
+    progress_bar.empty()
+    status_text.empty()
+
+    return all_images
 
 def extract_gdrive_id(url: str) -> Optional[str]:
     """Extract Google Drive file ID from URL."""
@@ -232,39 +270,50 @@ def build_export_excel(df: pd.DataFrame, order_key: str) -> io.BytesIO:
     output.seek(0)
     return output
 
-def build_zip_for_order(order_key: str, slots: List[Dict], excel_data: io.BytesIO) -> io.BytesIO:
+def build_zip_for_all_orders(df: pd.DataFrame, slots: List[Dict]) -> io.BytesIO:
     """
     Build ZIP file containing:
-    - Renamed photos in <order_key>/ folder
-    - order_worklist.xlsx
+    - Renamed photos in <order_key>/ folders for each order
+    - order_worklist.xlsx for each order
     """
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        # Add photos
+        # Group slots by order
+        orders = {}
         for slot in slots:
-            if slot.get('image_data') is not None:
-                # Determine extension from URL or default to .jpg
-                image_url = slot.get('image_url', '')
-                ext = '.jpg'
-                if image_url:
-                    # Try to get extension from URL
-                    url_path = image_url.split('?')[0]
-                    url_ext = Path(url_path).suffix
-                    if url_ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
-                        ext = url_ext.lower()
+            order_key = slot['order_key']
+            if order_key not in orders:
+                orders[order_key] = []
+            orders[order_key].append(slot)
 
-                # Build new filename
-                new_filename = f"{slot['suggested_name']}{ext}"
-                zip_path = f"{order_key}/{new_filename}"
+        # Process each order
+        for order_key, order_slots in orders.items():
+            # Add photos
+            for slot in order_slots:
+                if slot.get('image_data') is not None:
+                    # Determine extension from URL or default to .jpg
+                    image_url = slot.get('image_url', '')
+                    ext = '.jpg'
+                    if image_url:
+                        # Try to get extension from URL
+                        url_path = image_url.split('?')[0]
+                        url_ext = Path(url_path).suffix
+                        if url_ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                            ext = url_ext.lower()
 
-                # Add to zip
-                slot['image_data'].seek(0)
-                zip_file.writestr(zip_path, slot['image_data'].read())
+                    # Build new filename
+                    new_filename = f"{slot['suggested_name']}{ext}"
+                    zip_path = f"{order_key}/{new_filename}"
 
-        # Add Excel worklist
-        excel_data.seek(0)
-        zip_file.writestr(f"{order_key}/order_worklist.xlsx", excel_data.read())
+                    # Add to zip
+                    slot['image_data'].seek(0)
+                    zip_file.writestr(zip_path, slot['image_data'].read())
+
+            # Add Excel worklist for this order
+            excel_data = build_export_excel(df, order_key)
+            excel_data.seek(0)
+            zip_file.writestr(f"{order_key}/order_worklist.xlsx", excel_data.read())
 
     zip_buffer.seek(0)
     return zip_buffer
@@ -288,8 +337,8 @@ def main():
         st.session_state.df = None
     if 'slots' not in st.session_state:
         st.session_state.slots = []
-    if 'gdrive_images' not in st.session_state:
-        st.session_state.gdrive_images = []
+    if 'all_gdrive_images' not in st.session_state:
+        st.session_state.all_gdrive_images = {}
 
     # ========================================================================
     # STEP 1: Upload Excel
@@ -422,268 +471,273 @@ def main():
     # Show summary
     total_need_photo = df['_need_photo'].sum()
     total_photos_needed = (df[df['_need_photo'] == True]['_qty'] * df[df['_need_photo'] == True]['_img_per_unit']).sum()
+    total_orders = df[df['_need_photo'] == True]['_order_key'].nunique()
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Sản phẩm cần ảnh", int(total_need_photo))
+        st.metric("Đơn hàng cần xử lý", int(total_orders))
     with col2:
+        st.metric("Sản phẩm cần ảnh", int(total_need_photo))
+    with col3:
         st.metric("Tổng số ảnh cần", int(total_photos_needed))
 
-    # ========================================================================
-    # STEP 3: Select Order & Fetch Images
-    # ========================================================================
-    st.header("🎯 Bước 3: Chọn Đơn Hàng & Lấy Ảnh")
-
-    order_keys = df['_order_key'].unique().tolist()
-
-    if not order_keys:
-        st.warning("⚠️ Không tìm thấy đơn hàng nào")
+    if total_need_photo == 0:
+        st.warning("⚠️ Chưa có sản phẩm nào được chọn cần ảnh")
         st.stop()
 
-    selected_order = st.selectbox(
-        "Chọn đơn hàng cần xử lý:",
-        options=order_keys,
-        key='order_selector'
-    )
+    # Generate slots for ALL orders
+    slots = expand_all_slots(df)
+    st.session_state.slots = slots
 
-    if selected_order:
-        order_df = df[df['_order_key'] == selected_order]
-        photo_rows = order_df[order_df['_need_photo'] == True]
+    st.info(f"📋 Đã tạo {len(slots)} slot cho {total_orders} đơn hàng")
 
-        # Get phone number for this order
-        order_phone = order_df['Số điện thoại'].iloc[0] if len(order_df) > 0 else ''
-        order_phone_digits = normalize_phone(order_phone)
+    # ========================================================================
+    # STEP 3: Fetch Images & Map to Slots
+    # ========================================================================
+    st.header("🔗 Bước 3: Lấy Ảnh & Map Vào Slot")
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Tổng số dòng", len(order_df))
-        with col2:
-            st.metric("Dòng cần ảnh", len(photo_rows))
-        with col3:
-            total_photos = (photo_rows['_qty'] * photo_rows['_img_per_unit']).sum()
-            st.metric("Tổng số ảnh cần", int(total_photos))
+    # Fetch all images button
+    col1, col2 = st.columns([3, 1])
 
-        # Generate slots
-        slots = expand_slots(df, selected_order)
-        st.session_state.slots = slots
+    with col1:
+        unique_phones = df[df['_need_photo'] == True]['_phone_digits'].unique()
+        st.markdown(f"**Số điện thoại cần tải ảnh:** {len(unique_phones)} SĐT")
+        st.markdown(f"Hoặc xem ảnh tại: [Admin Panel](https://crushroom-form.vercel.app/admin.html)")
 
-        st.info(f"📋 Đã tạo {len(slots)} slot cho đơn hàng **{selected_order}**")
+    with col2:
+        if st.button("🔄 Tải TẤT CẢ ảnh từ Google Drive", type="primary"):
+            with st.spinner("Đang tải ảnh từ Google Drive..."):
+                all_images = fetch_all_images(df)
+                st.session_state.all_gdrive_images = all_images
 
-        # ====================================================================
-        # Fetch Images from Google Drive
-        # ====================================================================
-        st.subheader("📤 Lấy Ảnh Từ Google Drive")
-
-        col1, col2 = st.columns([2, 1])
-
-        with col1:
-            st.markdown(f"**Số điện thoại:** `{order_phone}` ({order_phone_digits})")
-            st.markdown(f"Hoặc xem ảnh tại: [Admin Panel](https://crushroom-form.vercel.app/admin.html)")
-
-        with col2:
-            if st.button("🔄 Tải ảnh từ Google Drive", type="primary"):
-                with st.spinner("Đang tải ảnh..."):
-                    images = fetch_images_from_gdrive(order_phone_digits)
-                    if images:
-                        st.session_state.gdrive_images = images
-                        st.success(f"✅ Đã tải {len(images)} upload session")
-                    else:
-                        st.warning("⚠️ Không tìm thấy ảnh nào cho số điện thoại này")
-
-        # Display fetched images
-        if st.session_state.gdrive_images:
-            st.markdown("---")
-            st.subheader("🖼️ Ảnh Từ Google Drive")
-
-            # Sort by date (newest first)
-            gdrive_images = sorted(
-                st.session_state.gdrive_images,
-                key=lambda x: x.get('Date', ''),
-                reverse=True
-            )
-
-            # Collect all image URLs for selection
-            all_image_urls = []
-            for session in gdrive_images:
-                if session.get('image-1'):
-                    all_image_urls.append(session['image-1'])
-                if session.get('image-2'):
-                    all_image_urls.append(session['image-2'])
-
-            # Display sessions
-            for idx, session in enumerate(gdrive_images):
-                is_newest = idx == 0
-
-                with st.expander(
-                    f"{'✨ Ảnh mới nhất - ' if is_newest else ''}"
-                    f"Upload ngày {session.get('Date', 'N/A')}",
-                    expanded=is_newest
-                ):
-                    # Session info
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.write(f"**SĐT:** {session.get('Name', 'N/A')}")
-                    with col2:
-                        st.write(f"**Loại:** {session.get('radio', 'N/A')}")
-                    with col3:
-                        st.write(f"**Ghi chú:** {session.get('message', 'Không có')}")
-
-                    # Images
-                    images_in_session = []
-                    if session.get('image-1'):
-                        images_in_session.append(session['image-1'])
-                    if session.get('image-2'):
-                        images_in_session.append(session['image-2'])
-
-                    if images_in_session:
-                        img_cols = st.columns(len(images_in_session))
-                        for img_idx, img_url in enumerate(images_in_session):
-                            with img_cols[img_idx]:
-                                file_id = extract_gdrive_id(img_url)
-                                if file_id:
-                                    thumbnail_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w400"
-                                    st.image(thumbnail_url, caption=f"Ảnh {img_idx + 1}", use_container_width=True)
-                                    st.code(img_url, language=None)
-
-        # ====================================================================
-        # Map Images to Slots (Table Format)
-        # ====================================================================
-        st.markdown("---")
-        st.subheader("🔗 Map Ảnh Vào Slot (Dạng Bảng)")
-
-        if len(st.session_state.slots) == 0:
-            st.warning("⚠️ Không có slot nào cần map ảnh")
-        else:
-            st.markdown("**Chọn ảnh cho từng slot:**")
-
-            # Prepare image options
-            image_options = ['']
-            if st.session_state.gdrive_images:
-                for session in st.session_state.gdrive_images:
-                    if session.get('image-1'):
-                        image_options.append(session['image-1'])
-                    if session.get('image-2'):
-                        image_options.append(session['image-2'])
-
-            # Create mapping table
-            mapping_data = []
-            for slot in st.session_state.slots:
-                mapping_data.append({
-                    'Slot': slot['idx'],
-                    'Tên Output': slot['suggested_name'],
-                    'Last4': slot['last4'],
-                    'SKU': slot['sku'],
-                    'Note': slot['yy'],
-                    'Image URL': slot.get('image_url', '')
-                })
-
-            # Edit mapping
-            mapping_df = pd.DataFrame(mapping_data)
-
-            edited_mapping = st.data_editor(
-                mapping_df,
-                column_config={
-                    'Slot': st.column_config.NumberColumn('Slot #', disabled=True),
-                    'Tên Output': st.column_config.TextColumn('Tên Output', disabled=True),
-                    'Last4': st.column_config.TextColumn('Last4', disabled=True),
-                    'SKU': st.column_config.TextColumn('SKU', disabled=True),
-                    'Note': st.column_config.TextColumn('Note', disabled=True),
-                    'Image URL': st.column_config.SelectboxColumn(
-                        'Chọn Ảnh',
-                        help='Chọn URL ảnh từ Google Drive',
-                        options=image_options,
-                        required=False
-                    )
-                },
-                hide_index=True,
-                use_container_width=True,
-                key='mapping_editor'
-            )
-
-            # Update slots with selected images
-            for idx, row in edited_mapping.iterrows():
-                if idx < len(st.session_state.slots):
-                    st.session_state.slots[idx]['image_url'] = row['Image URL']
-
-            # Auto-assign button
-            if st.button("🔄 Tự động map ảnh theo thứ tự"):
-                if image_options and len(image_options) > 1:
-                    available_images = [url for url in image_options if url]
-                    for idx, slot in enumerate(st.session_state.slots):
-                        if idx < len(available_images):
-                            st.session_state.slots[idx]['image_url'] = available_images[idx]
-                    st.success("✅ Đã tự động map ảnh!")
-                    st.rerun()
+                total_sessions = sum(len(sessions) for sessions in all_images.values())
+                if total_sessions > 0:
+                    st.success(f"✅ Đã tải {total_sessions} upload sessions từ {len(all_images)} SĐT")
                 else:
-                    st.warning("⚠️ Chưa có ảnh để map")
+                    st.warning("⚠️ Không tìm thấy ảnh nào")
 
-        # ====================================================================
-        # STEP 4: Download Images & Export
-        # ====================================================================
-        st.header("💾 Bước 4: Tải Ảnh & Export")
+    # Show fetched images summary
+    if st.session_state.all_gdrive_images:
+        st.markdown("---")
+        with st.expander("🖼️ Xem Ảnh Đã Tải", expanded=False):
+            for phone, sessions in st.session_state.all_gdrive_images.items():
+                st.markdown(f"**SĐT: {phone}** - {len(sessions)} upload sessions")
 
-        # Check unmapped slots
-        unmapped_slots = [s for s in st.session_state.slots if not s.get('image_url')]
+                # Show newest session
+                if sessions:
+                    newest = sorted(sessions, key=lambda x: x.get('Date', ''), reverse=True)[0]
+                    col1, col2 = st.columns([1, 3])
+                    with col1:
+                        st.caption(f"Mới nhất: {newest.get('Date', 'N/A')}")
+                    with col2:
+                        images_in_session = []
+                        if newest.get('image-1'):
+                            images_in_session.append(newest['image-1'])
+                        if newest.get('image-2'):
+                            images_in_session.append(newest['image-2'])
 
-        if unmapped_slots:
-            st.warning(f"⚠️ Còn {len(unmapped_slots)} slot chưa map ảnh")
+                        if images_in_session:
+                            img_cols = st.columns(len(images_in_session))
+                            for idx, img_url in enumerate(images_in_session):
+                                with img_cols[idx]:
+                                    file_id = extract_gdrive_id(img_url)
+                                    if file_id:
+                                        thumbnail_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w200"
+                                        st.image(thumbnail_url, use_column_width=True)
 
-            with st.expander("Xem các slot chưa map"):
-                for slot in unmapped_slots:
-                    st.write(f"- Slot {slot['idx']}: {slot['suggested_name']}")
+    # Map images to slots
+    st.markdown("---")
+    st.subheader("📋 Map Ảnh Vào Slot (Toàn Bộ Đơn Hàng)")
 
-        if st.button("📦 Tải Ảnh & Tạo ZIP", type="primary", disabled=len(unmapped_slots) > 0):
-            with st.spinner("Đang tải ảnh và tạo file ZIP..."):
-                try:
-                    # Download images
-                    success_count = 0
-                    fail_count = 0
+    if len(st.session_state.slots) == 0:
+        st.warning("⚠️ Không có slot nào cần map ảnh")
+    else:
+        # Prepare image options from all fetched images
+        image_options = ['']
+        image_labels = {}  # Map URL to display label
 
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
+        if st.session_state.all_gdrive_images:
+            for phone, sessions in st.session_state.all_gdrive_images.items():
+                for session_idx, session in enumerate(sessions):
+                    date_str = session.get('Date', 'N/A')[:10] if session.get('Date') else 'N/A'
 
-                    for idx, slot in enumerate(st.session_state.slots):
-                        status_text.text(f"Đang tải ảnh {idx + 1}/{len(st.session_state.slots)}...")
-                        progress_bar.progress((idx + 1) / len(st.session_state.slots))
+                    if session.get('image-1'):
+                        url = session['image-1']
+                        image_options.append(url)
+                        image_labels[url] = f"{phone} - {date_str} - Ảnh 1"
 
-                        if slot.get('image_url'):
-                            image_data = download_image_from_url(slot['image_url'])
-                            if image_data:
-                                slot['image_data'] = image_data
-                                success_count += 1
-                            else:
-                                fail_count += 1
+                    if session.get('image-2'):
+                        url = session['image-2']
+                        image_options.append(url)
+                        image_labels[url] = f"{phone} - {date_str} - Ảnh 2"
 
-                    progress_bar.empty()
-                    status_text.empty()
+        # Create mapping table
+        mapping_data = []
+        for slot in st.session_state.slots:
+            # Get display label for current image
+            current_url = slot.get('image_url', '')
+            current_label = image_labels.get(current_url, current_url) if current_url else ''
 
-                    if fail_count > 0:
-                        st.warning(f"⚠️ Tải thành công {success_count}/{len(st.session_state.slots)} ảnh. {fail_count} ảnh bị lỗi.")
+            mapping_data.append({
+                '#': slot['global_idx'],
+                'Order': slot['order_key'],
+                'Slot': slot['slot_in_order'],
+                'SĐT': slot['phone'],
+                'Tên Output': slot['suggested_name'],
+                'SKU': slot['sku'],
+                'Note': slot['yy'],
+                'Image URL': current_url,
+                'Image Label': current_label
+            })
 
-                    # Build Excel
-                    excel_data = build_export_excel(df, selected_order)
+        mapping_df = pd.DataFrame(mapping_data)
 
-                    # Build ZIP
-                    zip_data = build_zip_for_order(
-                        selected_order,
-                        st.session_state.slots,
-                        excel_data
-                    )
+        # Show table with selectbox for images
+        edited_mapping = st.data_editor(
+            mapping_df[['#', 'Order', 'Slot', 'SĐT', 'Tên Output', 'SKU', 'Note', 'Image URL']],
+            column_config={
+                '#': st.column_config.NumberColumn('STT', disabled=True, width='small'),
+                'Order': st.column_config.TextColumn('Mã ĐH', disabled=True, width='medium'),
+                'Slot': st.column_config.NumberColumn('Slot', disabled=True, width='small'),
+                'SĐT': st.column_config.TextColumn('SĐT', disabled=True, width='medium'),
+                'Tên Output': st.column_config.TextColumn('Tên File', disabled=True, width='large'),
+                'SKU': st.column_config.TextColumn('SKU', disabled=True, width='small'),
+                'Note': st.column_config.TextColumn('Note', disabled=True, width='medium'),
+                'Image URL': st.column_config.SelectboxColumn(
+                    'Chọn Ảnh',
+                    help='Chọn URL ảnh từ Google Drive',
+                    options=image_options,
+                    required=False,
+                    width='large'
+                )
+            },
+            hide_index=True,
+            use_container_width=True,
+            key='mapping_editor',
+            height=600
+        )
 
-                    # Download button
-                    zip_filename = f"{selected_order}_ready_for_factory.zip"
+        # Update slots with selected images
+        for idx, row in edited_mapping.iterrows():
+            if idx < len(st.session_state.slots):
+                st.session_state.slots[idx]['image_url'] = row['Image URL']
 
-                    st.download_button(
-                        label="⬇️ Tải file ZIP",
-                        data=zip_data,
-                        file_name=zip_filename,
-                        mime="application/zip"
-                    )
+        # Auto-assign button
+        if st.button("🔄 Tự động map ảnh theo thứ tự (theo SĐT)"):
+            if image_options and len(image_options) > 1:
+                # Group images by phone
+                images_by_phone = {}
+                for phone, sessions in st.session_state.all_gdrive_images.items():
+                    images_by_phone[phone] = []
+                    for session in sorted(sessions, key=lambda x: x.get('Date', ''), reverse=True):
+                        if session.get('image-1'):
+                            images_by_phone[phone].append(session['image-1'])
+                        if session.get('image-2'):
+                            images_by_phone[phone].append(session['image-2'])
 
-                    st.success(f"✅ File ZIP đã sẵn sàng! Tải thành công {success_count}/{len(st.session_state.slots)} ảnh.")
+                # Auto-assign
+                for slot in st.session_state.slots:
+                    phone_digits = normalize_phone(slot['phone'])
+                    if phone_digits in images_by_phone:
+                        images = images_by_phone[phone_digits]
+                        # Use slot_in_order - 1 as index (0-based)
+                        img_idx = slot['slot_in_order'] - 1
+                        if img_idx < len(images):
+                            slot['image_url'] = images[img_idx]
 
-                except Exception as e:
-                    st.error(f"❌ Lỗi khi tạo ZIP: {str(e)}")
+                st.success("✅ Đã tự động map ảnh theo số điện thoại!")
+                st.rerun()
+            else:
+                st.warning("⚠️ Chưa có ảnh để map")
+
+    # ====================================================================
+    # STEP 4: Download Images & Export
+    # ====================================================================
+    st.header("💾 Bước 4: Tải Ảnh & Export")
+
+    # Check unmapped slots
+    unmapped_slots = [s for s in st.session_state.slots if not s.get('image_url')]
+
+    if unmapped_slots:
+        st.warning(f"⚠️ Còn {len(unmapped_slots)} slot chưa map ảnh")
+
+        with st.expander("Xem các slot chưa map"):
+            unmapped_df = pd.DataFrame([
+                {
+                    'Order': s['order_key'],
+                    'Slot': s['slot_in_order'],
+                    'Tên Output': s['suggested_name']
+                }
+                for s in unmapped_slots
+            ])
+            st.dataframe(unmapped_df, hide_index=True)
+
+    if st.button("📦 Tải Ảnh & Tạo ZIP cho TẤT CẢ đơn hàng", type="primary", disabled=len(unmapped_slots) > 0):
+        with st.spinner("Đang tải ảnh và tạo file ZIP..."):
+            try:
+                # Download images
+                success_count = 0
+                fail_count = 0
+
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+
+                for idx, slot in enumerate(st.session_state.slots):
+                    status_text.text(f"Đang tải ảnh {idx + 1}/{len(st.session_state.slots)}...")
+                    progress_bar.progress((idx + 1) / len(st.session_state.slots))
+
+                    if slot.get('image_url'):
+                        image_data = download_image_from_url(slot['image_url'])
+                        if image_data:
+                            slot['image_data'] = image_data
+                            success_count += 1
+                        else:
+                            fail_count += 1
+
+                progress_bar.empty()
+                status_text.empty()
+
+                if fail_count > 0:
+                    st.warning(f"⚠️ Tải thành công {success_count}/{len(st.session_state.slots)} ảnh. {fail_count} ảnh bị lỗi.")
+
+                # Build ZIP for all orders
+                zip_data = build_zip_for_all_orders(df, st.session_state.slots)
+
+                # Download button
+                zip_filename = "all_orders_ready_for_factory.zip"
+
+                st.download_button(
+                    label="⬇️ Tải file ZIP (TẤT CẢ đơn hàng)",
+                    data=zip_data,
+                    file_name=zip_filename,
+                    mime="application/zip"
+                )
+
+                # Show summary by order
+                orders_summary = {}
+                for slot in st.session_state.slots:
+                    order_key = slot['order_key']
+                    if order_key not in orders_summary:
+                        orders_summary[order_key] = {'total': 0, 'mapped': 0}
+                    orders_summary[order_key]['total'] += 1
+                    if slot.get('image_data'):
+                        orders_summary[order_key]['mapped'] += 1
+
+                st.success(f"✅ File ZIP đã sẵn sàng! Tải thành công {success_count}/{len(st.session_state.slots)} ảnh.")
+
+                with st.expander("📊 Chi tiết theo đơn hàng"):
+                    summary_data = []
+                    for order_key, stats in orders_summary.items():
+                        summary_data.append({
+                            'Mã ĐH': order_key,
+                            'Tổng slot': stats['total'],
+                            'Đã map': stats['mapped'],
+                            'Tỷ lệ': f"{stats['mapped']}/{stats['total']}"
+                        })
+                    st.dataframe(pd.DataFrame(summary_data), hide_index=True)
+
+            except Exception as e:
+                st.error(f"❌ Lỗi khi tạo ZIP: {str(e)}")
 
 if __name__ == "__main__":
     main()
