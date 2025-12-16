@@ -601,6 +601,10 @@ def main():
                             'label': label
                         }
 
+        # Initialize session_state for image selections if not exists
+        if 'image_selections' not in st.session_state:
+            st.session_state.image_selections = {}
+
         # Create ONE big mapping table for ALL slots
         mapping_data = []
         for slot in st.session_state.slots:
@@ -614,6 +618,11 @@ def main():
                 thumbnail_url = image_metadata[current_url]['thumbnail']
                 current_label = url_to_label.get(current_url, '')
 
+            # Initialize selection in session_state
+            stt = slot['global_idx']
+            if stt not in st.session_state.image_selections:
+                st.session_state.image_selections[stt] = current_label
+
             mapping_data.append({
                 'STT': slot['global_idx'],
                 'SĐT': slot['phone'],
@@ -624,7 +633,7 @@ def main():
                 'SKU': slot['sku'],
                 'Note': slot['yy'],
                 'Preview': thumbnail_url,
-                'Chọn Ảnh': current_label
+                'Chọn Ảnh': st.session_state.image_selections[stt]
             })
 
         mapping_df = pd.DataFrame(mapping_data)
@@ -691,15 +700,11 @@ def main():
         </style>
         """, unsafe_allow_html=True)
 
-        # Create 2-column layout: table on left, gallery on right
-        col_table, col_gallery = st.columns([3, 1])
-
-        with col_table:
-            # HTML table header
-            st.markdown('<div class="table-container">', unsafe_allow_html=True)
-            st.markdown("""
-            <table class="compact-table">
-                <thead>
+        # HTML table header
+        st.markdown('<div class="table-container">', unsafe_allow_html=True)
+        st.markdown("""
+        <table class="compact-table">
+            <thead>
                     <tr>
                         <th style="width: 40px;">STT</th>
                         <th style="width: 100px;">SĐT</th>
@@ -711,163 +716,123 @@ def main():
                         <th style="width: 200px;">Chọn Ảnh</th>
                     </tr>
                 </thead>
-            </table>
-            """, unsafe_allow_html=True)
+        </table>
+        """, unsafe_allow_html=True)
 
-            # Create scrollable container for rows
-            table_rows_container = st.container()
+        # Create scrollable container for rows
+        table_rows_container = st.container()
 
-            with table_rows_container:
-                # Render each row
-                for idx, row in mapping_df.iterrows():
-                    # Create columns for this row
-                    cols = st.columns([0.5, 1.2, 0.6, 3, 1, 1.2, 0.9, 2.5])
+        with table_rows_container:
+            # Render each row
+            for idx, row in mapping_df.iterrows():
+                # Create columns for this row
+                cols = st.columns([0.5, 1.2, 0.6, 3, 1, 1.2, 0.9, 2.5])
 
-                    with cols[0]:  # STT
-                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{int(row["STT"])}</div>', unsafe_allow_html=True)
+                with cols[0]:  # STT
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{int(row["STT"])}</div>', unsafe_allow_html=True)
 
-                    with cols[1]:  # SĐT
-                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{row["SĐT"]}</div>', unsafe_allow_html=True)
+                with cols[1]:  # SĐT
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{row["SĐT"]}</div>', unsafe_allow_html=True)
 
-                    with cols[2]:  # Slot
-                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{int(row["Slot"])}</div>', unsafe_allow_html=True)
+                with cols[2]:  # Slot
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{int(row["Slot"])}</div>', unsafe_allow_html=True)
 
-                    with cols[3]:  # Tên File
-                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{row["Tên File"]}">{row["Tên File"]}</div>', unsafe_allow_html=True)
+                with cols[3]:  # Tên File
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{row["Tên File"]}">{row["Tên File"]}</div>', unsafe_allow_html=True)
 
-                    with cols[4]:  # SKU
-                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:12px;">{row["SKU"]}</div>', unsafe_allow_html=True)
+                with cols[4]:  # SKU
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:12px;">{row["SKU"]}</div>', unsafe_allow_html=True)
 
-                    with cols[5]:  # Note
-                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:12px;">{row["Note"]}</div>', unsafe_allow_html=True)
+                with cols[5]:  # Note
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:12px;">{row["Note"]}</div>', unsafe_allow_html=True)
 
-                    with cols[6]:  # Preview
-                        if row['Preview']:
-                            st.image(row['Preview'], width=60)
-                        else:
-                            st.markdown('<div style="height:60px;"></div>', unsafe_allow_html=True)
-
-                    with cols[7]:  # Chọn Ảnh - Clickable Thumbnails
-                        # Get phone digits for this row
-                        phone_digits = row['_phone_digits']
-
-                        # Filter images matching this phone number
-                        matching_images = []
-                        for url, meta in image_metadata.items():
-                            if normalize_phone(meta['phone']) == phone_digits:
-                                matching_images.append({
-                                    'url': url,
-                                    'label': meta['label'],
-                                    'thumbnail': meta['thumbnail']
-                                })
-
-                        # Get current selection
-                        current_selection = row.get('Chọn Ảnh', '')
-                        if pd.isna(current_selection):
-                            current_selection = ''
-
-                        # Display thumbnails as clickable options
-                        if matching_images:
-                            # Create sub-columns for thumbnails (max 2 images per phone)
-                            thumb_cols = st.columns(len(matching_images) + 1)  # +1 for "None" option
-
-                            # Option to clear selection
-                            with thumb_cols[0]:
-                                st.markdown('<div style="height:60px;line-height:60px;text-align:center;">❌</div>', unsafe_allow_html=True)
-                                if st.button("Bỏ chọn", key=f'img_none_{row["STT"]}_{idx}', use_container_width=True):
-                                    mapping_df.at[idx, 'Chọn Ảnh'] = ''
-
-                            # Display each image with button
-                            for img_idx, img in enumerate(matching_images):
-                                with thumb_cols[img_idx + 1]:
-                                    # Show thumbnail with border if selected
-                                    is_selected = (img['label'] == current_selection)
-                                    border_style = "border: 3px solid #4CAF50;" if is_selected else "border: 1px solid #ddd;"
-
-                                    st.markdown(f'<div style="{border_style}padding:2px;border-radius:4px;">', unsafe_allow_html=True)
-                                    st.image(img['thumbnail'], use_column_width=True)
-                                    st.markdown('</div>', unsafe_allow_html=True)
-
-                                    # Button below thumbnail
-                                    if st.button(
-                                        f"Ảnh {img_idx + 1}",
-                                        key=f'img_btn_{row["STT"]}_{img_idx}_{idx}',
-                                        use_container_width=True,
-                                        type="primary" if is_selected else "secondary"
-                                    ):
-                                        mapping_df.at[idx, 'Chọn Ảnh'] = img['label']
-                        else:
-                            st.markdown('<div style="height:60px;line-height:60px;font-size:11px;color:#999;">Không có ảnh</div>', unsafe_allow_html=True)
-                            mapping_df.at[idx, 'Chọn Ảnh'] = ''
-
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            # Store edited mapping for later use
-            edited_mapping = mapping_df
-
-        with col_gallery:
-            # Show image gallery on the right side
-            st.markdown("### 🖼️ Xem lại ảnh đã tải")
-            st.markdown("*Ảnh mới nhất của mỗi SĐT*")
-
-            if image_metadata:
-                # Group images by phone for better organization
-                images_by_phone = {}
-                for url, meta in image_metadata.items():
-                    phone = meta['phone']
-                    if phone not in images_by_phone:
-                        images_by_phone[phone] = []
-                    images_by_phone[phone].append({
-                        'url': url,
-                        'label': meta['label'],
-                        'thumbnail': meta['thumbnail']
-                    })
-
-                # Display images grouped by phone
-                for phone, images in images_by_phone.items():
-                    st.markdown(f"**📱 {phone}**")
-
-                    # Display all images in one row (horizontal)
-                    if len(images) > 0:
-                        cols = st.columns(len(images))
-                        for idx, img in enumerate(images):
-                            with cols[idx]:
-                                if img['thumbnail']:
-                                    st.image(img['thumbnail'], use_column_width=True)
-                                st.caption(f"Ảnh {idx+1}")
-                    st.markdown("---")
-            else:
-                st.info("Chưa có ảnh")
-
-        # Update ALL slots with selected images (convert label back to URL)
-        for idx, row in edited_mapping.iterrows():
-            slot_stt = row['STT']
-            for slot in st.session_state.slots:
-                if slot['global_idx'] == slot_stt:
-                    label_value = row['Chọn Ảnh']
-
-                    # Handle None, NaN, or empty string
-                    if pd.isna(label_value) or not label_value or label_value == '':
-                        slot['image_url'] = None
-                        slot['thumbnail_url'] = None
+                with cols[6]:  # Preview
+                    if row['Preview']:
+                        st.image(row['Preview'], width=60)
                     else:
-                        # Convert label back to URL
-                        url_value = image_label_to_url.get(str(label_value), None)
-                        if url_value:
-                            slot['image_url'] = url_value
-                            # Update thumbnail
-                            if url_value in image_metadata:
-                                slot['thumbnail_url'] = image_metadata[url_value]['thumbnail']
-                            else:
-                                file_id = extract_gdrive_id(url_value)
-                                if file_id:
-                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60"
-                                else:
-                                    slot['thumbnail_url'] = None
+                        st.markdown('<div style="height:60px;"></div>', unsafe_allow_html=True)
+
+                with cols[7]:  # Chọn Ảnh - Clickable Thumbnails
+                    # Get phone digits for this row
+                    phone_digits = row['_phone_digits']
+                    stt = int(row['STT'])
+
+                    # Filter images matching this phone number
+                    matching_images = []
+                    for url, meta in image_metadata.items():
+                        if normalize_phone(meta['phone']) == phone_digits:
+                            matching_images.append({
+                                'url': url,
+                                'label': meta['label'],
+                                'thumbnail': meta['thumbnail']
+                            })
+
+                    # Get current selection from session_state
+                    current_selection = st.session_state.image_selections.get(stt, '')
+
+                    # Display thumbnails as clickable options
+                    if matching_images:
+                        # Create sub-columns for thumbnails (max 2 images per phone)
+                        thumb_cols = st.columns(len(matching_images) + 1)  # +1 for "None" option
+
+                        # Option to clear selection
+                        with thumb_cols[0]:
+                            st.markdown('<div style="height:60px;line-height:60px;text-align:center;">❌</div>', unsafe_allow_html=True)
+                            if st.button("Bỏ chọn", key=f'img_none_{stt}_{idx}', use_container_width=True):
+                                st.session_state.image_selections[stt] = ''
+                                st.rerun()
+
+                        # Display each image with button
+                        for img_idx, img in enumerate(matching_images):
+                            with thumb_cols[img_idx + 1]:
+                                # Show thumbnail with border if selected
+                                is_selected = (img['label'] == current_selection)
+                                border_style = "border: 3px solid #4CAF50;" if is_selected else "border: 1px solid #ddd;"
+
+                                st.markdown(f'<div style="{border_style}padding:2px;border-radius:4px;">', unsafe_allow_html=True)
+                                st.image(img['thumbnail'], use_column_width=True)
+                                st.markdown('</div>', unsafe_allow_html=True)
+
+                                # Button below thumbnail
+                                if st.button(
+                                    f"Ảnh {img_idx + 1}",
+                                    key=f'img_btn_{stt}_{img_idx}_{idx}',
+                                    use_container_width=True,
+                                    type="primary" if is_selected else "secondary"
+                                ):
+                                    st.session_state.image_selections[stt] = img['label']
+                                    st.rerun()
+                    else:
+                        st.markdown('<div style="height:60px;line-height:60px;font-size:11px;color:#999;">Không có ảnh</div>', unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Sync session_state selections back to slots
+        for slot in st.session_state.slots:
+            slot_stt = slot['global_idx']
+            label_value = st.session_state.image_selections.get(slot_stt, '')
+
+            # Handle None or empty string
+            if not label_value or label_value == '':
+                slot['image_url'] = None
+                slot['thumbnail_url'] = None
+            else:
+                # Convert label back to URL
+                url_value = image_label_to_url.get(str(label_value), None)
+                if url_value:
+                    slot['image_url'] = url_value
+                    # Update thumbnail
+                    if url_value in image_metadata:
+                        slot['thumbnail_url'] = image_metadata[url_value]['thumbnail']
+                    else:
+                        file_id = extract_gdrive_id(url_value)
+                        if file_id:
+                            slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60"
                         else:
-                            slot['image_url'] = None
                             slot['thumbnail_url'] = None
-                    break
+                else:
+                    slot['image_url'] = None
+                    slot['thumbnail_url'] = None
 
         # Auto-assign button
         if st.button("🔄 Tự động map ảnh theo thứ tự (theo SĐT)"):
