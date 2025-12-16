@@ -144,12 +144,12 @@ def expand_all_slots(df: pd.DataFrame) -> List[Dict]:
             phone = row.get('Số điện thoại', '')
 
             for _ in range(total_slots):
-                # Build suggested name (without extension)
-                name_parts = [f"{slot_in_order}.", last4, sku]
+                # Build suggested name using GLOBAL index (STT) and ending with _
+                name_parts = [f"{global_idx}.", last4, sku]
                 if yy:
                     name_parts.append(yy)
 
-                suggested_name = "_".join(name_parts)
+                suggested_name = "_".join(name_parts) + "_"
 
                 all_slots.append({
                     'global_idx': global_idx,
@@ -547,84 +547,123 @@ def main():
 
     # Map images to slots
     st.markdown("---")
-    st.subheader("📋 Map Ảnh Vào Slot (Toàn Bộ Đơn Hàng)")
+    st.subheader("📋 Map Ảnh Vào Slot (Theo Số Điện Thoại)")
 
     if len(st.session_state.slots) == 0:
         st.warning("⚠️ Không có slot nào cần map ảnh")
     else:
-        # Prepare image options from all fetched images
-        image_options = ['']
-        image_labels = {}  # Map URL to display label
+        # Group slots by phone number
+        slots_by_phone = {}
+        for slot in st.session_state.slots:
+            phone_digits = normalize_phone(slot['phone'])
+            if phone_digits not in slots_by_phone:
+                slots_by_phone[phone_digits] = []
+            slots_by_phone[phone_digits].append(slot)
 
-        if st.session_state.all_gdrive_images:
-            for phone, sessions in st.session_state.all_gdrive_images.items():
-                for session_idx, session in enumerate(sessions):
-                    date_str = session.get('Date', 'N/A')[:10] if session.get('Date') else 'N/A'
+        # Process each phone number
+        for phone_digits, phone_slots in slots_by_phone.items():
+            # Get images for this phone
+            image_options = ['']
+            image_to_thumbnail = {}  # Map URL to thumbnail URL
+
+            if phone_digits in st.session_state.all_gdrive_images:
+                sessions = st.session_state.all_gdrive_images[phone_digits]
+                # Sort by date (newest first)
+                sorted_sessions = sorted(sessions, key=lambda x: x.get('Date', ''), reverse=True)
+
+                for session in sorted_sessions:
+                    date_str = session.get('Date', 'N/A')[:16] if session.get('Date') else 'N/A'
 
                     if session.get('image-1'):
                         url = session['image-1']
                         image_options.append(url)
-                        image_labels[url] = f"{phone} - {date_str} - Ảnh 1"
+                        file_id = extract_gdrive_id(url)
+                        if file_id:
+                            image_to_thumbnail[url] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
 
                     if session.get('image-2'):
                         url = session['image-2']
                         image_options.append(url)
-                        image_labels[url] = f"{phone} - {date_str} - Ảnh 2"
+                        file_id = extract_gdrive_id(url)
+                        if file_id:
+                            image_to_thumbnail[url] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
 
-        # Create mapping table
-        mapping_data = []
-        for slot in st.session_state.slots:
-            # Get display label for current image
-            current_url = slot.get('image_url', '')
-            current_label = image_labels.get(current_url, current_url) if current_url else ''
+            # Create expander for this phone
+            num_slots = len(phone_slots)
+            num_images = len(image_options) - 1  # Exclude empty option
 
-            mapping_data.append({
-                '#': slot['global_idx'],
-                'Order': slot['order_key'],
-                'Slot': slot['slot_in_order'],
-                'SĐT': slot['phone'],
-                'Tên Output': slot['suggested_name'],
-                'SKU': slot['sku'],
-                'Note': slot['yy'],
-                'Image URL': current_url,
-                'Image Label': current_label
-            })
+            with st.expander(
+                f"📱 SĐT: {phone_slots[0]['phone']} ({phone_digits}) - {num_slots} slots, {num_images} ảnh",
+                expanded=True
+            ):
+                if num_images == 0:
+                    st.warning(f"⚠️ Chưa có ảnh cho số điện thoại này")
 
-        mapping_df = pd.DataFrame(mapping_data)
+                # Create mapping table for this phone
+                mapping_data = []
+                for slot in phone_slots:
+                    current_url = slot.get('image_url', '')
+                    thumbnail_url = image_to_thumbnail.get(current_url, '') if current_url else ''
 
-        # Show table with selectbox for images
-        edited_mapping = st.data_editor(
-            mapping_df[['#', 'Order', 'Slot', 'SĐT', 'Tên Output', 'SKU', 'Note', 'Image URL']],
-            column_config={
-                '#': st.column_config.NumberColumn('STT', disabled=True, width='small'),
-                'Order': st.column_config.TextColumn('Mã ĐH', disabled=True, width='medium'),
-                'Slot': st.column_config.NumberColumn('Slot', disabled=True, width='small'),
-                'SĐT': st.column_config.TextColumn('SĐT', disabled=True, width='medium'),
-                'Tên Output': st.column_config.TextColumn('Tên File', disabled=True, width='large'),
-                'SKU': st.column_config.TextColumn('SKU', disabled=True, width='small'),
-                'Note': st.column_config.TextColumn('Note', disabled=True, width='medium'),
-                'Image URL': st.column_config.SelectboxColumn(
-                    'Chọn Ảnh',
-                    help='Chọn URL ảnh từ Google Drive',
-                    options=image_options,
-                    required=False,
-                    width='large'
+                    mapping_data.append({
+                        'STT': slot['global_idx'],
+                        'Order': slot['order_key'],
+                        'Slot': slot['slot_in_order'],
+                        'Tên File': slot['suggested_name'],
+                        'SKU': slot['sku'],
+                        'Note': slot['yy'],
+                        'Ảnh': thumbnail_url,
+                        'URL': current_url
+                    })
+
+                mapping_df = pd.DataFrame(mapping_data)
+
+                # Show table with image preview and selectbox
+                edited_mapping = st.data_editor(
+                    mapping_df,
+                    column_config={
+                        'STT': st.column_config.NumberColumn('STT', disabled=True, width='small'),
+                        'Order': st.column_config.TextColumn('Mã ĐH', disabled=True, width='small'),
+                        'Slot': st.column_config.NumberColumn('Slot', disabled=True, width='small'),
+                        'Tên File': st.column_config.TextColumn('Tên File', disabled=True, width='medium'),
+                        'SKU': st.column_config.TextColumn('SKU', disabled=True, width='small'),
+                        'Note': st.column_config.TextColumn('Note', disabled=True, width='small'),
+                        'Ảnh': st.column_config.ImageColumn(
+                            'Preview',
+                            help='Ảnh đã chọn',
+                            width='small'
+                        ),
+                        'URL': st.column_config.SelectboxColumn(
+                            'Chọn Ảnh',
+                            help=f'Chọn ảnh từ Google Drive (SĐT: {phone_digits})',
+                            options=image_options,
+                            required=False,
+                            width='large'
+                        )
+                    },
+                    hide_index=True,
+                    use_container_width=True,
+                    key=f'mapping_editor_{phone_digits}',
+                    height=min(400, 50 + num_slots * 35)
                 )
-            },
-            hide_index=True,
-            use_container_width=True,
-            key='mapping_editor',
-            height=600
-        )
 
-        # Update slots with selected images
-        for idx, row in edited_mapping.iterrows():
-            if idx < len(st.session_state.slots):
-                st.session_state.slots[idx]['image_url'] = row['Image URL']
+                # Update slots with selected images and thumbnails
+                for idx, row in edited_mapping.iterrows():
+                    # Find the slot in session state
+                    slot_stt = row['STT']
+                    for slot in st.session_state.slots:
+                        if slot['global_idx'] == slot_stt:
+                            slot['image_url'] = row['URL']
+                            # Update thumbnail
+                            if row['URL']:
+                                file_id = extract_gdrive_id(row['URL'])
+                                if file_id:
+                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
+                            break
 
         # Auto-assign button
         if st.button("🔄 Tự động map ảnh theo thứ tự (theo SĐT)"):
-            if image_options and len(image_options) > 1:
+            if st.session_state.all_gdrive_images:
                 # Group images by phone
                 images_by_phone = {}
                 for phone, sessions in st.session_state.all_gdrive_images.items():
