@@ -576,7 +576,7 @@ def main():
                         url_to_label[url] = label
 
                         file_id = extract_gdrive_id(url)
-                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w200" if file_id else ''
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
@@ -593,7 +593,7 @@ def main():
                         url_to_label[url] = label
 
                         file_id = extract_gdrive_id(url)
-                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w200" if file_id else ''
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
@@ -700,11 +700,15 @@ def main():
                 for phone, images in images_by_phone.items():
                     st.markdown(f"**📱 {phone}**")
 
-                    for img in images:
-                        if img['thumbnail']:
-                            st.image(img['thumbnail'], use_column_width=True)
-                        st.caption(img['label'])
-                        st.markdown("---")
+                    # Display all images in one row (horizontal)
+                    if len(images) > 0:
+                        cols = st.columns(len(images))
+                        for idx, img in enumerate(images):
+                            with cols[idx]:
+                                if img['thumbnail']:
+                                    st.image(img['thumbnail'], use_column_width=True)
+                                st.caption(f"Ảnh {idx+1}")
+                    st.markdown("---")
             else:
                 st.info("Chưa có ảnh")
 
@@ -730,7 +734,7 @@ def main():
                             else:
                                 file_id = extract_gdrive_id(url_value)
                                 if file_id:
-                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
+                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40"
                                 else:
                                     slot['thumbnail_url'] = None
                         else:
