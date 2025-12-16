@@ -575,7 +575,7 @@ def main():
                         url_to_label[url] = label
 
                         file_id = extract_gdrive_id(url)
-                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100" if file_id else ''
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w200" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
@@ -592,13 +592,49 @@ def main():
                         url_to_label[url] = label
 
                         file_id = extract_gdrive_id(url)
-                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100" if file_id else ''
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w200" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
                             'thumbnail': thumbnail,
                             'label': label
                         }
+
+        # Show image gallery to help user identify images
+        if image_metadata:
+            with st.expander("🖼️ XEM THUMBNAIL TẤT CẢ ẢNH (để biết chọn label nào)", expanded=True):
+                st.markdown("**Xem ảnh ở đây, sau đó chọn label tương ứng trong bảng bên dưới**")
+
+                # Group images by phone for better organization
+                images_by_phone = {}
+                for url, meta in image_metadata.items():
+                    phone = meta['phone']
+                    if phone not in images_by_phone:
+                        images_by_phone[phone] = []
+                    images_by_phone[phone].append({
+                        'url': url,
+                        'label': meta['label'],
+                        'thumbnail': meta['thumbnail']
+                    })
+
+                # Display images grouped by phone
+                for phone, images in images_by_phone.items():
+                    st.markdown(f"### 📱 SĐT: {phone}")
+
+                    # Create columns for thumbnails (4 per row)
+                    cols_per_row = 4
+                    for i in range(0, len(images), cols_per_row):
+                        cols = st.columns(cols_per_row)
+                        for j in range(cols_per_row):
+                            idx = i + j
+                            if idx < len(images):
+                                with cols[j]:
+                                    img = images[idx]
+                                    if img['thumbnail']:
+                                        st.image(img['thumbnail'], use_column_width=True)
+                                    st.caption(f"**{img['label']}**")
+
+                    st.markdown("---")
 
         # Create ONE big mapping table for ALL slots
         mapping_data = []
@@ -646,7 +682,7 @@ def main():
                 ),
                 'Chọn Ảnh': st.column_config.SelectboxColumn(
                     'Chọn Ảnh',
-                    help='Chọn ảnh từ Google Drive (📱 SĐT | Ngày | Ảnh)',
+                    help='Copy label từ gallery ở trên vào đây',
                     options=all_image_options,
                     required=False,
                     width='large'
