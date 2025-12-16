@@ -86,7 +86,7 @@ Format: `A. BBBB_XX_YY.ext`
 
 **Tổng số slot** = `Số lượng × Số ảnh/sản phẩm`
 
-### Workflow 4 bước
+### Workflow 3 bước
 
 #### Bước 1: Upload File Excel
 - Upload file `orders-check.xlsx`
@@ -101,44 +101,53 @@ Format: `A. BBBB_XX_YY.ext`
   - `_need_photo`: Checkbox bật/tắt cần ảnh
   - `_img_per_unit`: Số ảnh trên mỗi sản phẩm
   - `_yy`: Note cho filename
-- Hiển thị summary: tổng sản phẩm cần ảnh, tổng số ảnh cần
+- Hiển thị summary:
+  - **Tổng đơn hàng** cần xử lý
+  - **Tổng sản phẩm** cần ảnh
+  - **Tổng số ảnh** cần
+- App tự động tạo slots cho **TẤT CẢ đơn hàng**
 
-#### Bước 3: Chọn Đơn Hàng & Lấy Ảnh
-- **Dropdown chọn order** cần xử lý
-- Hiển thị metrics: Tổng số dòng, Dòng cần ảnh, Tổng số ảnh cần
-- App tự động tạo slots theo order
-- **Fetch ảnh từ Google Drive**:
-  - Tự động lấy số điện thoại từ order
-  - Click "Tải ảnh từ Google Drive"
-  - Hiển thị các upload session (mới nhất ở trên)
-  - Preview ảnh với thumbnail
-- **Map ảnh vào slot (dạng bảng)**:
-  - Bảng hiển thị: Slot #, Tên Output, Last4, SKU, Note
+#### Bước 3: Lấy Ảnh & Map Vào Slot (Toàn Bộ Đơn Hàng)
+- **Fetch ảnh từ Google Drive cho TẤT CẢ số điện thoại**:
+  - Click "Tải TẤT CẢ ảnh từ Google Drive"
+  - Progress bar hiển thị tiến trình fetch
+  - Hiển thị summary: số upload sessions từ số SĐT
+  - Xem preview ảnh đã tải (expandable)
+  - Link đến [Admin Panel](https://crushroom-form.vercel.app/admin.html)
+
+- **Map ảnh vào slot (Bảng lớn cho tất cả orders)**:
+  - Bảng hiển thị: **STT, Mã ĐH, Slot, SĐT, Tên File, SKU, Note, Chọn Ảnh**
   - Cột "Chọn Ảnh": Dropdown chọn URL từ Google Drive
-  - Nút "Tự động map ảnh theo thứ tự" để map nhanh
-- Link đến [Admin Panel](https://crushroom-form.vercel.app/admin.html) để xem ảnh
+  - Nút "Tự động map ảnh theo thứ tự (theo SĐT)": Map thông minh theo phone
 
 #### Bước 4: Tải Ảnh & Export
-- Kiểm tra các slot chưa map
-- Click "Tải Ảnh & Tạo ZIP":
-  - Progress bar hiển thị tiến trình tải ảnh
+- Kiểm tra các slot chưa map (hiển thị table)
+- Click "Tải Ảnh & Tạo ZIP cho TẤT CẢ đơn hàng":
+  - Progress bar hiển thị tiến trình download
   - Download từng ảnh từ Google Drive
-  - Tạo ZIP với ảnh đã rename + Excel worklist
-- Download file: `<order_key>_ready_for_factory.zip`
+  - Tạo ZIP với **tất cả orders** (mỗi order 1 folder)
+  - Mỗi folder chứa: ảnh đã rename + `order_worklist.xlsx`
+- Download file: `all_orders_ready_for_factory.zip`
+- Hiển thị summary chi tiết theo từng đơn hàng (expandable)
 
 ### Cấu trúc file ZIP
 
 ```
-<order_key>_ready_for_factory.zip
-├── <order_key>/
+all_orders_ready_for_factory.zip
+├── S2798984O34181/
 │   ├── 1. 1234_DCW_GhichuA.jpg
 │   ├── 2. 1234_DCW_GhichuA.jpg
-│   ├── 3. 5678_CP123_GhichuB.png
-│   └── ...
-└── order_worklist.xlsx
-    ├── Sheet "raw_data": Các dòng của order + cột computed
-    └── Sheet "order": Summary theo order
+│   └── order_worklist.xlsx
+├── S2798984O34182/
+│   ├── 1. 5678_CP123_GhichuB.png
+│   ├── 2. 5678_CP123_GhichuB.png
+│   └── order_worklist.xlsx
+└── S2798984O34183/
+    ├── 1. 9012_DCW_GhichuC.jpg
+    └── order_worklist.xlsx
 ```
+
+Mỗi order có 1 folder riêng chứa ảnh đã rename + file Excel worklist.
 
 ### File Excel worklist
 
