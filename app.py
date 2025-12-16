@@ -270,50 +270,69 @@ def build_export_excel(df: pd.DataFrame, order_key: str) -> io.BytesIO:
     output.seek(0)
     return output
 
+def build_export_excel_all(df: pd.DataFrame, slots: List[Dict]) -> io.BytesIO:
+    """
+    Build Excel worklist for ALL orders with slots information
+    """
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Sheet 1: raw_data (all orders)
+        df.to_excel(writer, sheet_name='raw_data', index=False)
+
+        # Sheet 2: slots mapping
+        slots_data = []
+        for slot in slots:
+            slots_data.append({
+                'STT': slot['global_idx'],
+                'Order': slot['order_key'],
+                'Slot': slot['slot_in_order'],
+                'Phone': slot['phone'],
+                'SKU': slot['sku'],
+                'Note': slot['yy'],
+                'Filename': slot['suggested_name'],
+                'Image_URL': slot.get('image_url', '')
+            })
+
+        slots_df = pd.DataFrame(slots_data)
+        slots_df.to_excel(writer, sheet_name='slots_mapping', index=False)
+
+    output.seek(0)
+    return output
+
 def build_zip_for_all_orders(df: pd.DataFrame, slots: List[Dict]) -> io.BytesIO:
     """
     Build ZIP file containing:
-    - Renamed photos in <order_key>/ folders for each order
-    - order_worklist.xlsx for each order
+    - All renamed photos in a single folder
+    - order_worklist.xlsx for all orders
     """
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        # Group slots by order
-        orders = {}
+        # Add all photos to single folder
         for slot in slots:
-            order_key = slot['order_key']
-            if order_key not in orders:
-                orders[order_key] = []
-            orders[order_key].append(slot)
+            if slot.get('image_data') is not None:
+                # Determine extension from URL or default to .jpg
+                image_url = slot.get('image_url', '')
+                ext = '.jpg'
+                if image_url:
+                    # Try to get extension from URL
+                    url_path = image_url.split('?')[0]
+                    url_ext = Path(url_path).suffix
+                    if url_ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                        ext = url_ext.lower()
 
-        # Process each order
-        for order_key, order_slots in orders.items():
-            # Add photos
-            for slot in order_slots:
-                if slot.get('image_data') is not None:
-                    # Determine extension from URL or default to .jpg
-                    image_url = slot.get('image_url', '')
-                    ext = '.jpg'
-                    if image_url:
-                        # Try to get extension from URL
-                        url_path = image_url.split('?')[0]
-                        url_ext = Path(url_path).suffix
-                        if url_ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
-                            ext = url_ext.lower()
+                # Build new filename
+                new_filename = f"{slot['suggested_name']}{ext}"
 
-                    # Build new filename
-                    new_filename = f"{slot['suggested_name']}{ext}"
-                    zip_path = f"{order_key}/{new_filename}"
+                # Add to zip (all photos in root)
+                slot['image_data'].seek(0)
+                zip_file.writestr(new_filename, slot['image_data'].read())
 
-                    # Add to zip
-                    slot['image_data'].seek(0)
-                    zip_file.writestr(zip_path, slot['image_data'].read())
-
-            # Add Excel worklist for this order
-            excel_data = build_export_excel(df, order_key)
-            excel_data.seek(0)
-            zip_file.writestr(f"{order_key}/order_worklist.xlsx", excel_data.read())
+        # Add Excel worklist for all orders (combined)
+        excel_data = build_export_excel_all(df, slots)
+        excel_data.seek(0)
+        zip_file.writestr("order_worklist.xlsx", excel_data.read())
 
     zip_buffer.seek(0)
     return zip_buffer
