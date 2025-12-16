@@ -576,7 +576,7 @@ def main():
                         url_to_label[url] = label
 
                         file_id = extract_gdrive_id(url)
-                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40" if file_id else ''
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
@@ -593,7 +593,7 @@ def main():
                         url_to_label[url] = label
 
                         file_id = extract_gdrive_id(url)
-                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40" if file_id else ''
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
@@ -645,24 +645,28 @@ def main():
             5. Xem thumbnail ảnh ở cột bên phải để dễ chọn
             """)
 
-        # Custom CSS to reduce row height to match image height (40px)
+        # Custom CSS to reduce row height to match image height (60px)
         st.markdown("""
         <style>
         /* Reduce row height in data editor */
-        [data-testid="stDataFrameResizable"] div[data-testid="data-grid-canvas"] {
-            line-height: 40px !important;
-        }
         [data-testid="stDataFrameResizable"] div[role="gridcell"] {
-            padding-top: 2px !important;
-            padding-bottom: 2px !important;
-            min-height: 40px !important;
-            max-height: 44px !important;
-            line-height: 40px !important;
+            padding-top: 3px !important;
+            padding-bottom: 3px !important;
+            min-height: 60px !important;
+            max-height: 66px !important;
+            height: 60px !important;
+            line-height: 60px !important;
         }
         /* Make images fit row height */
         [data-testid="stDataFrameResizable"] img {
-            max-height: 40px !important;
+            max-height: 60px !important;
+            height: 60px !important;
             object-fit: contain !important;
+            vertical-align: middle !important;
+        }
+        /* Reduce font size slightly for compact view */
+        [data-testid="stDataFrameResizable"] div[role="gridcell"] {
+            font-size: 13px !important;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -756,7 +760,7 @@ def main():
                             else:
                                 file_id = extract_gdrive_id(url_value)
                                 if file_id:
-                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40"
+                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60"
                                 else:
                                     slot['thumbnail_url'] = None
                         else:
