@@ -919,6 +919,12 @@ def main():
     if st.button("📦 Tải Ảnh & Tạo ZIP cho TẤT CẢ đơn hàng", type="primary", disabled=len(unmapped_slots) > 0):
         with st.spinner("Đang tải ảnh và tạo file ZIP..."):
             try:
+                # Debug: Show current selections
+                if 'image_selections' in st.session_state:
+                    selections_count = len([v for v in st.session_state.image_selections.values() if v])
+                    st.info(f"🔍 Debug: {selections_count} selections trong session_state")
+                    st.write("Selections:", st.session_state.image_selections)
+
                 # Sync session_state selections to slots one more time before downloading
                 if 'image_selections' in st.session_state:
                     image_label_to_url = st.session_state.get('image_label_to_url', {})
