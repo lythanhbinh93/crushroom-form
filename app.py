@@ -653,12 +653,19 @@ def main():
                     slot_stt = row['STT']
                     for slot in st.session_state.slots:
                         if slot['global_idx'] == slot_stt:
-                            slot['image_url'] = row['URL']
-                            # Update thumbnail
-                            if row['URL']:
-                                file_id = extract_gdrive_id(row['URL'])
+                            url_value = row['URL']
+                            # Handle None, NaN, or empty string
+                            if pd.isna(url_value) or not url_value or url_value == '':
+                                slot['image_url'] = None
+                                slot['thumbnail_url'] = None
+                            else:
+                                slot['image_url'] = str(url_value)
+                                # Update thumbnail
+                                file_id = extract_gdrive_id(str(url_value))
                                 if file_id:
                                     slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
+                                else:
+                                    slot['thumbnail_url'] = None
                             break
 
         # Auto-assign button
