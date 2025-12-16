@@ -640,10 +640,10 @@ def main():
                 thumbnail_url = image_metadata[current_url]['thumbnail']
                 current_label = url_to_label.get(current_url, '')
 
-            # Initialize selection in session_state
+            # Initialize selection in session_state (store URL directly)
             stt = slot['global_idx']
             if stt not in st.session_state.image_selections:
-                st.session_state.image_selections[stt] = current_label
+                st.session_state.image_selections[stt] = current_url if current_url else ''
 
             mapping_data.append({
                 'STT': slot['global_idx'],
@@ -807,8 +807,8 @@ def main():
                         # Display each image with button
                         for img_idx, img in enumerate(matching_images):
                             with thumb_cols[img_idx + 1]:
-                                # Show thumbnail with border if selected
-                                is_selected = (img['label'] == current_selection)
+                                # Show thumbnail with border if selected (compare URL)
+                                is_selected = (img['url'] == current_selection or img['label'] == current_selection)
                                 border_style = "border: 3px solid #4CAF50;" if is_selected else "border: 1px solid #ddd;"
 
                                 st.markdown(f'<div style="{border_style}padding:2px;border-radius:4px;">', unsafe_allow_html=True)
@@ -822,7 +822,8 @@ def main():
                                     use_container_width=True,
                                     type="primary" if is_selected else "secondary"
                                 ):
-                                    st.session_state.image_selections[stt] = img['label']
+                                    # Store URL directly instead of label for reliability
+                                    st.session_state.image_selections[stt] = img['url']
                                     st.rerun()
                     else:
                         st.markdown('<div style="height:60px;line-height:60px;font-size:11px;color:#999;">Không có ảnh</div>', unsafe_allow_html=True)
@@ -832,15 +833,20 @@ def main():
         # Sync session_state selections back to slots
         for slot in st.session_state.slots:
             slot_stt = slot['global_idx']
-            label_value = st.session_state.image_selections.get(slot_stt, '')
+            selection_value = st.session_state.image_selections.get(slot_stt, '')
 
             # Handle None or empty string
-            if not label_value or label_value == '':
+            if not selection_value or selection_value == '':
                 slot['image_url'] = None
                 slot['thumbnail_url'] = None
             else:
-                # Convert label back to URL
-                url_value = image_label_to_url.get(str(label_value), None)
+                # Check if it's already a URL (starts with http)
+                if selection_value.startswith('http'):
+                    url_value = selection_value
+                else:
+                    # Convert label to URL
+                    url_value = image_label_to_url.get(str(selection_value), None)
+
                 if url_value:
                     slot['image_url'] = url_value
                     # Update thumbnail
@@ -914,20 +920,25 @@ def main():
         with st.spinner("Đang tải ảnh và tạo file ZIP..."):
             try:
                 # Sync session_state selections to slots one more time before downloading
-                if 'image_selections' in st.session_state and 'image_label_to_url' in st.session_state:
-                    image_label_to_url = st.session_state.image_label_to_url
+                if 'image_selections' in st.session_state:
+                    image_label_to_url = st.session_state.get('image_label_to_url', {})
 
                     for slot in st.session_state.slots:
                         slot_stt = slot['global_idx']
-                        label_value = st.session_state.image_selections.get(slot_stt, '')
+                        selection_value = st.session_state.image_selections.get(slot_stt, '')
 
                         # Handle None or empty string
-                        if not label_value or label_value == '':
+                        if not selection_value or selection_value == '':
                             slot['image_url'] = None
                             slot['thumbnail_url'] = None
                         else:
-                            # Convert label back to URL using mapping
-                            url_value = image_label_to_url.get(str(label_value), None)
+                            # Check if it's already a URL (starts with http)
+                            if selection_value.startswith('http'):
+                                url_value = selection_value
+                            else:
+                                # Convert label to URL using mapping
+                                url_value = image_label_to_url.get(str(selection_value), None)
+
                             if url_value:
                                 slot['image_url'] = url_value
                                 file_id = extract_gdrive_id(url_value)
@@ -938,6 +949,10 @@ def main():
                             else:
                                 slot['image_url'] = None
                                 slot['thumbnail_url'] = None
+
+                # Debug: Show how many slots have image_url
+                slots_with_images = [s for s in st.session_state.slots if s.get('image_url')]
+                st.info(f"🔍 Debug: {len(slots_with_images)}/{len(st.session_state.slots)} slots có image_url sau khi sync")
 
                 # Download images
                 success_count = 0
