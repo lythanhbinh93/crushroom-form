@@ -6,8 +6,9 @@ Web app giúp đặt tên ảnh theo đơn hàng từ file Excel, giảm sai só
 
 Thay vì user tự rename ảnh, app sẽ:
 1. Tạo "slot naming" theo order từ file Excel
-2. Cho phép user map từng ảnh vào từng slot bằng UI có preview
-3. Export ZIP gồm ảnh đã rename + file Excel worklist
+2. Tự động fetch ảnh từ Google Drive theo số điện thoại
+3. Cho phép user map ảnh vào slot bằng UI dạng bảng
+4. Export ZIP gồm ảnh đã rename + file Excel worklist
 
 ## 📋 Yêu cầu hệ thống
 
@@ -85,43 +86,44 @@ Format: `A. BBBB_XX_YY.ext`
 
 **Tổng số slot** = `Số lượng × Số ảnh/sản phẩm`
 
-### Workflow 6 bước
+### Workflow 4 bước
 
 #### Bước 1: Upload File Excel
 - Upload file `orders-check.xlsx`
 - App tự động validate các cột bắt buộc
 - Hiển thị thông báo lỗi nếu thiếu cột
+- Tự động xử lý và tạo các cột computed
 
-#### Bước 2: Xem & Chỉnh sửa dữ liệu
-- Review dữ liệu đã xử lý
+#### Bước 2: Chọn Sản Phẩm Cần Ảnh
+- Review dữ liệu đã xử lý trong bảng
+- **Tick checkbox** các sản phẩm cần ảnh
 - Chỉnh sửa các trường:
   - `_need_photo`: Checkbox bật/tắt cần ảnh
   - `_img_per_unit`: Số ảnh trên mỗi sản phẩm
-  - `_yy`: Note đã sanitize
+  - `_yy`: Note cho filename
+- Hiển thị summary: tổng sản phẩm cần ảnh, tổng số ảnh cần
 
-#### Bước 3: Chọn đơn hàng
-- Dropdown chọn order cần xử lý
-- Hiển thị metrics:
-  - Tổng số dòng
-  - Dòng cần ảnh
-  - Tổng số ảnh cần
-- App tự động tạo slots
+#### Bước 3: Chọn Đơn Hàng & Lấy Ảnh
+- **Dropdown chọn order** cần xử lý
+- Hiển thị metrics: Tổng số dòng, Dòng cần ảnh, Tổng số ảnh cần
+- App tự động tạo slots theo order
+- **Fetch ảnh từ Google Drive**:
+  - Tự động lấy số điện thoại từ order
+  - Click "Tải ảnh từ Google Drive"
+  - Hiển thị các upload session (mới nhất ở trên)
+  - Preview ảnh với thumbnail
+- **Map ảnh vào slot (dạng bảng)**:
+  - Bảng hiển thị: Slot #, Tên Output, Last4, SKU, Note
+  - Cột "Chọn Ảnh": Dropdown chọn URL từ Google Drive
+  - Nút "Tự động map ảnh theo thứ tự" để map nhanh
+- Link đến [Admin Panel](https://crushroom-form.vercel.app/admin.html) để xem ảnh
 
-#### Bước 4: Upload ảnh
-- Upload nhiều file ảnh (JPG, PNG, WEBP, HEIC)
-- Nút "Tự động map ảnh theo thứ tự" để map nhanh
-
-#### Bước 5: Map ảnh vào Slot
-- Mỗi slot hiển thị:
-  - Số thứ tự slot
-  - Tên output (suggested name)
-  - Dropdown chọn file ảnh
-  - Preview ảnh đã chọn
-- User có thể thay đổi mapping để tránh nhầm
-
-#### Bước 6: Export
+#### Bước 4: Tải Ảnh & Export
 - Kiểm tra các slot chưa map
-- Nút "Tạo file ZIP" (disable nếu còn slot chưa map)
+- Click "Tải Ảnh & Tạo ZIP":
+  - Progress bar hiển thị tiến trình tải ảnh
+  - Download từng ảnh từ Google Drive
+  - Tạo ZIP với ảnh đã rename + Excel worklist
 - Download file: `<order_key>_ready_for_factory.zip`
 
 ### Cấu trúc file ZIP
