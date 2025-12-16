@@ -307,6 +307,7 @@ def build_zip_for_all_orders(df: pd.DataFrame, slots: List[Dict]) -> io.BytesIO:
     - order_worklist.xlsx for all orders
     """
     zip_buffer = io.BytesIO()
+    added_files = []  # Debug: track added files
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         # Add all photos to single folder
@@ -328,6 +329,7 @@ def build_zip_for_all_orders(df: pd.DataFrame, slots: List[Dict]) -> io.BytesIO:
                 # Add to zip (all photos in root)
                 slot['image_data'].seek(0)
                 zip_file.writestr(new_filename, slot['image_data'].read())
+                added_files.append(new_filename)  # Debug: track
 
         # Add Excel worklist for all orders (combined)
         excel_data = build_export_excel_all(df, slots)
@@ -335,6 +337,12 @@ def build_zip_for_all_orders(df: pd.DataFrame, slots: List[Dict]) -> io.BytesIO:
         zip_file.writestr("order_worklist.xlsx", excel_data.read())
 
     zip_buffer.seek(0)
+
+    # Debug: print added files
+    import streamlit as st
+    st.info(f"🔍 Debug: Đã add {len(added_files)} files vào ZIP")
+    st.write("Files:", added_files)
+
     return zip_buffer
 
 # ============================================================================
@@ -981,6 +989,11 @@ def main():
 
                 progress_bar.empty()
                 status_text.empty()
+
+                # Debug: Show download results
+                slots_with_data = [s for s in st.session_state.slots if s.get('image_data')]
+                st.success(f"✅ Download hoàn tất: {success_count} thành công, {fail_count} thất bại")
+                st.info(f"🔍 Debug: {len(slots_with_data)}/{len(st.session_state.slots)} slots có image_data")
 
                 if fail_count > 0:
                     st.warning(f"⚠️ Tải thành công {success_count}/{len(st.session_state.slots)} ảnh. {fail_count} ảnh bị lỗi.")
