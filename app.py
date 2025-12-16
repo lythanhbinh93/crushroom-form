@@ -641,6 +641,7 @@ def main():
         mapping_data = []
         for slot in st.session_state.slots:
             current_url = slot.get('image_url', '')
+            phone_digits = normalize_phone(slot['phone'])
 
             # Get thumbnail and label for current selection
             thumbnail_url = ''
@@ -652,6 +653,7 @@ def main():
             mapping_data.append({
                 'STT': slot['global_idx'],
                 'SĐT': slot['phone'],
+                '_phone_digits': phone_digits,  # For sorting
                 'Order': slot['order_key'],
                 'Slot': slot['slot_in_order'],
                 'Tên File': slot['suggested_name'],
@@ -663,11 +665,24 @@ def main():
 
         mapping_df = pd.DataFrame(mapping_data)
 
-        st.info(f"📊 Tổng cộng: {len(mapping_df)} slots từ {mapping_df['Order'].nunique()} đơn hàng")
+        # SORT by phone number to group slots together
+        mapping_df = mapping_df.sort_values(['_phone_digits', 'STT']).reset_index(drop=True)
 
-        # Show ONE big table with all slots
+        st.info(f"📊 Tổng cộng: {len(mapping_df)} slots từ {mapping_df['Order'].nunique()} đơn hàng | ⚠️ Chỉ chọn ảnh có SĐT matching!")
+
+        # Show visual separator info
+        with st.expander("💡 Hướng dẫn chọn ảnh đúng SĐT", expanded=False):
+            st.markdown("""
+            **Cách chọn ảnh tránh nhầm:**
+            1. Bảng đã được **sắp xếp theo SĐT** (các slot cùng SĐT nằm gần nhau)
+            2. Trong dropdown "Chọn Ảnh", label có format: `📱 SĐT | Ngày | Ảnh X`
+            3. **CHỈ chọn ảnh có SĐT khớp** với cột "SĐT" của row đó
+            4. Hoặc dùng nút "Tự động map" để app tự động chọn đúng
+            """)
+
+        # Show ONE big table with all slots (sorted by phone)
         edited_mapping = st.data_editor(
-            mapping_df,
+            mapping_df[['STT', 'SĐT', 'Order', 'Slot', 'Tên File', 'SKU', 'Note', 'Preview', 'Chọn Ảnh']],
             column_config={
                 'STT': st.column_config.NumberColumn('STT', disabled=True, width='small'),
                 'SĐT': st.column_config.TextColumn('SĐT', disabled=True, width='medium'),
@@ -683,7 +698,7 @@ def main():
                 ),
                 'Chọn Ảnh': st.column_config.SelectboxColumn(
                     'Chọn Ảnh',
-                    help='Copy label từ gallery ở trên vào đây',
+                    help='⚠️ CHỈ chọn ảnh có SĐT khớp với cột SĐT bên trái!',
                     options=all_image_options,
                     required=False,
                     width='large'
