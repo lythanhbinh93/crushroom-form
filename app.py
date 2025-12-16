@@ -747,29 +747,58 @@ def main():
                         else:
                             st.markdown('<div style="height:60px;"></div>', unsafe_allow_html=True)
 
-                    with cols[7]:  # Chọn Ảnh - Selectbox
+                    with cols[7]:  # Chọn Ảnh - Clickable Thumbnails
+                        # Get phone digits for this row
+                        phone_digits = row['_phone_digits']
+
+                        # Filter images matching this phone number
+                        matching_images = []
+                        for url, meta in image_metadata.items():
+                            if normalize_phone(meta['phone']) == phone_digits:
+                                matching_images.append({
+                                    'url': url,
+                                    'label': meta['label'],
+                                    'thumbnail': meta['thumbnail']
+                                })
+
                         # Get current selection
                         current_selection = row.get('Chọn Ảnh', '')
                         if pd.isna(current_selection):
                             current_selection = ''
 
-                        # Find index of current selection
-                        options_with_empty = [''] + all_image_options
-                        try:
-                            default_index = options_with_empty.index(current_selection) if current_selection else 0
-                        except ValueError:
-                            default_index = 0
+                        # Display thumbnails as clickable options
+                        if matching_images:
+                            # Create sub-columns for thumbnails (max 2 images per phone)
+                            thumb_cols = st.columns(len(matching_images) + 1)  # +1 for "None" option
 
-                        selected = st.selectbox(
-                            'img',
-                            options=options_with_empty,
-                            index=default_index,
-                            key=f'img_select_{row["STT"]}_{idx}',
-                            label_visibility='collapsed'
-                        )
+                            # Option to clear selection
+                            with thumb_cols[0]:
+                                st.markdown('<div style="height:60px;line-height:60px;text-align:center;">❌</div>', unsafe_allow_html=True)
+                                if st.button("Bỏ chọn", key=f'img_none_{row["STT"]}_{idx}', use_container_width=True):
+                                    mapping_df.at[idx, 'Chọn Ảnh'] = ''
 
-                        # Update the mapping_df with selection
-                        mapping_df.at[idx, 'Chọn Ảnh'] = selected
+                            # Display each image with button
+                            for img_idx, img in enumerate(matching_images):
+                                with thumb_cols[img_idx + 1]:
+                                    # Show thumbnail with border if selected
+                                    is_selected = (img['label'] == current_selection)
+                                    border_style = "border: 3px solid #4CAF50;" if is_selected else "border: 1px solid #ddd;"
+
+                                    st.markdown(f'<div style="{border_style}padding:2px;border-radius:4px;">', unsafe_allow_html=True)
+                                    st.image(img['thumbnail'], use_column_width=True)
+                                    st.markdown('</div>', unsafe_allow_html=True)
+
+                                    # Button below thumbnail
+                                    if st.button(
+                                        f"Ảnh {img_idx + 1}",
+                                        key=f'img_btn_{row["STT"]}_{img_idx}_{idx}',
+                                        use_container_width=True,
+                                        type="primary" if is_selected else "secondary"
+                                    ):
+                                        mapping_df.at[idx, 'Chọn Ảnh'] = img['label']
+                        else:
+                            st.markdown('<div style="height:60px;line-height:60px;font-size:11px;color:#999;">Không có ảnh</div>', unsafe_allow_html=True)
+                            mapping_df.at[idx, 'Chọn Ảnh'] = ''
 
             st.markdown('</div>', unsafe_allow_html=True)
 
