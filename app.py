@@ -547,28 +547,17 @@ def main():
 
     # Map images to slots
     st.markdown("---")
-    st.subheader("📋 Map Ảnh Vào Slot (Theo Số Điện Thoại)")
+    st.subheader("📋 Map Ảnh Vào Slot (Tất Cả Đơn Hàng)")
 
     if len(st.session_state.slots) == 0:
         st.warning("⚠️ Không có slot nào cần map ảnh")
     else:
-        # Group slots by phone number
-        slots_by_phone = {}
-        for slot in st.session_state.slots:
-            phone_digits = normalize_phone(slot['phone'])
-            if phone_digits not in slots_by_phone:
-                slots_by_phone[phone_digits] = []
-            slots_by_phone[phone_digits].append(slot)
+        # Collect ALL images with phone filter info
+        all_image_options = ['']
+        image_metadata = {}  # Map URL to metadata (phone, date, thumbnail)
 
-        # Process each phone number
-        for phone_digits, phone_slots in slots_by_phone.items():
-            # Get images for this phone
-            image_options = ['']
-            image_to_thumbnail = {}  # Map URL to thumbnail URL
-
-            if phone_digits in st.session_state.all_gdrive_images:
-                sessions = st.session_state.all_gdrive_images[phone_digits]
-                # Sort by date (newest first)
+        if st.session_state.all_gdrive_images:
+            for phone, sessions in st.session_state.all_gdrive_images.items():
                 sorted_sessions = sorted(sessions, key=lambda x: x.get('Date', ''), reverse=True)
 
                 for session in sorted_sessions:
@@ -576,97 +565,106 @@ def main():
 
                     if session.get('image-1'):
                         url = session['image-1']
-                        image_options.append(url)
+                        all_image_options.append(url)
                         file_id = extract_gdrive_id(url)
-                        if file_id:
-                            image_to_thumbnail[url] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100" if file_id else ''
+                        image_metadata[url] = {
+                            'phone': phone,
+                            'date': date_str,
+                            'thumbnail': thumbnail,
+                            'label': f"Ảnh 1 - {date_str}"
+                        }
 
                     if session.get('image-2'):
                         url = session['image-2']
-                        image_options.append(url)
+                        all_image_options.append(url)
                         file_id = extract_gdrive_id(url)
-                        if file_id:
-                            image_to_thumbnail[url] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100" if file_id else ''
+                        image_metadata[url] = {
+                            'phone': phone,
+                            'date': date_str,
+                            'thumbnail': thumbnail,
+                            'label': f"Ảnh 2 - {date_str}"
+                        }
 
-            # Create expander for this phone
-            num_slots = len(phone_slots)
-            num_images = len(image_options) - 1  # Exclude empty option
+        # Create ONE big mapping table for ALL slots
+        mapping_data = []
+        for slot in st.session_state.slots:
+            current_url = slot.get('image_url', '')
 
-            with st.expander(
-                f"📱 SĐT: {phone_slots[0]['phone']} ({phone_digits}) - {num_slots} slots, {num_images} ảnh",
-                expanded=True
-            ):
-                if num_images == 0:
-                    st.warning(f"⚠️ Chưa có ảnh cho số điện thoại này")
+            # Get thumbnail for current selection
+            thumbnail_url = ''
+            if current_url and current_url in image_metadata:
+                thumbnail_url = image_metadata[current_url]['thumbnail']
 
-                # Create mapping table for this phone
-                mapping_data = []
-                for slot in phone_slots:
-                    current_url = slot.get('image_url', '')
-                    thumbnail_url = image_to_thumbnail.get(current_url, '') if current_url else ''
+            mapping_data.append({
+                'STT': slot['global_idx'],
+                'SĐT': slot['phone'],
+                'Order': slot['order_key'],
+                'Slot': slot['slot_in_order'],
+                'Tên File': slot['suggested_name'],
+                'SKU': slot['sku'],
+                'Note': slot['yy'],
+                'Preview': thumbnail_url,
+                'URL': current_url
+            })
 
-                    mapping_data.append({
-                        'STT': slot['global_idx'],
-                        'Order': slot['order_key'],
-                        'Slot': slot['slot_in_order'],
-                        'Tên File': slot['suggested_name'],
-                        'SKU': slot['sku'],
-                        'Note': slot['yy'],
-                        'Ảnh': thumbnail_url,
-                        'URL': current_url
-                    })
+        mapping_df = pd.DataFrame(mapping_data)
 
-                mapping_df = pd.DataFrame(mapping_data)
+        st.info(f"📊 Tổng cộng: {len(mapping_df)} slots từ {mapping_df['Order'].nunique()} đơn hàng")
 
-                # Show table with image preview and selectbox
-                edited_mapping = st.data_editor(
-                    mapping_df,
-                    column_config={
-                        'STT': st.column_config.NumberColumn('STT', disabled=True, width='small'),
-                        'Order': st.column_config.TextColumn('Mã ĐH', disabled=True, width='small'),
-                        'Slot': st.column_config.NumberColumn('Slot', disabled=True, width='small'),
-                        'Tên File': st.column_config.TextColumn('Tên File', disabled=True, width='medium'),
-                        'SKU': st.column_config.TextColumn('SKU', disabled=True, width='small'),
-                        'Note': st.column_config.TextColumn('Note', disabled=True, width='small'),
-                        'Ảnh': st.column_config.ImageColumn(
-                            'Preview',
-                            help='Ảnh đã chọn',
-                            width='small'
-                        ),
-                        'URL': st.column_config.SelectboxColumn(
-                            'Chọn Ảnh',
-                            help=f'Chọn ảnh từ Google Drive (SĐT: {phone_digits})',
-                            options=image_options,
-                            required=False,
-                            width='large'
-                        )
-                    },
-                    hide_index=True,
-                    use_container_width=True,
-                    key=f'mapping_editor_{phone_digits}',
-                    height=min(400, 50 + num_slots * 35)
+        # Show ONE big table with all slots
+        edited_mapping = st.data_editor(
+            mapping_df,
+            column_config={
+                'STT': st.column_config.NumberColumn('STT', disabled=True, width='small'),
+                'SĐT': st.column_config.TextColumn('SĐT', disabled=True, width='medium'),
+                'Order': st.column_config.TextColumn('Mã ĐH', disabled=True, width='small'),
+                'Slot': st.column_config.NumberColumn('Slot', disabled=True, width='small'),
+                'Tên File': st.column_config.TextColumn('Tên File', disabled=True, width='large'),
+                'SKU': st.column_config.TextColumn('SKU', disabled=True, width='small'),
+                'Note': st.column_config.TextColumn('Note', disabled=True, width='small'),
+                'Preview': st.column_config.ImageColumn(
+                    'Preview',
+                    help='Ảnh đã chọn',
+                    width='small'
+                ),
+                'URL': st.column_config.SelectboxColumn(
+                    'Chọn Ảnh',
+                    help='Chọn ảnh từ Google Drive (lọc theo SĐT khi auto-map)',
+                    options=all_image_options,
+                    required=False,
+                    width='large'
                 )
+            },
+            hide_index=True,
+            use_container_width=True,
+            key='mapping_editor_all',
+            height=600
+        )
 
-                # Update slots with selected images and thumbnails
-                for idx, row in edited_mapping.iterrows():
-                    # Find the slot in session state
-                    slot_stt = row['STT']
-                    for slot in st.session_state.slots:
-                        if slot['global_idx'] == slot_stt:
-                            url_value = row['URL']
-                            # Handle None, NaN, or empty string
-                            if pd.isna(url_value) or not url_value or url_value == '':
-                                slot['image_url'] = None
-                                slot['thumbnail_url'] = None
+        # Update ALL slots with selected images
+        for idx, row in edited_mapping.iterrows():
+            slot_stt = row['STT']
+            for slot in st.session_state.slots:
+                if slot['global_idx'] == slot_stt:
+                    url_value = row['URL']
+                    # Handle None, NaN, or empty string
+                    if pd.isna(url_value) or not url_value or url_value == '':
+                        slot['image_url'] = None
+                        slot['thumbnail_url'] = None
+                    else:
+                        slot['image_url'] = str(url_value)
+                        # Update thumbnail
+                        if str(url_value) in image_metadata:
+                            slot['thumbnail_url'] = image_metadata[str(url_value)]['thumbnail']
+                        else:
+                            file_id = extract_gdrive_id(str(url_value))
+                            if file_id:
+                                slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
                             else:
-                                slot['image_url'] = str(url_value)
-                                # Update thumbnail
-                                file_id = extract_gdrive_id(str(url_value))
-                                if file_id:
-                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=w100"
-                                else:
-                                    slot['thumbnail_url'] = None
-                            break
+                                slot['thumbnail_url'] = None
+                    break
 
         # Auto-assign button
         if st.button("🔄 Tự động map ảnh theo thứ tự (theo SĐT)"):
