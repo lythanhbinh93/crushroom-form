@@ -601,42 +601,6 @@ def main():
                             'label': label
                         }
 
-        # Show image gallery to help user identify images
-        if image_metadata:
-            with st.expander("🖼️ XEM THUMBNAIL ẢNH MỚI NHẤT (để biết chọn label nào)", expanded=True):
-                st.markdown("**Hiển thị ảnh mới nhất của mỗi SĐT. Xem ảnh ở đây, sau đó chọn label tương ứng trong bảng bên dưới**")
-
-                # Group images by phone for better organization
-                images_by_phone = {}
-                for url, meta in image_metadata.items():
-                    phone = meta['phone']
-                    if phone not in images_by_phone:
-                        images_by_phone[phone] = []
-                    images_by_phone[phone].append({
-                        'url': url,
-                        'label': meta['label'],
-                        'thumbnail': meta['thumbnail']
-                    })
-
-                # Display images grouped by phone
-                for phone, images in images_by_phone.items():
-                    st.markdown(f"### 📱 SĐT: {phone}")
-
-                    # Create columns for thumbnails (4 per row)
-                    cols_per_row = 4
-                    for i in range(0, len(images), cols_per_row):
-                        cols = st.columns(cols_per_row)
-                        for j in range(cols_per_row):
-                            idx = i + j
-                            if idx < len(images):
-                                with cols[j]:
-                                    img = images[idx]
-                                    if img['thumbnail']:
-                                        st.image(img['thumbnail'], use_column_width=True)
-                                    st.caption(f"**{img['label']}**")
-
-                    st.markdown("---")
-
         # Create ONE big mapping table for ALL slots
         mapping_data = []
         for slot in st.session_state.slots:
@@ -678,37 +642,71 @@ def main():
             2. Trong dropdown "Chọn Ảnh", label có format: `📱 SĐT | Ngày | Ảnh X`
             3. **CHỈ chọn ảnh có SĐT khớp** với cột "SĐT" của row đó
             4. Hoặc dùng nút "Tự động map" để app tự động chọn đúng
+            5. Xem thumbnail ảnh ở cột bên phải để dễ chọn
             """)
 
-        # Show ONE big table with all slots (sorted by phone)
-        edited_mapping = st.data_editor(
-            mapping_df[['STT', 'SĐT', 'Order', 'Slot', 'Tên File', 'SKU', 'Note', 'Preview', 'Chọn Ảnh']],
-            column_config={
-                'STT': st.column_config.NumberColumn('STT', disabled=True, width='small'),
-                'SĐT': st.column_config.TextColumn('SĐT', disabled=True, width='medium'),
-                'Order': st.column_config.TextColumn('Mã ĐH', disabled=True, width='small'),
-                'Slot': st.column_config.NumberColumn('Slot', disabled=True, width='small'),
-                'Tên File': st.column_config.TextColumn('Tên File', disabled=True, width='large'),
-                'SKU': st.column_config.TextColumn('SKU', disabled=True, width='small'),
-                'Note': st.column_config.TextColumn('Note', disabled=True, width='small'),
-                'Preview': st.column_config.ImageColumn(
-                    'Preview',
-                    help='Ảnh đã chọn',
-                    width='medium'
-                ),
-                'Chọn Ảnh': st.column_config.SelectboxColumn(
-                    'Chọn Ảnh',
-                    help='⚠️ CHỈ chọn ảnh có SĐT khớp với cột SĐT bên trái!',
-                    options=all_image_options,
-                    required=False,
-                    width='large'
-                )
-            },
-            hide_index=True,
-            use_container_width=True,
-            key='mapping_editor_all',
-            height=600
-        )
+        # Create 2-column layout: table on left, gallery on right
+        col_table, col_gallery = st.columns([3, 1])
+
+        with col_table:
+            # Show ONE big table with all slots (sorted by phone) - REMOVED Order column
+            edited_mapping = st.data_editor(
+                mapping_df[['STT', 'SĐT', 'Slot', 'Tên File', 'SKU', 'Note', 'Preview', 'Chọn Ảnh']],
+                column_config={
+                    'STT': st.column_config.NumberColumn('STT', disabled=True, width='small'),
+                    'SĐT': st.column_config.TextColumn('SĐT', disabled=True, width='medium'),
+                    'Slot': st.column_config.NumberColumn('Slot', disabled=True, width='small'),
+                    'Tên File': st.column_config.TextColumn('Tên File', disabled=True, width='large'),
+                    'SKU': st.column_config.TextColumn('SKU', disabled=True, width='small'),
+                    'Note': st.column_config.TextColumn('Note', disabled=True, width='small'),
+                    'Preview': st.column_config.ImageColumn(
+                        'Preview',
+                        help='Ảnh đã chọn',
+                        width='medium'
+                    ),
+                    'Chọn Ảnh': st.column_config.SelectboxColumn(
+                        'Chọn Ảnh',
+                        help='⚠️ CHỈ chọn ảnh có SĐT khớp với cột SĐT bên trái!',
+                        options=all_image_options,
+                        required=False,
+                        width='large'
+                    )
+                },
+                hide_index=True,
+                use_container_width=True,
+                key='mapping_editor_all',
+                height=800  # Increased height for easier selection
+            )
+
+        with col_gallery:
+            # Show image gallery on the right side
+            st.markdown("### 🖼️ Xem lại ảnh đã tải")
+            st.markdown("*Ảnh mới nhất của mỗi SĐT*")
+
+            if image_metadata:
+                # Group images by phone for better organization
+                images_by_phone = {}
+                for url, meta in image_metadata.items():
+                    phone = meta['phone']
+                    if phone not in images_by_phone:
+                        images_by_phone[phone] = []
+                    images_by_phone[phone].append({
+                        'url': url,
+                        'label': meta['label'],
+                        'thumbnail': meta['thumbnail']
+                    })
+
+                # Display images grouped by phone
+                for phone, images in images_by_phone.items():
+                    st.markdown(f"**📱 {phone}**")
+
+                    for img in images:
+                        if img['thumbnail']:
+                            st.image(img['thumbnail'], use_column_width=True)
+                        st.caption(img['label'])
+                        st.markdown("---")
+            else:
+                st.info("Chưa có ảnh")
 
         # Update ALL slots with selected images (convert label back to URL)
         for idx, row in edited_mapping.iterrows():
