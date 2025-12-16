@@ -562,13 +562,14 @@ def main():
             for phone, sessions in st.session_state.all_gdrive_images.items():
                 sorted_sessions = sorted(sessions, key=lambda x: x.get('Date', ''), reverse=True)
 
-                for session_idx, session in enumerate(sorted_sessions):
-                    date_str = session.get('Date', 'N/A')[:10] if session.get('Date') else 'N/A'
-                    session_label = f"Session {session_idx + 1} - {date_str}"
+                # CHỈ lấy session mới nhất
+                if sorted_sessions:
+                    newest_session = sorted_sessions[0]
+                    date_str = newest_session.get('Date', 'N/A')[:10] if newest_session.get('Date') else 'N/A'
 
-                    if session.get('image-1'):
-                        url = session['image-1']
-                        label = f"📱 {phone} | {session_label} | Ảnh 1"
+                    if newest_session.get('image-1'):
+                        url = newest_session['image-1']
+                        label = f"📱 {phone} | {date_str} | Ảnh 1"
 
                         all_image_options.append(label)
                         image_label_to_url[label] = url
@@ -583,9 +584,9 @@ def main():
                             'label': label
                         }
 
-                    if session.get('image-2'):
-                        url = session['image-2']
-                        label = f"📱 {phone} | {session_label} | Ảnh 2"
+                    if newest_session.get('image-2'):
+                        url = newest_session['image-2']
+                        label = f"📱 {phone} | {date_str} | Ảnh 2"
 
                         all_image_options.append(label)
                         image_label_to_url[label] = url
@@ -602,8 +603,8 @@ def main():
 
         # Show image gallery to help user identify images
         if image_metadata:
-            with st.expander("🖼️ XEM THUMBNAIL TẤT CẢ ẢNH (để biết chọn label nào)", expanded=True):
-                st.markdown("**Xem ảnh ở đây, sau đó chọn label tương ứng trong bảng bên dưới**")
+            with st.expander("🖼️ XEM THUMBNAIL ẢNH MỚI NHẤT (để biết chọn label nào)", expanded=True):
+                st.markdown("**Hiển thị ảnh mới nhất của mỗi SĐT. Xem ảnh ở đây, sau đó chọn label tương ứng trong bảng bên dưới**")
 
                 # Group images by phone for better organization
                 images_by_phone = {}
@@ -727,15 +728,19 @@ def main():
         # Auto-assign button
         if st.button("🔄 Tự động map ảnh theo thứ tự (theo SĐT)"):
             if st.session_state.all_gdrive_images:
-                # Group images by phone
+                # Group images by phone (CHỈ lấy ảnh mới nhất)
                 images_by_phone = {}
                 for phone, sessions in st.session_state.all_gdrive_images.items():
+                    sorted_sessions = sorted(sessions, key=lambda x: x.get('Date', ''), reverse=True)
                     images_by_phone[phone] = []
-                    for session in sorted(sessions, key=lambda x: x.get('Date', ''), reverse=True):
-                        if session.get('image-1'):
-                            images_by_phone[phone].append(session['image-1'])
-                        if session.get('image-2'):
-                            images_by_phone[phone].append(session['image-2'])
+
+                    # CHỈ lấy session mới nhất
+                    if sorted_sessions:
+                        newest_session = sorted_sessions[0]
+                        if newest_session.get('image-1'):
+                            images_by_phone[phone].append(newest_session['image-1'])
+                        if newest_session.get('image-2'):
+                            images_by_phone[phone].append(newest_session['image-2'])
 
                 # Auto-assign
                 for slot in st.session_state.slots:
