@@ -645,6 +645,28 @@ def main():
             5. Xem thumbnail ảnh ở cột bên phải để dễ chọn
             """)
 
+        # Custom CSS to reduce row height to match image height (40px)
+        st.markdown("""
+        <style>
+        /* Reduce row height in data editor */
+        [data-testid="stDataFrameResizable"] div[data-testid="data-grid-canvas"] {
+            line-height: 40px !important;
+        }
+        [data-testid="stDataFrameResizable"] div[role="gridcell"] {
+            padding-top: 2px !important;
+            padding-bottom: 2px !important;
+            min-height: 40px !important;
+            max-height: 44px !important;
+            line-height: 40px !important;
+        }
+        /* Make images fit row height */
+        [data-testid="stDataFrameResizable"] img {
+            max-height: 40px !important;
+            object-fit: contain !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
         # Create 2-column layout: table on left, gallery on right
         col_table, col_gallery = st.columns([3, 1])
 
