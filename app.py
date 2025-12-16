@@ -645,28 +645,48 @@ def main():
             5. Xem thumbnail ảnh ở cột bên phải để dễ chọn
             """)
 
-        # Custom CSS to reduce row height to match image height (60px)
+        # Custom CSS for compact table with controlled row height
         st.markdown("""
         <style>
-        /* Reduce row height in data editor */
-        [data-testid="stDataFrameResizable"] div[role="gridcell"] {
-            padding-top: 3px !important;
-            padding-bottom: 3px !important;
-            min-height: 60px !important;
-            max-height: 66px !important;
-            height: 60px !important;
-            line-height: 60px !important;
+        .compact-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
         }
-        /* Make images fit row height */
-        [data-testid="stDataFrameResizable"] img {
-            max-height: 60px !important;
-            height: 60px !important;
-            object-fit: contain !important;
-            vertical-align: middle !important;
+        .compact-table th {
+            background-color: #f0f2f6;
+            padding: 8px 4px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #ddd;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
-        /* Reduce font size slightly for compact view */
-        [data-testid="stDataFrameResizable"] div[role="gridcell"] {
-            font-size: 13px !important;
+        .compact-table td {
+            padding: 4px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+            height: 60px;
+            max-height: 60px;
+        }
+        .compact-table img {
+            height: 60px;
+            width: auto;
+            object-fit: contain;
+        }
+        .table-container {
+            max-height: 800px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        /* Streamlit selectbox styling */
+        .compact-table .stSelectbox {
+            margin-bottom: 0 !important;
+        }
+        .compact-table .stSelectbox > div {
+            margin-bottom: 0 !important;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -675,34 +695,86 @@ def main():
         col_table, col_gallery = st.columns([3, 1])
 
         with col_table:
-            # Show ONE big table with all slots (sorted by phone) - REMOVED Order column
-            edited_mapping = st.data_editor(
-                mapping_df[['STT', 'SĐT', 'Slot', 'Tên File', 'SKU', 'Note', 'Preview', 'Chọn Ảnh']],
-                column_config={
-                    'STT': st.column_config.NumberColumn('STT', disabled=True, width='small'),
-                    'SĐT': st.column_config.TextColumn('SĐT', disabled=True, width='medium'),
-                    'Slot': st.column_config.NumberColumn('Slot', disabled=True, width='small'),
-                    'Tên File': st.column_config.TextColumn('Tên File', disabled=True, width='large'),
-                    'SKU': st.column_config.TextColumn('SKU', disabled=True, width='small'),
-                    'Note': st.column_config.TextColumn('Note', disabled=True, width='small'),
-                    'Preview': st.column_config.ImageColumn(
-                        'Preview',
-                        help='Ảnh đã chọn',
-                        width='medium'
-                    ),
-                    'Chọn Ảnh': st.column_config.SelectboxColumn(
-                        'Chọn Ảnh',
-                        help='⚠️ CHỈ chọn ảnh có SĐT khớp với cột SĐT bên trái!',
-                        options=all_image_options,
-                        required=False,
-                        width='large'
-                    )
-                },
-                hide_index=True,
-                use_container_width=True,
-                key='mapping_editor_all',
-                height=800  # Increased height for easier selection
-            )
+            # HTML table header
+            st.markdown('<div class="table-container">', unsafe_allow_html=True)
+            st.markdown("""
+            <table class="compact-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">STT</th>
+                        <th style="width: 100px;">SĐT</th>
+                        <th style="width: 50px;">Slot</th>
+                        <th style="width: 250px;">Tên File</th>
+                        <th style="width: 80px;">SKU</th>
+                        <th style="width: 100px;">Note</th>
+                        <th style="width: 70px;">Preview</th>
+                        <th style="width: 200px;">Chọn Ảnh</th>
+                    </tr>
+                </thead>
+            </table>
+            """, unsafe_allow_html=True)
+
+            # Create scrollable container for rows
+            table_rows_container = st.container()
+
+            with table_rows_container:
+                # Render each row
+                for idx, row in mapping_df.iterrows():
+                    # Create columns for this row
+                    cols = st.columns([0.5, 1.2, 0.6, 3, 1, 1.2, 0.9, 2.5])
+
+                    with cols[0]:  # STT
+                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{int(row["STT"])}</div>', unsafe_allow_html=True)
+
+                    with cols[1]:  # SĐT
+                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{row["SĐT"]}</div>', unsafe_allow_html=True)
+
+                    with cols[2]:  # Slot
+                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{int(row["Slot"])}</div>', unsafe_allow_html=True)
+
+                    with cols[3]:  # Tên File
+                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{row["Tên File"]}">{row["Tên File"]}</div>', unsafe_allow_html=True)
+
+                    with cols[4]:  # SKU
+                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:12px;">{row["SKU"]}</div>', unsafe_allow_html=True)
+
+                    with cols[5]:  # Note
+                        st.markdown(f'<div style="height:60px;line-height:60px;font-size:12px;">{row["Note"]}</div>', unsafe_allow_html=True)
+
+                    with cols[6]:  # Preview
+                        if row['Preview']:
+                            st.image(row['Preview'], width=60)
+                        else:
+                            st.markdown('<div style="height:60px;"></div>', unsafe_allow_html=True)
+
+                    with cols[7]:  # Chọn Ảnh - Selectbox
+                        # Get current selection
+                        current_selection = row.get('Chọn Ảnh', '')
+                        if pd.isna(current_selection):
+                            current_selection = ''
+
+                        # Find index of current selection
+                        options_with_empty = [''] + all_image_options
+                        try:
+                            default_index = options_with_empty.index(current_selection) if current_selection else 0
+                        except ValueError:
+                            default_index = 0
+
+                        selected = st.selectbox(
+                            'img',
+                            options=options_with_empty,
+                            index=default_index,
+                            key=f'img_select_{row["STT"]}_{idx}',
+                            label_visibility='collapsed'
+                        )
+
+                        # Update the mapping_df with selection
+                        mapping_df.at[idx, 'Chọn Ảnh'] = selected
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Store edited mapping for later use
+            edited_mapping = mapping_df
 
         with col_gallery:
             # Show image gallery on the right side
