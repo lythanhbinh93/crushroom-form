@@ -19,7 +19,14 @@ def normalize_phone(phone: str) -> str:
     """Extract digits only from phone number."""
     if pd.isna(phone):
         return ""
-    return re.sub(r'\D', '', str(phone))
+    # Convert to int first to remove decimal point from float (e.g., 971878941.0 -> 971878941)
+    try:
+        # Try to convert to float then int to handle Excel numeric format
+        phone_int = int(float(phone))
+        return str(phone_int)
+    except (ValueError, TypeError):
+        # Fallback to regex for string format
+        return re.sub(r'\D', '', str(phone))
 
 def clean_sku(sku: str) -> str:
     """
