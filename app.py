@@ -141,7 +141,7 @@ def expand_all_slots(df: pd.DataFrame) -> List[Dict]:
             last4 = row.get('_last4', '0000')
             sku = row.get('_sku', '')
             yy = row.get('_yy', '')
-            phone = row.get('Số điện thoại', '')
+            phone = row.get('_phone_digits', '')
 
             for _ in range(total_slots):
                 # Build suggested name using GLOBAL index (STT) and ending with _
