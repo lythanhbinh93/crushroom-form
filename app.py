@@ -103,16 +103,12 @@ def needs_photo(row: pd.Series) -> bool:
 
 def get_img_per_unit(row: pd.Series) -> int:
     """
-    Get default images per unit:
-    - If SKU starts with COUPLEPIX → 2
-    - Else → 1
+    Get default images per unit: equals to quantity
     """
-    sku_raw = str(row.get('Mã mẫu mã', '')) if not pd.isna(row.get('Mã mẫu mã')) else ''
-
-    if sku_raw.upper().startswith('COUPLEPIX'):
-        return 2
-
-    return 1
+    qty = row.get('Số lượng', 1)
+    if pd.isna(qty):
+        return 1
+    return int(qty)
 
 def expand_all_slots(df: pd.DataFrame) -> List[Dict]:
     """
