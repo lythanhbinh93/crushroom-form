@@ -755,6 +755,10 @@ def main():
         with table_rows_container:
             # Render each row
             for idx, row in mapping_df.iterrows():
+                # Get STT and phone info upfront
+                stt = int(row['STT'])
+                phone_digits = row['_phone_digits']
+
                 # Create columns for this row
                 cols = st.columns([0.5, 1.2, 0.6, 3, 1, 1.2, 0.9, 2.5])
 
@@ -773,8 +777,26 @@ def main():
                 with cols[4]:  # SKU
                     st.markdown(f'<div style="height:60px;line-height:60px;font-size:12px;">{row["SKU"]}</div>', unsafe_allow_html=True)
 
-                with cols[5]:  # Note
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:12px;">{row["Note"]}</div>', unsafe_allow_html=True)
+                with cols[5]:  # Note - EDITABLE
+                    # Init note in session_state if not exists
+                    if 'note_edits' not in st.session_state:
+                        st.session_state.note_edits = {}
+
+                    if stt not in st.session_state.note_edits:
+                        st.session_state.note_edits[stt] = row["Note"]
+
+                    # Editable text input for Note
+                    new_note = st.text_input(
+                        "note",
+                        value=st.session_state.note_edits[stt],
+                        key=f'note_{stt}_{idx}',
+                        label_visibility='collapsed',
+                        max_chars=35
+                    )
+
+                    # Update if changed
+                    if new_note != st.session_state.note_edits[stt]:
+                        st.session_state.note_edits[stt] = new_note
 
                 with cols[6]:  # Preview
                     if row['Preview']:
@@ -783,14 +805,15 @@ def main():
                         st.markdown('<div style="height:60px;"></div>', unsafe_allow_html=True)
 
                 with cols[7]:  # Chọn Ảnh - Clickable Thumbnails
-                    # Get phone digits for this row
-                    phone_digits = row['_phone_digits']
-                    stt = int(row['STT'])
+                    # Check if there's an alternative phone mapping
+                    search_phone = phone_digits
+                    if 'alt_phone_mapping' in st.session_state and stt in st.session_state.alt_phone_mapping:
+                        search_phone = st.session_state.alt_phone_mapping[stt]
 
-                    # Filter images matching this phone number
+                    # Filter images matching this phone number (or alternative phone)
                     matching_images = []
                     for url, meta in image_metadata.items():
-                        if normalize_phone(meta['phone']) == phone_digits:
+                        if normalize_phone(meta['phone']) == search_phone:
                             matching_images.append({
                                 'url': url,
                                 'label': meta['label'],
@@ -834,13 +857,87 @@ def main():
                                     st.session_state.image_selections[stt] = img['url']
                                     st.rerun()
                     else:
-                        st.markdown('<div style="height:60px;line-height:60px;font-size:11px;color:#999;">Không có ảnh</div>', unsafe_allow_html=True)
+                        # No images found - show 2 options
+                        st.markdown('<div style="font-size:11px;color:#999;">⚠️ Không tìm thấy ảnh</div>', unsafe_allow_html=True)
+
+                        opt_cols = st.columns(2)
+
+                        with opt_cols[0]:
+                            if st.button("➕ SĐT phụ", key=f'alt_phone_{stt}_{idx}', use_container_width=True):
+                                # Show text input for alternative phone
+                                st.session_state[f'show_alt_phone_input_{stt}'] = True
+                                st.rerun()
+
+                        with opt_cols[1]:
+                            if st.button("📁 Upload", key=f'manual_upload_{stt}_{idx}', use_container_width=True):
+                                st.session_state[f'show_upload_{stt}'] = True
+                                st.rerun()
+
+                        # Show alternative phone input if requested
+                        if st.session_state.get(f'show_alt_phone_input_{stt}', False):
+                            alt_phone = st.text_input(
+                                "Nhập SĐT phụ",
+                                key=f'alt_phone_input_{stt}_{idx}',
+                                placeholder="0901234567"
+                            )
+
+                            if alt_phone and st.button("🔍 Tìm", key=f'search_alt_{stt}_{idx}'):
+                                # Fetch images for alternative phone
+                                alt_phone_digits = normalize_phone(alt_phone)
+                                if alt_phone_digits in st.session_state.all_gdrive_images:
+                                    # Found images - reload to show them
+                                    st.success(f"✅ Tìm thấy ảnh cho {alt_phone}")
+                                    # Store alternative phone mapping
+                                    if 'alt_phone_mapping' not in st.session_state:
+                                        st.session_state.alt_phone_mapping = {}
+                                    st.session_state.alt_phone_mapping[stt] = alt_phone_digits
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Không tìm thấy ảnh cho {alt_phone}")
+
+                        # Show manual upload if requested
+                        if st.session_state.get(f'show_upload_{stt}', False):
+                            uploaded_file = st.file_uploader(
+                                "Chọn ảnh",
+                                type=['jpg', 'jpeg', 'png'],
+                                key=f'upload_file_{stt}_{idx}'
+                            )
+
+                            if uploaded_file:
+                                # Save uploaded file to session_state
+                                file_data = io.BytesIO(uploaded_file.read())
+
+                                # Store as "uploaded" URL
+                                upload_url = f"uploaded://{stt}/{uploaded_file.name}"
+                                st.session_state.image_selections[stt] = upload_url
+
+                                # Store file data
+                                if 'uploaded_files' not in st.session_state:
+                                    st.session_state.uploaded_files = {}
+                                st.session_state.uploaded_files[upload_url] = file_data
+
+                                st.success(f"✅ Đã upload: {uploaded_file.name}")
+                                st.rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Sync session_state selections back to slots
+        # Sync session_state (selections AND note_edits) back to slots
         for slot in st.session_state.slots:
             slot_stt = slot['global_idx']
+
+            # Sync Note edits
+            if 'note_edits' in st.session_state and slot_stt in st.session_state.note_edits:
+                new_note = st.session_state.note_edits[slot_stt]
+                slot['yy'] = new_note
+                # Update suggested_name with new note
+                last4 = slot['phone'][-4:] if len(slot['phone']) >= 4 else slot['phone']
+                sku = slot['sku']
+                name_parts = [f"{slot_stt}.", last4, sku]
+                if new_note:
+                    name_parts.append(new_note)
+                slot['suggested_name'] = "_".join(name_parts) + "_"
+
+            # Sync image selections
             selection_value = st.session_state.image_selections.get(slot_stt, '')
 
             # Handle None or empty string
@@ -848,14 +945,13 @@ def main():
                 slot['image_url'] = None
                 slot['thumbnail_url'] = None
             else:
+                # Check if it's uploaded file
+                if selection_value.startswith('uploaded://'):
+                    slot['image_url'] = selection_value
+                    slot['thumbnail_url'] = None  # No thumbnail for uploaded
                 # Check if it's already a URL (starts with http)
-                if selection_value.startswith('http'):
+                elif selection_value.startswith('http'):
                     url_value = selection_value
-                else:
-                    # Convert label to URL
-                    url_value = image_label_to_url.get(str(selection_value), None)
-
-                if url_value:
                     slot['image_url'] = url_value
                     # Update thumbnail
                     if url_value in image_metadata:
@@ -867,8 +963,21 @@ def main():
                         else:
                             slot['thumbnail_url'] = None
                 else:
-                    slot['image_url'] = None
-                    slot['thumbnail_url'] = None
+                    # Convert label to URL
+                    url_value = image_label_to_url.get(str(selection_value), None)
+                    if url_value:
+                        slot['image_url'] = url_value
+                        if url_value in image_metadata:
+                            slot['thumbnail_url'] = image_metadata[url_value]['thumbnail']
+                        else:
+                            file_id = extract_gdrive_id(url_value)
+                            if file_id:
+                                slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60"
+                            else:
+                                slot['thumbnail_url'] = None
+                    else:
+                        slot['image_url'] = None
+                        slot['thumbnail_url'] = None
 
         # Auto-assign button
         if st.button("🔄 Tự động map ảnh theo thứ tự (theo SĐT)"):
@@ -980,12 +1089,22 @@ def main():
                     progress_bar.progress((idx + 1) / len(st.session_state.slots))
 
                     if slot.get('image_url'):
-                        image_data = download_image_from_url(slot['image_url'])
-                        if image_data:
-                            slot['image_data'] = image_data
-                            success_count += 1
+                        # Check if it's an uploaded file
+                        if slot['image_url'].startswith('uploaded://'):
+                            # Get from uploaded_files storage
+                            if 'uploaded_files' in st.session_state and slot['image_url'] in st.session_state.uploaded_files:
+                                slot['image_data'] = st.session_state.uploaded_files[slot['image_url']]
+                                success_count += 1
+                            else:
+                                fail_count += 1
                         else:
-                            fail_count += 1
+                            # Download from URL
+                            image_data = download_image_from_url(slot['image_url'])
+                            if image_data:
+                                slot['image_data'] = image_data
+                                success_count += 1
+                            else:
+                                fail_count += 1
 
                 progress_bar.empty()
                 status_text.empty()
