@@ -406,13 +406,8 @@ def main():
             df['_last4'] = df['_phone_digits'].apply(lambda x: x[-4:].zfill(4) if x else '0000')
             df['_sku'] = df['Mã mẫu mã'].apply(clean_sku)
 
-            # Combine notes: prefer "Ghi chú để in", fallback to "Ghi chú nội bộ"
-            df['_note_raw'] = df.apply(
-                lambda row: row['Ghi chú để in'] if not pd.isna(row['Ghi chú để in']) and str(row['Ghi chú để in']).strip()
-                else row['Ghi chú nội bộ'],
-                axis=1
-            )
-            df['_yy'] = df['_note_raw'].apply(safe_note)
+            # Note: Default to empty (user can edit in Step 3)
+            df['_yy'] = ''
 
             df['_need_photo'] = df.apply(needs_photo, axis=1)
             df['_qty'] = df['Số lượng'].fillna(1).astype(int)
@@ -668,8 +663,8 @@ def main():
 
         mapping_df = pd.DataFrame(mapping_data)
 
-        # SORT by phone number to group slots together
-        mapping_df = mapping_df.sort_values(['_phone_digits', 'STT']).reset_index(drop=True)
+        # SORT by STT (global index)
+        mapping_df = mapping_df.sort_values('STT').reset_index(drop=True)
 
         st.info(f"📊 Tổng cộng: {len(mapping_df)} slots từ {mapping_df['Order'].nunique()} đơn hàng | ⚠️ Chỉ chọn ảnh có SĐT matching!")
 
@@ -783,7 +778,8 @@ def main():
                         st.session_state.note_edits = {}
 
                     if stt not in st.session_state.note_edits:
-                        st.session_state.note_edits[stt] = row["Note"]
+                        # Default to empty, user can edit
+                        st.session_state.note_edits[stt] = ''
 
                     # Editable text input for Note
                     new_note = st.text_input(
