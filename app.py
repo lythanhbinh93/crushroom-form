@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 import requests
 from PIL import Image
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 # Google Apps Script URL - same as admin.html
 GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbweeqxM3blNgfqB4A1y2HBaGfQcfUcpTdksG0GBiW29NLyUOr1C0Hl95Naju3AjgRq4qg/exec'
@@ -191,7 +193,7 @@ def fetch_images_from_gdrive(phone: str) -> List[Dict]:
 
 def fetch_all_images(df: pd.DataFrame) -> Dict[str, List[Dict]]:
     """
-    Fetch images for all unique phone numbers in the dataframe.
+    Fetch images for all unique phone numbers in the dataframe (CONCURRENT).
     Returns dict mapping phone -> list of image sessions
     """
     all_images = {}
@@ -203,14 +205,31 @@ def fetch_all_images(df: pd.DataFrame) -> Dict[str, List[Dict]]:
     progress_bar = st.progress(0)
     status_text = st.empty()
 
-    for idx, phone in enumerate(unique_phones):
-        if phone:
-            status_text.text(f"Đang tải ảnh cho SĐT {phone}... ({idx + 1}/{len(unique_phones)})")
-            progress_bar.progress((idx + 1) / len(unique_phones))
+    total = len(unique_phones)
+    completed = 0
 
-            images = fetch_images_from_gdrive(phone)
-            if images:
-                all_images[phone] = images
+    # Concurrent downloads with ThreadPoolExecutor (max 10 workers)
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        # Submit all tasks
+        future_to_phone = {
+            executor.submit(fetch_images_from_gdrive, phone): phone
+            for phone in unique_phones if phone
+        }
+
+        # Process completed tasks
+        for future in as_completed(future_to_phone):
+            phone = future_to_phone[future]
+            try:
+                images = future.result()
+                if images:
+                    all_images[phone] = images
+
+                completed += 1
+                progress_bar.progress(completed / total)
+                status_text.text(f"Đã tải {completed}/{total} SĐT...")
+            except Exception as e:
+                st.warning(f"⚠️ Lỗi tải ảnh cho {phone}: {str(e)}")
+                completed += 1
 
     progress_bar.empty()
     status_text.empty()
@@ -307,7 +326,6 @@ def build_zip_for_all_orders(df: pd.DataFrame, slots: List[Dict]) -> io.BytesIO:
     - order_worklist.xlsx for all orders
     """
     zip_buffer = io.BytesIO()
-    added_files = []  # Debug: track added files
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         # Add all photos to single folder
@@ -329,7 +347,6 @@ def build_zip_for_all_orders(df: pd.DataFrame, slots: List[Dict]) -> io.BytesIO:
                 # Add to zip (all photos in root)
                 slot['image_data'].seek(0)
                 zip_file.writestr(new_filename, slot['image_data'].read())
-                added_files.append(new_filename)  # Debug: track
 
         # Add Excel worklist for all orders (combined)
         excel_data = build_export_excel_all(df, slots)
@@ -337,12 +354,6 @@ def build_zip_for_all_orders(df: pd.DataFrame, slots: List[Dict]) -> io.BytesIO:
         zip_file.writestr("order_worklist.xlsx", excel_data.read())
 
     zip_buffer.seek(0)
-
-    # Debug: print added files
-    import streamlit as st
-    st.info(f"🔍 Debug: Đã add {len(added_files)} files vào ZIP")
-    st.write("Files:", added_files)
-
     return zip_buffer
 
 # ============================================================================
@@ -812,7 +823,7 @@ def main():
                         url_to_label[url] = label
 
                         file_id = extract_gdrive_id(url)
-                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60" if file_id else ''
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
@@ -829,7 +840,7 @@ def main():
                         url_to_label[url] = label
 
                         file_id = extract_gdrive_id(url)
-                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60" if file_id else ''
+                        thumbnail = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40" if file_id else ''
                         image_metadata[url] = {
                             'phone': phone,
                             'date': date_str,
@@ -1241,7 +1252,7 @@ def main():
                     else:
                         file_id = extract_gdrive_id(url_value)
                         if file_id:
-                            slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60"
+                            slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40"
                         else:
                             slot['thumbnail_url'] = None
                 else:
@@ -1254,7 +1265,7 @@ def main():
                         else:
                             file_id = extract_gdrive_id(url_value)
                             if file_id:
-                                slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60"
+                                slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40"
                             else:
                                 slot['thumbnail_url'] = None
                     else:
@@ -1318,12 +1329,6 @@ def main():
     if st.button("📦 Tải Ảnh & Tạo ZIP cho TẤT CẢ đơn hàng", type="primary", disabled=len(unmapped_slots) > 0):
         with st.spinner("Đang tải ảnh và tạo file ZIP..."):
             try:
-                # Debug: Show current selections
-                if 'image_selections' in st.session_state:
-                    selections_count = len([v for v in st.session_state.image_selections.values() if v])
-                    st.info(f"🔍 Debug: {selections_count} selections trong session_state")
-                    st.write("Selections:", st.session_state.image_selections)
-
                 # Sync session_state selections to slots one more time before downloading
                 if 'image_selections' in st.session_state:
                     image_label_to_url = st.session_state.get('image_label_to_url', {})
@@ -1348,56 +1353,68 @@ def main():
                                 slot['image_url'] = url_value
                                 file_id = extract_gdrive_id(url_value)
                                 if file_id:
-                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h60"
+                                    slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40"
                                 else:
                                     slot['thumbnail_url'] = None
                             else:
                                 slot['image_url'] = None
                                 slot['thumbnail_url'] = None
 
-                # Debug: Show how many slots have image_url
-                slots_with_images = [s for s in st.session_state.slots if s.get('image_url')]
-                st.info(f"🔍 Debug: {len(slots_with_images)}/{len(st.session_state.slots)} slots có image_url sau khi sync")
-
-                # Download images
+                # Download images (CONCURRENT)
                 success_count = 0
                 fail_count = 0
 
                 progress_bar = st.progress(0)
                 status_text = st.empty()
 
-                for idx, slot in enumerate(st.session_state.slots):
-                    status_text.text(f"Đang tải ảnh {idx + 1}/{len(st.session_state.slots)}...")
-                    progress_bar.progress((idx + 1) / len(st.session_state.slots))
-
-                    if slot.get('image_url'):
-                        # Check if it's an uploaded file
-                        if slot['image_url'].startswith('uploaded://'):
-                            # Get from uploaded_files storage
-                            if 'uploaded_files' in st.session_state and slot['image_url'] in st.session_state.uploaded_files:
-                                slot['image_data'] = st.session_state.uploaded_files[slot['image_url']]
-                                success_count += 1
-                            else:
-                                fail_count += 1
+                # First, handle uploaded files (instant)
+                for slot in st.session_state.slots:
+                    if slot.get('image_url') and slot['image_url'].startswith('uploaded://'):
+                        if 'uploaded_files' in st.session_state and slot['image_url'] in st.session_state.uploaded_files:
+                            slot['image_data'] = st.session_state.uploaded_files[slot['image_url']]
+                            success_count += 1
                         else:
-                            # Download from URL
-                            image_data = download_image_from_url(slot['image_url'])
-                            if image_data:
-                                slot['image_data'] = image_data
-                                success_count += 1
-                            else:
+                            fail_count += 1
+
+                # Then, download from Google Drive concurrently
+                slots_to_download = [s for s in st.session_state.slots if s.get('image_url') and not s['image_url'].startswith('uploaded://')]
+                total_to_download = len(slots_to_download)
+                completed = 0
+
+                def download_for_slot(slot):
+                    """Download image for a single slot"""
+                    image_data = download_image_from_url(slot['image_url'])
+                    return (slot, image_data)
+
+                if slots_to_download:
+                    with ThreadPoolExecutor(max_workers=10) as executor:
+                        futures = {executor.submit(download_for_slot, slot): slot for slot in slots_to_download}
+
+                        for future in as_completed(futures):
+                            try:
+                                slot, image_data = future.result()
+                                if image_data:
+                                    slot['image_data'] = image_data
+                                    success_count += 1
+                                else:
+                                    fail_count += 1
+
+                                completed += 1
+                                progress_bar.progress(completed / total_to_download)
+                                status_text.text(f"Đã tải {completed}/{total_to_download} ảnh từ Google Drive...")
+                            except Exception as e:
                                 fail_count += 1
+                                completed += 1
 
                 progress_bar.empty()
                 status_text.empty()
 
-                # Debug: Show download results
-                slots_with_data = [s for s in st.session_state.slots if s.get('image_data')]
-                st.success(f"✅ Download hoàn tất: {success_count} thành công, {fail_count} thất bại")
-                st.info(f"🔍 Debug: {len(slots_with_data)}/{len(st.session_state.slots)} slots có image_data")
-
+                # Show download results
+                total_images = success_count + fail_count
                 if fail_count > 0:
-                    st.warning(f"⚠️ Tải thành công {success_count}/{len(st.session_state.slots)} ảnh. {fail_count} ảnh bị lỗi.")
+                    st.warning(f"⚠️ Tải {success_count}/{total_images} ảnh thành công. {fail_count} ảnh bị lỗi.")
+                else:
+                    st.success(f"✅ Đã tải {success_count} ảnh thành công!")
 
                 # Build ZIP for all orders
                 zip_data = build_zip_for_all_orders(df, st.session_state.slots)
