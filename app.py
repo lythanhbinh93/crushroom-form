@@ -110,12 +110,9 @@ def needs_photo(row: pd.Series) -> bool:
 
 def get_img_per_unit(row: pd.Series) -> int:
     """
-    Get default images per unit: equals to quantity
+    Get default images per unit: always 1
     """
-    qty = row.get('Số lượng', 1)
-    if pd.isna(qty):
-        return 1
-    return int(qty)
+    return 1
 
 def expand_all_slots(df: pd.DataFrame) -> List[Dict]:
     """
@@ -761,19 +758,19 @@ def main():
                 cols = st.columns([0.5, 1.2, 0.6, 3, 1, 1.2, 0.9, 2.5])
 
                 with cols[0]:  # STT
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{int(row["STT"])}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:16px;">{int(row["STT"])}</div>', unsafe_allow_html=True)
 
                 with cols[1]:  # SĐT
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{row["SĐT"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:16px;">{row["SĐT"]}</div>', unsafe_allow_html=True)
 
                 with cols[2]:  # Slot
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:13px;">{int(row["Slot"])}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:16px;">{int(row["Slot"])}</div>', unsafe_allow_html=True)
 
                 with cols[3]:  # Tên File
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{row["Tên File"]}">{row["Tên File"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{row["Tên File"]}">{row["Tên File"]}</div>', unsafe_allow_html=True)
 
                 with cols[4]:  # SKU
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:12px;">{row["SKU"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:15px;">{row["SKU"]}</div>', unsafe_allow_html=True)
 
                 with cols[5]:  # Note - EDITABLE
                     # Init note in session_state if not exists
@@ -834,6 +831,11 @@ def main():
 
                     # Check if current selection is uploaded file
                     is_uploaded = current_selection.startswith('uploaded://')
+
+                    # Auto-select if only 1 image and nothing selected yet
+                    if len(matching_images) == 1 and not current_selection:
+                        st.session_state.image_selections[stt] = matching_images[0]['url']
+                        current_selection = matching_images[0]['url']
 
                     # Display thumbnails as clickable options
                     if matching_images:
