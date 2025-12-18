@@ -356,8 +356,222 @@ def main():
         layout="wide"
     )
 
+    # Custom CSS Theme
+    st.markdown("""
+    <style>
+        /* Color Palette */
+        :root {
+            --primary-color: #4F46E5;
+            --primary-hover: #4338CA;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --error-color: #EF4444;
+            --bg-light: #F9FAFB;
+            --bg-card: #FFFFFF;
+            --text-primary: #111827;
+            --text-secondary: #6B7280;
+            --border-color: #E5E7EB;
+        }
+
+        /* Main Container */
+        .main {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+        }
+
+        .main > div {
+            background: white;
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+
+        /* Headers */
+        h1 {
+            color: var(--primary-color) !important;
+            font-weight: 700 !important;
+            font-size: 2.5rem !important;
+            margin-bottom: 0.5rem !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            color: var(--text-primary) !important;
+            font-weight: 600 !important;
+            font-size: 1.75rem !important;
+            margin-top: 2rem !important;
+            margin-bottom: 1rem !important;
+            padding-bottom: 0.75rem !important;
+            border-bottom: 3px solid var(--primary-color) !important;
+        }
+
+        /* Subtitle */
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Buttons */
+        .stButton > button {
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            padding: 0.6rem 1.5rem !important;
+            transition: all 0.3s ease !important;
+            border: none !important;
+        }
+
+        .stButton > button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15) !important;
+        }
+
+        /* Download Button */
+        .stDownloadButton > button {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+            color: white !important;
+            border-radius: 12px !important;
+            font-weight: 700 !important;
+            padding: 1rem 2rem !important;
+            font-size: 1.1rem !important;
+            box-shadow: 0 10px 30px rgba(16,185,129,0.3) !important;
+        }
+
+        .stDownloadButton > button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(16,185,129,0.4) !important;
+        }
+
+        /* Input Fields */
+        .stTextInput > div > div > input {
+            border-radius: 8px !important;
+            border: 2px solid var(--border-color) !important;
+            padding: 0.75rem !important;
+            font-size: 1rem !important;
+        }
+
+        .stTextInput > div > div > input:focus {
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+        }
+
+        /* File Uploader */
+        .stFileUploader {
+            background: var(--bg-light);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 2px dashed var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .stFileUploader:hover {
+            border-color: var(--primary-color);
+            background: white;
+        }
+
+        /* Data Editor */
+        .stDataFrame {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+
+        /* Messages */
+        .stSuccess {
+            background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%) !important;
+            border-left: 4px solid var(--success-color) !important;
+            border-radius: 10px !important;
+            padding: 1rem 1.5rem !important;
+        }
+
+        .stError {
+            background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%) !important;
+            border-left: 4px solid var(--error-color) !important;
+            border-radius: 10px !important;
+            padding: 1rem 1.5rem !important;
+        }
+
+        .stWarning {
+            background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%) !important;
+            border-left: 4px solid var(--warning-color) !important;
+            border-radius: 10px !important;
+            padding: 1rem 1.5rem !important;
+        }
+
+        .stInfo {
+            background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%) !important;
+            border-left: 4px solid var(--primary-color) !important;
+            border-radius: 10px !important;
+            padding: 1rem 1.5rem !important;
+        }
+
+        /* Metrics */
+        .stMetric {
+            background: var(--bg-light);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stMetric:hover {
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+            transition: all 0.3s ease;
+        }
+
+        /* Progress Bar */
+        .stProgress > div > div > div {
+            background: linear-gradient(90deg, var(--primary-color), var(--success-color)) !important;
+            border-radius: 10px !important;
+        }
+
+        /* Expander */
+        .streamlit-expanderHeader {
+            background: var(--bg-light);
+            border-radius: 10px !important;
+            font-weight: 600;
+        }
+
+        .streamlit-expanderHeader:hover {
+            background: var(--border-color);
+        }
+
+        /* Image Thumbnails */
+        img {
+            border-radius: 8px;
+            transition: transform 0.2s ease;
+        }
+
+        img:hover {
+            transform: scale(1.05);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-light);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.title("📸 Order → Photo Naming Helper")
-    st.markdown("**Giúp đặt tên ảnh theo đơn hàng từ file Excel + Google Drive**")
+    st.markdown('<p class="subtitle">Giúp đặt tên ảnh theo đơn hàng từ file Excel + Google Drive</p>', unsafe_allow_html=True)
 
     # Initialize session state
     if 'df' not in st.session_state:
@@ -679,47 +893,76 @@ def main():
             5. Xem thumbnail ảnh ở cột bên phải để dễ chọn
             """)
 
-        # Custom CSS for compact table with controlled row height
+        # Custom CSS for modern table design
         st.markdown("""
         <style>
         .compact-table {
             width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 14px;
         }
         .compact-table th {
-            background-color: #f0f2f6;
-            padding: 8px 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 12px;
             text-align: left;
-            font-weight: 600;
-            border-bottom: 2px solid #ddd;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
             position: sticky;
             top: 0;
             z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .compact-table th:first-child {
+            border-top-left-radius: 12px;
+        }
+        .compact-table th:last-child {
+            border-top-right-radius: 12px;
         }
         .compact-table td {
-            padding: 4px;
-            border-bottom: 1px solid #eee;
+            padding: 8px;
             vertical-align: middle;
-            height: 60px;
-            max-height: 60px;
+            height: 70px;
+            max-height: 70px;
         }
         .compact-table img {
             height: 60px;
             width: auto;
             object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .table-container {
             max-height: 800px;
             overflow-y: auto;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+            background: white;
         }
-        /* Streamlit selectbox styling */
-        .compact-table .stSelectbox {
+        /* Row Styling */
+        .row-container {
+            background: white;
+            margin-bottom: 10px;
+            padding: 14px;
+            border-radius: 12px;
+            border: 2px solid #E5E7EB;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .row-container:hover {
+            border-color: #667eea;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
+            transform: translateX(6px);
+        }
+        /* Streamlit component styling */
+        .compact-table .stSelectbox,
+        .compact-table .stTextInput {
             margin-bottom: 0 !important;
         }
-        .compact-table .stSelectbox > div {
+        .compact-table .stSelectbox > div,
+        .compact-table .stTextInput > div {
             margin-bottom: 0 !important;
         }
         </style>
@@ -754,23 +997,26 @@ def main():
                 stt = int(row['STT'])
                 phone_digits = row['_phone_digits']
 
+                # Row container with hover effect
+                st.markdown('<div class="row-container">', unsafe_allow_html=True)
+
                 # Create columns for this row
                 cols = st.columns([0.5, 1.2, 0.6, 3, 1, 1.2, 0.9, 2.5])
 
                 with cols[0]:  # STT
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:16px;">{int(row["STT"])}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:17px;font-weight:700;color:#667eea;">{int(row["STT"])}</div>', unsafe_allow_html=True)
 
                 with cols[1]:  # SĐT
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:16px;">{row["SĐT"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:16px;color:#374151;">{row["SĐT"]}</div>', unsafe_allow_html=True)
 
                 with cols[2]:  # Slot
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:16px;">{int(row["Slot"])}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:16px;color:#6B7280;">{int(row["Slot"])}</div>', unsafe_allow_html=True)
 
                 with cols[3]:  # Tên File
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{row["Tên File"]}">{row["Tên File"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:15px;color:#111827;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{row["Tên File"]}">{row["Tên File"]}</div>', unsafe_allow_html=True)
 
                 with cols[4]:  # SKU
-                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:15px;">{row["SKU"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="height:60px;line-height:60px;font-size:15px;font-weight:600;color:#059669;background:#D1FAE5;padding:4px 12px;border-radius:8px;display:inline-block;">{row["SKU"]}</div>', unsafe_allow_html=True)
 
                 with cols[5]:  # Note - EDITABLE
                     # Init note in session_state if not exists
@@ -951,6 +1197,10 @@ def main():
                             st.success(f"✅ Đã upload: {uploaded_file.name}")
                             st.rerun()
 
+                # Close row container
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        # Close table container
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Sync session_state (selections AND note_edits) back to slots
