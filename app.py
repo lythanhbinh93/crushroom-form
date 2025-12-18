@@ -798,7 +798,17 @@ def main():
                         st.session_state.note_edits[stt] = new_note
 
                 with cols[6]:  # Preview
-                    if row['Preview']:
+                    # Check if there's a selection
+                    current_sel = st.session_state.image_selections.get(stt, '')
+
+                    if current_sel and current_sel.startswith('uploaded://'):
+                        # Show uploaded file preview
+                        if 'uploaded_files' in st.session_state and current_sel in st.session_state.uploaded_files:
+                            file_data = st.session_state.uploaded_files[current_sel]
+                            file_data.seek(0)  # Reset pointer
+                            st.image(file_data, width=60)
+                    elif row['Preview']:
+                        # Show Google Drive preview
                         st.image(row['Preview'], width=60)
                     else:
                         st.markdown('<div style="height:60px;"></div>', unsafe_allow_html=True)
@@ -822,10 +832,14 @@ def main():
                     # Get current selection from session_state
                     current_selection = st.session_state.image_selections.get(stt, '')
 
+                    # Check if current selection is uploaded file
+                    is_uploaded = current_selection.startswith('uploaded://')
+
                     # Display thumbnails as clickable options
                     if matching_images:
-                        # Create sub-columns for thumbnails (max 2 images per phone)
-                        thumb_cols = st.columns(len(matching_images) + 1)  # +1 for "None" option
+                        # Create sub-columns for thumbnails + upload button
+                        num_cols = len(matching_images) + 2  # +1 for clear, +1 for upload
+                        thumb_cols = st.columns(num_cols)
 
                         # Option to clear selection
                         with thumb_cols[0]:
@@ -855,20 +869,34 @@ def main():
                                     # Store URL directly instead of label for reliability
                                     st.session_state.image_selections[stt] = img['url']
                                     st.rerun()
+
+                        # Upload button (always show)
+                        with thumb_cols[-1]:
+                            st.markdown('<div style="height:60px;line-height:60px;text-align:center;">📁</div>', unsafe_allow_html=True)
+                            if st.button("Upload", key=f'upload_btn_{stt}_{idx}', use_container_width=True, type="primary" if is_uploaded else "secondary"):
+                                st.session_state[f'show_upload_{stt}'] = True
+                                st.rerun()
                     else:
-                        # No images found - show 2 options
+                        # No images found - show upload and alternative phone options
                         st.markdown('<div style="font-size:11px;color:#999;">⚠️ Không tìm thấy ảnh</div>', unsafe_allow_html=True)
 
-                        opt_cols = st.columns(2)
+                        opt_cols = st.columns(3)
 
+                        # Clear selection
                         with opt_cols[0]:
+                            if st.button("❌ Bỏ", key=f'img_none_{stt}_{idx}', use_container_width=True):
+                                st.session_state.image_selections[stt] = ''
+                                st.rerun()
+
+                        # Alternative phone
+                        with opt_cols[1]:
                             if st.button("➕ SĐT phụ", key=f'alt_phone_{stt}_{idx}', use_container_width=True):
-                                # Show text input for alternative phone
                                 st.session_state[f'show_alt_phone_input_{stt}'] = True
                                 st.rerun()
 
-                        with opt_cols[1]:
-                            if st.button("📁 Upload", key=f'manual_upload_{stt}_{idx}', use_container_width=True):
+                        # Upload button
+                        with opt_cols[2]:
+                            if st.button("📁 Upload", key=f'upload_btn_{stt}_{idx}', use_container_width=True, type="primary" if is_uploaded else "secondary"):
                                 st.session_state[f'show_upload_{stt}'] = True
                                 st.rerun()
 
@@ -894,29 +922,29 @@ def main():
                                 else:
                                     st.error(f"❌ Không tìm thấy ảnh cho {alt_phone}")
 
-                        # Show manual upload if requested
-                        if st.session_state.get(f'show_upload_{stt}', False):
-                            uploaded_file = st.file_uploader(
-                                "Chọn ảnh",
-                                type=['jpg', 'jpeg', 'png'],
-                                key=f'upload_file_{stt}_{idx}'
-                            )
+                    # Show manual upload dialog if requested (works for both cases)
+                    if st.session_state.get(f'show_upload_{stt}', False):
+                        uploaded_file = st.file_uploader(
+                            "Chọn ảnh từ máy",
+                            type=['jpg', 'jpeg', 'png'],
+                            key=f'upload_file_{stt}_{idx}'
+                        )
 
-                            if uploaded_file:
-                                # Save uploaded file to session_state
-                                file_data = io.BytesIO(uploaded_file.read())
+                        if uploaded_file:
+                            # Save uploaded file to session_state
+                            file_data = io.BytesIO(uploaded_file.read())
 
-                                # Store as "uploaded" URL
-                                upload_url = f"uploaded://{stt}/{uploaded_file.name}"
-                                st.session_state.image_selections[stt] = upload_url
+                            # Store as "uploaded" URL
+                            upload_url = f"uploaded://{stt}/{uploaded_file.name}"
+                            st.session_state.image_selections[stt] = upload_url
 
-                                # Store file data
-                                if 'uploaded_files' not in st.session_state:
-                                    st.session_state.uploaded_files = {}
-                                st.session_state.uploaded_files[upload_url] = file_data
+                            # Store file data
+                            if 'uploaded_files' not in st.session_state:
+                                st.session_state.uploaded_files = {}
+                            st.session_state.uploaded_files[upload_url] = file_data
 
-                                st.success(f"✅ Đã upload: {uploaded_file.name}")
-                                st.rerun()
+                            st.success(f"✅ Đã upload: {uploaded_file.name}")
+                            st.rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)
 
