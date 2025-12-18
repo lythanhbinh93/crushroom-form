@@ -943,6 +943,9 @@ def main():
                                 st.session_state.uploaded_files = {}
                             st.session_state.uploaded_files[upload_url] = file_data
 
+                            # Close upload dialog after successful upload
+                            st.session_state[f'show_upload_{stt}'] = False
+
                             st.success(f"✅ Đã upload: {uploaded_file.name}")
                             st.rerun()
 
