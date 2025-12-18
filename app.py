@@ -144,12 +144,12 @@ def expand_all_slots(df: pd.DataFrame) -> List[Dict]:
             phone = row.get('_phone_digits', '')
 
             for _ in range(total_slots):
-                # Build suggested name using GLOBAL index (STT) and ending with _
-                name_parts = [f"{global_idx}.", last4, sku]
+                # Build suggested name: "STT. last4_SKU_note_"
+                name_parts = [last4, sku]
                 if yy:
                     name_parts.append(yy)
 
-                suggested_name = "_".join(name_parts) + "_"
+                suggested_name = f"{global_idx}. " + "_".join(name_parts) + "_"
 
                 all_slots.append({
                     'global_idx': global_idx,
@@ -961,13 +961,13 @@ def main():
             if 'note_edits' in st.session_state and slot_stt in st.session_state.note_edits:
                 new_note = st.session_state.note_edits[slot_stt]
                 slot['yy'] = new_note
-                # Update suggested_name with new note
+                # Update suggested_name: "STT. last4_SKU_note_"
                 last4 = slot['phone'][-4:] if len(slot['phone']) >= 4 else slot['phone']
                 sku = slot['sku']
-                name_parts = [f"{slot_stt}.", last4, sku]
+                name_parts = [last4, sku]
                 if new_note:
                     name_parts.append(new_note)
-                slot['suggested_name'] = "_".join(name_parts) + "_"
+                slot['suggested_name'] = f"{slot_stt}. " + "_".join(name_parts) + "_"
 
             # Sync image selections
             selection_value = st.session_state.image_selections.get(slot_stt, '')
