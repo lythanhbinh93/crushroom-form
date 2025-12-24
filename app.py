@@ -1342,14 +1342,13 @@ def main():
                             slot['image_url'] = None
                             slot['thumbnail_url'] = None
                         else:
+                            # Check if it's uploaded file
+                            if selection_value.startswith('uploaded://'):
+                                slot['image_url'] = selection_value
+                                slot['thumbnail_url'] = None
                             # Check if it's already a URL (starts with http)
-                            if selection_value.startswith('http'):
+                            elif selection_value.startswith('http'):
                                 url_value = selection_value
-                            else:
-                                # Convert label to URL using mapping
-                                url_value = image_label_to_url.get(str(selection_value), None)
-
-                            if url_value:
                                 slot['image_url'] = url_value
                                 file_id = extract_gdrive_id(url_value)
                                 if file_id:
@@ -1357,8 +1356,19 @@ def main():
                                 else:
                                     slot['thumbnail_url'] = None
                             else:
-                                slot['image_url'] = None
-                                slot['thumbnail_url'] = None
+                                # Convert label to URL using mapping
+                                url_value = image_label_to_url.get(str(selection_value), None)
+
+                                if url_value:
+                                    slot['image_url'] = url_value
+                                    file_id = extract_gdrive_id(url_value)
+                                    if file_id:
+                                        slot['thumbnail_url'] = f"https://drive.google.com/thumbnail?id={file_id}&sz=h40"
+                                    else:
+                                        slot['thumbnail_url'] = None
+                                else:
+                                    slot['image_url'] = None
+                                    slot['thumbnail_url'] = None
 
                 # Download images (CONCURRENT)
                 success_count = 0
@@ -1371,7 +1381,12 @@ def main():
                 for slot in st.session_state.slots:
                     if slot.get('image_url') and slot['image_url'].startswith('uploaded://'):
                         if 'uploaded_files' in st.session_state and slot['image_url'] in st.session_state.uploaded_files:
-                            slot['image_data'] = st.session_state.uploaded_files[slot['image_url']]
+                            # Get BytesIO from session_state and create a fresh copy
+                            original_data = st.session_state.uploaded_files[slot['image_url']]
+                            original_data.seek(0)  # Reset to beginning
+                            # Create new BytesIO with copied data
+                            slot['image_data'] = io.BytesIO(original_data.read())
+                            original_data.seek(0)  # Reset original for future use
                             success_count += 1
                         else:
                             fail_count += 1
