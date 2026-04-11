@@ -1,0 +1,202 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  background: #fff;
+  color: #111;
+  min-height: 100vh;
+  padding: 40px 20px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.home-container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.home-header {
+  text-align: center;
+  margin-bottom: 50px;
+  padding-top: 20px;
+}
+
+.home-header h1 {
+  color: #111;
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  letter-spacing: -0.5px;
+}
+
+.home-header .subtitle {
+  font-size: 1rem;
+  color: #666;
+  font-weight: 400;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin-bottom: 40px;
+}
+
+.tool-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 28px 24px;
+  box-shadow: 0 2px 10px #f5f5f5;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  min-height: 240px;
+}
+
+.tool-card.active:hover {
+  border-color: #111;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.card-icon {
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 14px;
+}
+
+.card-subtitle {
+  color: #888;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.card-title {
+  color: #111;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  letter-spacing: -0.2px;
+}
+
+.card-description {
+  color: #555;
+  font-size: 14px;
+  line-height: 1.55;
+  margin-bottom: 22px;
+  flex-grow: 1;
+}
+
+.card-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 22px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  align-self: flex-start;
+}
+
+.card-cta:hover {
+  background: #444;
+}
+
+/* Disabled / Coming soon variant */
+.tool-card.disabled {
+  background: #fafafa;
+  border-color: #eee;
+  box-shadow: none;
+}
+
+.tool-card.disabled .card-title,
+.tool-card.disabled .card-description {
+  color: #999;
+}
+
+.tool-card.disabled .card-icon {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.card-cta--disabled {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 22px;
+  background: #f0f0f0;
+  color: #999;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: not-allowed;
+  align-self: flex-start;
+}
+
+.card-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #111;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.home-footer {
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+  padding: 30px 0 10px;
+  border-top: 1px solid #f0f0f0;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 24px 14px;
+  }
+
+  .home-header h1 {
+    font-size: 1.6rem;
+  }
+
+  .home-header .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .home-header {
+    margin-bottom: 30px;
+  }
+
+  .tool-card {
+    padding: 22px 18px;
+    min-height: 200px;
+  }
+
+  .card-icon {
+    font-size: 1.75rem;
+  }
+
+  .card-title {
+    font-size: 1.05rem;
+  }
+}

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check Ngày Có Hàng Tại Văn Phòng</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #fff;
+      color: #111;
+      padding: 20px;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 30px auto 10px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px #eee;
+      padding: 24px 18px 15px 18px;
+    }
+
+    .header {
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      color: #222;
+      text-align: center;
+      font-size: 22px;
+      margin: 0 0 10px 0;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .input-group {
+      margin: 18px 0 13px 0;
+    }
+
+    .input-group label {
+      display: block;
+      font-weight: 600;
+      color: #222;
+      margin-bottom: 8px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .input-row input[type='date'],
+    .input-row input[type='time'] {
+      width: 50%;
+      font-size: 15px;
+      padding: 8px 7px;
+      border: 1px solid #bbb;
+      border-radius: 5px;
+      box-sizing: border-box;
+    }
+
+    .input-group select {
+      width: 100%;
+      font-size: 15px;
+      padding: 8px 7px;
+      border-radius: 5px;
+      border: 1px solid #bbb;
+      margin-top: 0;
+    }
+
+    .input-group input:focus,
+    .input-group select:focus {
+      outline: none;
+      border-color: #666;
+    }
+
+    .note-time {
+      color: #666;
+      font-size: 13px;
+      margin-top: 4px;
+      margin-bottom: 0;
+    }
+
+    .btn-calculate {
+      width: 100%;
+      padding: 12px;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 15px;
+      margin-bottom: 5px;
+      transition: background 0.2s;
+    }
+
+    .btn-calculate:hover {
+      background: #444;
+    }
+
+    .results {
+      margin-top: 26px;
+      padding: 15px 11px 12px 11px;
+      background: #f8f8f8;
+      border-radius: 8px;
+      border: 1px solid #ececec;
+    }
+
+    .result-item {
+      padding: 9px 0 6px;
+    }
+
+    .result-label {
+      font-size: 13px;
+      color: #444;
+      margin-bottom: 3px;
+    }
+
+    .result-value {
+      font-size: 17px;
+      font-weight: 600;
+      color: #111;
+    }
+
+    .result-value.highlight {
+      color: #e95516;
+    }
+
+    .special-note {
+      background: #f5f3b6;
+      border-left: 4px solid #c4b500;
+      padding: 7px 12px 7px 10px;
+      margin-top: 11px;
+      border-radius: 7px;
+      color: #5f5d20;
+      font-size: 14px;
+    }
+
+    .note-under {
+      font-size: 13px;
+      color: #555;
+      margin-top: 13px;
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        max-width: none;
+        margin: 6px 3px 10px 3px;
+        padding: 11px 4px 10px 4px;
+        border-radius: 6px;
+      }
+
+      .header h1 {
+        font-size: 17px;
+        padding: 0 0 7px 0;
+      }
+
+      .input-row input,
+      .input-row input[type='time'],
+      .input-row input[type='date'],
+      .input-group select {
+        font-size: 14px;
+        padding: 7px 5px;
+      }
+
+      .result-value {
+        font-size: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Check Ngày Có Hàng Tại Văn Phòng</h1>
+    </div>
+
+    <div class="input-group">
+      <label for="orderDate">Ngày đặt hàng và giờ (real-time):</label>
+      <div class="input-row">
+        <input type="date" id="orderDate" required>
+        <input type="time" id="orderTime" required>
+      </div>
+      <div class="note-time">
+        Lưu ý: Nếu đơn đặt <b>sau 17h</b> thì tính ngày hôm sau.<br>
+        (Ví dụ: Đặt lúc 19h thứ 2 thì tính như ngày thứ 3)
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="province">Địa chỉ khách hàng:</label>
+      <select id="province" required>
+        <option value="">-- Chọn tỉnh/thành phố --</option>
+
+        <optgroup label="Miền Bắc">
+          <option value="ha-noi">Hà Nội</option>
+          <option value="ha-noi">Hà Tây</option>
+          <option value="bac-north">Hải Phòng</option>
+          <option value="bac-north">Quảng Ninh</option>
+          <option value="bac-north">Bắc Ninh</option>
+          <option value="bac-north">Thái Bình</option>
+          <option value="bac-north">Nam Định</option>
+          <option value="bac-north">Ninh Bình</option>
+          <option value="bac-north">Hải Dương</option>
+          <option value="bac-north">Hưng Yên</option>
+          <option value="bac-north">Vĩnh Phúc</option>
+          <option value="bac-north">Cao Bằng</option>
+          <option value="bac-north">Bắc Kạn</option>
+          <option value="bac-north">Tuyên Quang</option>
+          <option value="bac-north">Hà Giang</option>
+          <option value="bac-north">Lào Cai</option>
+          <option value="bac-north">Yên Bái</option>
+          <option value="bac-north">Phú Thọ</option>
+          <option value="bac-north">Sơn La</option>
+          <option value="bac-north">Hòa Bình</option>
+          <option value="bac-north">Lai Châu</option>
+          <option value="bac-north">Điện Biên</option>
+          <option value="bac-north">Thái Nguyên</option>
+          <option value="bac-north">Bắc Giang</option>
+          <option value="bac-north">Hà Nam</option>
+          <option value="bac-north">Lạng Sơn</option>
+        </optgroup>
+
+        <optgroup label="Miền Trung">
+          <option value="da-nang">Đà Nẵng</option>
+          <option value="central">Nghệ An</option>
+          <option value="central">Thanh Hóa</option>
+          <option value="central">Hà Tĩnh</option>
+          <option value="central">Quảng Bình</option>
+          <option value="central">Quảng Trị</option>
+          <option value="central">Thừa Thiên Huế</option>
+          <option value="central">Quảng Nam</option>
+          <option value="central">Quảng Ngãi</option>
+          <option value="central">Bình Định</option>
+          <option value="central">Phú Yên</option>
+          <option value="central">Khánh Hòa</option>
+          <option value="central">Bình Thuận</option>
+          <option value="central">Ninh Thuận</option>
+        </optgroup>
+
+        <optgroup label="Tây Nguyên">
+          <option value="central">Kon Tum</option>
+          <option value="central">Gia Lai</option>
+          <option value="central">Đắk Lắk</option>
+          <option value="central">Đắk Nông</option>
+          <option value="central">Lâm Đồng</option>
+        </optgroup>
+
+        <optgroup label="Miền Nam">
+          <option value="ho-chi-minh">Hồ Chí Minh</option>
+          <option value="south">Bình Dương</option>
+          <option value="south">Đồng Nai</option>
+          <option value="south">Bà Rịa - Vũng Tàu</option>
+          <option value="south">Long An</option>
+          <option value="south">Tiền Giang</option>
+          <option value="south">Bến Tre</option>
+          <option value="south">Vĩnh Long</option>
+          <option value="south">Cần Thơ</option>
+          <option value="south">An Giang</option>
+          <option value="south">Đồng Tháp</option>
+          <option value="south">Kiên Giang</option>
+          <option value="south">Hậu Giang</option>
+          <option value="south">Sóc Trăng</option>
+          <option value="south">Bạc Liêu</option>
+          <option value="south">Cà Mau</option>
+          <option value="south">Tây Ninh</option>
+          <option value="south">Bình Phước</option>
+          <option value="south">Trà Vinh</option>
+        </optgroup>
+
+        <optgroup label="Trường hợp đặc biệt">
+          <option value="phu-quoc">Phú Quốc (Kiên Giang)</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <button class="btn-calculate" onclick="calculate()">Tính toán ngày giao hàng</button>
+
+    <div class="results" id="results" style="display: none">
+      <div class="result-item">
+        <div class="result-label">Ngày ƯỚC TÍNH sản xuất xong ở văn phòng (HCM):</div>
+        <div class="result-value highlight" id="officeDate">-</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">Địa chỉ khách hàng:</div>
+        <div class="result-value" id="customerProvince">-</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">Ngày ước tính khách nhận được:</div>
+        <div class="result-value highlight" id="deliveryDate">-</div>
+      </div>
+
+      <div class="special-note" id="specialNote" style="display: none">
+        <strong>⚠️ Lưu ý:</strong> <span id="noteText"></span>
+      </div>
+    </div>
+
+    <div class="note-under">
+      Sử dụng tốt trên điện thoại/máy tính - Các thời điểm cắt mốc đặt đơn dựa theo <b>17h mỗi ngày</b>.
+    </div>
+  </div>
+
+  <script>
+    function pad(n) {
+      return n < 10 ? "0" + n : n;
+    }
+
+    window.onload = function () {
+      const now = new Date();
+      document.getElementById("orderDate").value = now.toISOString().slice(0, 10);
+      document.getElementById("orderTime").value =
+        pad(now.getHours()) + ":" + pad(now.getMinutes());
+    };
+
+    function addDays(date, days) {
+      const result = new Date(date);
+      result.setDate(result.getDate() + days);
+      return result;
+    }
+
+    function formatVietnameseDate(date) {
+      const day = date.getDate();
+      const month = date.getMonth() + 1;
+      const year = date.getFullYear();
+      return `${day} tháng ${month} năm ${year}`;
+    }
+
+    // ====== LOGIC CUTOFF 17:00 (5h chiều) ======
+    function getOfficeDateByFixedSchedule(orderDateReal) {
+      const order = new Date(orderDateReal);
+      const day = order.getDay(); // 0 = CN, 1 = T2, ... 6 = T7
+      const hour = order.getHours();
+      const minute = order.getMinutes();
+
+      // Cutoff: 17:00 (>= 17:00 xem như sau cutoff)
+      const CUTOFF_HOUR = 17;
+      const CUTOFF_MINUTE = 0;
+
+      const isBeforeCutoff =
+        hour < CUTOFF_HOUR || (hour === CUTOFF_HOUR && minute < CUTOFF_MINUTE);
+      const isAfterOrAtCutoff = !isBeforeCutoff;
+
+      // Chủ nhật (0): Giao Thứ 6 kế tiếp
+      if (day === 0) {
+        let friday = new Date(order);
+        friday.setDate(order.getDate() + 5);
+        return friday;
+      }
+
+      // Đợt Thứ 2 (giao Thứ 6 tuần này): Thứ 2 < 17h
+      if (day === 1 && isBeforeCutoff) {
+        let monday = new Date(order);
+        monday.setDate(order.getDate() - ((order.getDay() + 6) % 7));
+        let friday = new Date(monday);
+        friday.setDate(monday.getDate() + 4);
+        return friday;
+      }
+
+      // Đợt Thứ 4 (giao Thứ 2 tuần sau):
+      // Thứ 3 mọi giờ, Thứ 4 < 17h, Thứ 2 >= 17h
+      if (day === 2 || (day === 3 && isBeforeCutoff) || (day === 1 && isAfterOrAtCutoff)) {
+        let monday = new Date(order);
+        monday.setDate(order.getDate() - ((order.getDay() + 6) % 7));
+        let nextMonday = new Date(monday);
+        nextMonday.setDate(monday.getDate() + 7); // Thứ 2 tuần sau
+        return nextMonday;
+      }
+
+      // Đợt Thứ 7 (giao Thứ 4 tuần sau):
+      // Thứ 5, Thứ 6 mọi giờ, Thứ 7 < 17h, Thứ 4 >= 17h
+      if (
+        day === 4 || // Thứ 5
+        day === 5 || // Thứ 6
+        (day === 6 && isBeforeCutoff) || // Thứ 7 < 17h
+        (day === 3 && isAfterOrAtCutoff) // Thứ 4 >= 17h
+      ) {
+        let monday = new Date(order);
+        monday.setDate(order.getDate() - ((order.getDay() + 6) % 7));
+        let nextWednesday = new Date(monday);
+        nextWednesday.setDate(monday.getDate() + 9); // Thứ 4 tuần sau
+        return nextWednesday;
+      }
+
+      // Thứ 7 >= 17h: giao Thứ 6 tuần sau
+      if (day === 6 && isAfterOrAtCutoff) {
+        let monday = new Date(order);
+        monday.setDate(order.getDate() - ((order.getDay() + 6) % 7));
+        let nextMonday = new Date(monday);
+        nextMonday.setDate(monday.getDate() + 7); // Thứ 2 tuần sau
+        let nextFriday = new Date(nextMonday);
+        nextFriday.setDate(nextMonday.getDate() + 4); // Thứ 6 tuần sau
+        return nextFriday;
+      }
+
+      // Fallback: giao Thứ 6 tuần này
+      let monday = new Date(order);
+      monday.setDate(order.getDate() - ((order.getDay() + 6) % 7));
+      let friday = new Date(monday);
+      friday.setDate(monday.getDate() + 4);
+      return friday;
+    }
+
+    function calculateDeliveryDate(officeDate, provinceType) {
+      let daysToAdd;
+      let note = "";
+
+      switch (provinceType) {
+        case "ha-noi":
+          daysToAdd = 3;
+          break;
+        case "bac-north":
+          daysToAdd = 4;
+          break;
+        case "da-nang":
+          daysToAdd = 3;
+          break;
+        case "central":
+          daysToAdd = 4;
+          break;
+        case "ho-chi-minh":
+          daysToAdd = 2;
+          break;
+        case "south":
+          daysToAdd = 3;
+          break;
+        case "phu-quoc":
+          daysToAdd = 5; // Cộng 2 ngày miền Nam + 5 ngày đặc biệt
+          note = "Đảo Phú Quốc (Kiên Giang) + 5 ngày";
+          break;
+        default:
+          daysToAdd = 0;
+      }
+
+      return {
+        date: addDays(officeDate, daysToAdd),
+        note: note,
+      };
+    }
+
+    function calculate() {
+      const orderDateInput = document.getElementById("orderDate").value;
+      const orderTimeInput = document.getElementById("orderTime").value;
+      const provinceSelect = document.getElementById("province");
+      const provinceType = provinceSelect.value;
+      const provinceName =
+        provinceSelect.options[provinceSelect.selectedIndex].text;
+
+      if (!orderDateInput || !orderTimeInput || !provinceType) {
+        alert("Vui lòng điền đầy đủ thông tin!");
+        return;
+      }
+
+      const [year, month, day] = orderDateInput.split("-");
+      const [hour, minute] = orderTimeInput.split(":");
+      const orderDateReal = new Date(year, month - 1, day, hour, minute);
+
+      // Tính ngày có hàng tại VP (thêm 1 ngày trừ hao)
+      const officeDate = addDays(getOfficeDateByFixedSchedule(orderDateReal), 1);
+
+      // Tính ngày khách nhận hàng
+      const deliveryResult = calculateDeliveryDate(officeDate, provinceType);
+
+      // Hiển thị kết quả
+      document.getElementById("officeDate").textContent = formatVietnameseDate(officeDate);
+
+      const customerText =
+        provinceType === "ho-chi-minh"
+          ? `${provinceName} (NẾU SHIP GRAB THÌ CỘNG THÊM 1 NGÀY SAU KHI CÓ HÀNG Ở VĂN PHÒNG)`
+          : provinceName;
+
+      document.getElementById("customerProvince").textContent = customerText;
+
+      document.getElementById("deliveryDate").textContent = formatVietnameseDate(deliveryResult.date);
+
+      // Ghi chú đặc biệt (Phú Quốc)
+      const specialNote = document.getElementById("specialNote");
+      const noteText = document.getElementById("noteText");
+
+      if (deliveryResult.note) {
+        noteText.textContent = deliveryResult.note;
+        specialNote.style.display = "block";
+      } else {
+        specialNote.style.display = "none";
+      }
+
+      // Show results section
+      document.getElementById("results").style.display = "block";
+      document
+        .getElementById("results")
+        .scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  </script>
+</body>
+</html>
