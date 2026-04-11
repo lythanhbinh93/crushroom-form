@@ -9,6 +9,10 @@
       "dest": "/admin.html"
     },
     {
+      "src": "/couplepix.html",
+      "dest": "/couplepix.html"
+    },
+    {
       "src": "/",
       "dest": "/index.html"
     }
