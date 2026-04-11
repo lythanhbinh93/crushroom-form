@@ -327,6 +327,236 @@ body {
   font-size: 14px;
 }
 
+/* ============================================================
+   BROWSE BY DATE (Preview Table)
+   ============================================================ */
+.browse-section {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  margin-top: 30px;
+  margin-bottom: 24px;
+}
+
+.browse-header {
+  margin-bottom: 20px;
+}
+
+.browse-header h2 {
+  color: #333;
+  font-size: 1.5rem;
+  margin-bottom: 6px;
+}
+
+.browse-hint {
+  color: #666;
+  font-size: 14px;
+}
+
+.date-range-box {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.date-input-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.date-input-group input[type="date"] {
+  padding: 12px 14px;
+  font-size: 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.date-input-group input[type="date"]:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+#load-list-btn {
+  flex-shrink: 0;
+}
+
+.browse-empty {
+  background: white;
+  padding: 60px 24px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.list-results-section {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.list-results-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.list-results-header h2 {
+  color: #333;
+  font-size: 1.6rem;
+  margin-bottom: 6px;
+}
+
+.day-section {
+  margin-bottom: 32px;
+}
+
+.day-section:last-child {
+  margin-bottom: 0;
+}
+
+.day-section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.day-section-header h3 {
+  color: white;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.day-count {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  margin-left: auto;
+}
+
+.upload-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #ececec;
+  border-radius: 8px;
+}
+
+.upload-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: #fff;
+}
+
+.upload-table thead th {
+  text-align: left;
+  padding: 12px 14px;
+  background: #f8f9fa;
+  color: #555;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid #ececec;
+}
+
+.upload-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3f3f3;
+  vertical-align: middle;
+  color: #333;
+}
+
+.upload-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.upload-table tbody tr:hover {
+  background: #fafbff;
+}
+
+.upload-table .col-time {
+  width: 70px;
+  white-space: nowrap;
+  color: #666;
+  font-variant-numeric: tabular-nums;
+}
+
+.upload-table .col-phone {
+  width: 140px;
+  white-space: nowrap;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.upload-table .col-type {
+  width: 100px;
+  white-space: nowrap;
+  color: #555;
+}
+
+.upload-table .col-note {
+  max-width: 280px;
+  color: #555;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.upload-table .col-images {
+  width: 150px;
+}
+
+.upload-table .col-note .muted,
+.upload-table .no-img {
+  color: #bbb;
+}
+
+.thumb-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.table-thumb {
+  display: block;
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e5e5e5;
+  transition: transform 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+}
+
+.table-thumb:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.table-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* Mobile Optimization */
 @media (max-width: 768px) {
   body {
@@ -433,6 +663,60 @@ body {
 
   .empty-state p {
     font-size: 14px;
+  }
+
+  /* Browse by date - mobile */
+  .browse-section {
+    padding: 20px 16px;
+    margin-top: 20px;
+  }
+
+  .browse-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .date-range-box {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .date-input-group {
+    min-width: 0;
+  }
+
+  .list-results-section {
+    padding: 20px 14px;
+  }
+
+  .list-results-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .day-section-header {
+    padding: 8px 12px;
+  }
+
+  .day-section-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .day-count {
+    font-size: 12px;
+  }
+
+  .upload-table {
+    font-size: 13px;
+  }
+
+  .upload-table thead th,
+  .upload-table tbody td {
+    padding: 10px 10px;
+  }
+
+  .table-thumb {
+    width: 50px;
+    height: 50px;
   }
 }
 

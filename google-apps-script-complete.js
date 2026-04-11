@@ -21,6 +21,10 @@ function doGet(e) {
             return searchByPhone(phone);
         }
 
+        if (action === 'list') {
+            return listByDateRange(e.parameter.from, e.parameter.to);
+        }
+
         return ContentService
             .createTextOutput(JSON.stringify({ 'success': false, 'error': 'Invalid request' }))
             .setMimeType(ContentService.MimeType.JSON);
@@ -122,6 +126,137 @@ function searchByPhone(phone) {
     }
 }
 
+// ===== LIST UPLOADS BY DATE RANGE (cho preview table theo ngày) =====
+function listByDateRange(fromStr, toStr) {
+    try {
+        if (!fromStr || !toStr) {
+            return ContentService
+                .createTextOutput(JSON.stringify({
+                    'success': false,
+                    'error': 'Thiếu tham số from / to (định dạng YYYY-MM-DD)',
+                    'results': [],
+                    'count': 0
+                }))
+                .setMimeType(ContentService.MimeType.JSON);
+        }
+
+        const from = parseDateStart(fromStr);
+        const to = parseDateEnd(toStr);
+
+        if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+            return ContentService
+                .createTextOutput(JSON.stringify({
+                    'success': false,
+                    'error': 'Định dạng ngày không hợp lệ (cần YYYY-MM-DD)',
+                    'results': [],
+                    'count': 0
+                }))
+                .setMimeType(ContentService.MimeType.JSON);
+        }
+
+        if (from > to) {
+            return ContentService
+                .createTextOutput(JSON.stringify({
+                    'success': false,
+                    'error': 'Ngày bắt đầu phải <= ngày kết thúc',
+                    'results': [],
+                    'count': 0
+                }))
+                .setMimeType(ContentService.MimeType.JSON);
+        }
+
+        const doc = SpreadsheetApp.openById(scriptProp.getProperty('key'));
+        const sheet = doc.getSheetByName(sheetName);
+        const data = sheet.getDataRange().getValues();
+        const headers = data[0];
+        const dateIndex = headers.indexOf('Date');
+        const nameIndex = headers.indexOf('Name');
+
+        if (dateIndex === -1) {
+            throw new Error('Column "Date" not found');
+        }
+
+        const results = [];
+
+        for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            const rowDate = row[dateIndex];
+
+            // Bỏ qua dòng không có Date hợp lệ
+            if (!(rowDate instanceof Date) || isNaN(rowDate.getTime())) {
+                continue;
+            }
+
+            // Lọc theo khoảng ngày
+            if (rowDate < from || rowDate > to) {
+                continue;
+            }
+
+            // Áp dụng cùng validation số điện thoại với searchByPhone
+            // để loại các dòng rác / ghi chú khỏi bảng preview
+            if (nameIndex !== -1) {
+                const nameValue = String(row[nameIndex] || '');
+                const cleanRowPhone = nameValue.replace(/\D/g, '');
+                if (cleanRowPhone.length < 8 || cleanRowPhone.length > 12) {
+                    continue;
+                }
+                const nonDigitCount = nameValue.length - cleanRowPhone.length;
+                if (nonDigitCount > 5) {
+                    continue;
+                }
+            }
+
+            const rowData = {};
+            headers.forEach((header, index) => {
+                rowData[header] = row[index];
+            });
+            results.push(rowData);
+        }
+
+        return ContentService
+            .createTextOutput(JSON.stringify({
+                'success': true,
+                'results': results,
+                'count': results.length
+            }))
+            .setMimeType(ContentService.MimeType.JSON);
+
+    } catch (error) {
+        return ContentService
+            .createTextOutput(JSON.stringify({
+                'success': false,
+                'error': error.toString(),
+                'results': [],
+                'count': 0
+            }))
+            .setMimeType(ContentService.MimeType.JSON);
+    }
+}
+
+function parseDateStart(s) {
+    // Expects YYYY-MM-DD; returns local Date at 00:00:00.000
+    const parts = String(s).split('-');
+    if (parts.length !== 3) return new Date(NaN);
+    return new Date(
+        parseInt(parts[0], 10),
+        parseInt(parts[1], 10) - 1,
+        parseInt(parts[2], 10),
+        0, 0, 0, 0
+    );
+}
+
+function parseDateEnd(s) {
+    // Expects YYYY-MM-DD; returns local Date at 23:59:59.999
+    const parts = String(s).split('-');
+    if (parts.length !== 3) return new Date(NaN);
+    return new Date(
+        parseInt(parts[0], 10),
+        parseInt(parts[1], 10) - 1,
+        parseInt(parts[2], 10),
+        23, 59, 59, 999
+    );
+}
+
 // ===== XỬ LÝ POST REQUEST - UPLOAD ẢNH =====
 function doPost(e) {
     const lock = LockService.getScriptLock()
@@ -208,3 +343,5 @@ function doPost(e) {
 // ✅ Loại bỏ các dòng có quá nhiều ký tự không phải số (ghi chú)
 // ✅ Chỉ match chính xác hoặc match với country code (tối đa 3 số khác biệt)
 // ✅ Giúp tránh trường hợp search trả về kết quả sai do khách nhập ghi chú vào trường số điện thoại
+// ✅ NEW: action=list&from=YYYY-MM-DD&to=YYYY-MM-DD trả về danh sách upload theo khoảng ngày
+//        (dùng cho Preview Table theo ngày trong Admin Panel)
