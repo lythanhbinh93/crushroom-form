@@ -13,6 +13,10 @@
       "dest": "/couplepix.html"
     },
     {
+      "src": "/check-date.html",
+      "dest": "/check-date.html"
+    },
+    {
       "src": "/",
       "dest": "/index.html"
     }
