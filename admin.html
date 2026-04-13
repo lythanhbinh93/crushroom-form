@@ -3,114 +3,193 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Panel - CouplePix Image Viewer</title>
+  <title>Admin Panel - CouplePix</title>
   <link rel="stylesheet" href="./assets/admin.css">
 </head>
 <body>
   <div class="admin-container">
     <div class="admin-header">
-      <h1>🖼️ CouplePix Admin Panel</h1>
-      <p class="subtitle">Kiểm tra ảnh khách hàng đã upload</p>
-    </div>
-
-    <div class="search-section">
-      <div class="search-box">
-        <input
-          type="text"
-          id="phone-search"
-          placeholder="Nhập số điện thoại khách hàng (VD: 0918260494)"
-          autofocus
-        >
-        <button id="search-btn" class="btn-primary">
-          <span class="btn-icon">🔍</span>
-          Tìm kiếm
-        </button>
-      </div>
-      <p class="search-hint">💡 Tip: Paste số điện thoại và nhấn Enter hoặc click Tìm kiếm</p>
-    </div>
-
-    <div id="loading" class="loading" style="display: none;">
-      <div class="spinner"></div>
-      <p>Đang tìm kiếm...</p>
-    </div>
-
-    <div id="error-message" class="error-message" style="display: none;"></div>
-
-    <div id="results" class="results-section" style="display: none;">
-      <div class="results-header">
-        <h2>Kết quả tìm kiếm</h2>
-        <p id="result-info" class="result-info"></p>
-      </div>
-
-      <div id="images-grid" class="images-grid"></div>
-    </div>
-
-    <div id="no-results" class="no-results" style="display: none;">
-      <div class="empty-state">
-        <div class="empty-icon">📭</div>
-        <h3>Không tìm thấy kết quả</h3>
-        <p>Không có ảnh nào với số điện thoại này.</p>
-        <p class="hint">Vui lòng kiểm tra lại số điện thoại hoặc thử số khác.</p>
-      </div>
+      <h1>CouplePix Admin Panel</h1>
+      <p class="subtitle">Quản lý ảnh, QR Ghi âm và Love Counter</p>
     </div>
 
     <!-- ============================== -->
-    <!-- BROWSE BY DATE (Preview Table) -->
+    <!-- TAB NAVIGATION                -->
     <!-- ============================== -->
-    <div class="browse-section">
-      <div class="browse-header">
-        <h2>📅 Xem theo ngày</h2>
-        <p class="browse-hint">Chọn khoảng thời gian để xem danh sách upload, nhóm theo ngày.</p>
-      </div>
+    <div class="admin-tabs">
+      <button class="tab-btn active" data-tab="tab-photo">Check Photo</button>
+      <button class="tab-btn" data-tab="tab-qr-audio">QR Ghi âm</button>
+      <button class="tab-btn" data-tab="tab-love-counter">Love Counter</button>
+    </div>
 
-      <div class="date-range-box">
-        <div class="date-input-group">
-          <label for="date-from">Từ ngày</label>
-          <input type="date" id="date-from">
+    <!-- ============================================================ -->
+    <!-- TAB 1: CHECK PHOTO (existing)                                -->
+    <!-- ============================================================ -->
+    <div class="tab-content active" id="tab-photo">
+      <div class="search-section">
+        <div class="search-box">
+          <input
+            type="text"
+            id="phone-search"
+            placeholder="Nhập số điện thoại khách hàng (VD: 0918260494)"
+            autofocus
+          >
+          <button id="search-btn" class="btn-primary">
+            <span class="btn-icon">🔍</span>
+            Tìm kiếm
+          </button>
         </div>
-        <div class="date-input-group">
-          <label for="date-to">Đến ngày</label>
-          <input type="date" id="date-to">
+        <p class="search-hint">Paste số điện thoại và nhấn Enter hoặc click Tìm kiếm</p>
+      </div>
+
+      <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Đang tìm kiếm...</p>
+      </div>
+
+      <div id="error-message" class="error-message" style="display: none;"></div>
+
+      <div id="results" class="results-section" style="display: none;">
+        <div class="results-header">
+          <h2>Kết quả tìm kiếm</h2>
+          <p id="result-info" class="result-info"></p>
         </div>
-        <button id="load-list-btn" class="btn-primary">
-          <span class="btn-icon">📋</span>
-          Tải danh sách
-        </button>
+        <div id="images-grid" class="images-grid"></div>
+      </div>
+
+      <div id="no-results" class="no-results" style="display: none;">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <h3>Không tìm thấy kết quả</h3>
+          <p>Không có ảnh nào với số điện thoại này.</p>
+          <p class="hint">Vui lòng kiểm tra lại số điện thoại hoặc thử số khác.</p>
+        </div>
+      </div>
+
+      <!-- BROWSE BY DATE -->
+      <div class="browse-section">
+        <div class="browse-header">
+          <h2>📅 Xem theo ngày</h2>
+          <p class="browse-hint">Chọn khoảng thời gian để xem danh sách upload, nhóm theo ngày.</p>
+        </div>
+        <div class="date-range-box">
+          <div class="date-input-group">
+            <label for="date-from">Từ ngày</label>
+            <input type="date" id="date-from">
+          </div>
+          <div class="date-input-group">
+            <label for="date-to">Đến ngày</label>
+            <input type="date" id="date-to">
+          </div>
+          <button id="load-list-btn" class="btn-primary">
+            <span class="btn-icon">📋</span>
+            Tải danh sách
+          </button>
+        </div>
+      </div>
+
+      <div id="list-loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Đang tải danh sách...</p>
+      </div>
+      <div id="list-error" class="error-message" style="display: none;"></div>
+      <div id="list-empty" class="browse-empty">
+        <div class="empty-state">
+          <div class="empty-icon">📅</div>
+          <h3>Chọn khoảng thời gian</h3>
+          <p>Chọn ngày bắt đầu và ngày kết thúc, sau đó nhấn <b>Tải danh sách</b> để xem các upload theo từng ngày.</p>
+        </div>
+      </div>
+      <div id="list-no-results" class="no-results" style="display: none;">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <h3>Không có upload trong khoảng này</h3>
+          <p>Hãy thử chọn một khoảng ngày khác.</p>
+        </div>
+      </div>
+      <div id="list-results" class="list-results-section" style="display: none;">
+        <div class="list-results-header">
+          <h2>Danh sách upload</h2>
+          <p id="list-result-info" class="result-info"></p>
+        </div>
+        <div id="list-day-sections"></div>
       </div>
     </div>
 
-    <div id="list-loading" class="loading" style="display: none;">
-      <div class="spinner"></div>
-      <p>Đang tải danh sách...</p>
-    </div>
+    <!-- ============================================================ -->
+    <!-- TAB 2: QR GHI ÂM                                            -->
+    <!-- ============================================================ -->
+    <div class="tab-content" id="tab-qr-audio">
+      <div class="search-section">
+        <div class="search-box">
+          <input type="text" id="qr-audio-phone" placeholder="Nhập SĐT khách hàng">
+          <button id="qr-audio-search-btn" class="btn-primary">
+            <span class="btn-icon">🔍</span>
+            Tìm kiếm
+          </button>
+        </div>
+        <p class="search-hint">Tìm các bản upload QR Ghi âm theo số điện thoại</p>
+      </div>
 
-    <div id="list-error" class="error-message" style="display: none;"></div>
-
-    <div id="list-empty" class="browse-empty">
-      <div class="empty-state">
-        <div class="empty-icon">📅</div>
-        <h3>Chọn khoảng thời gian</h3>
-        <p>Chọn ngày bắt đầu và ngày kết thúc, sau đó nhấn <b>Tải danh sách</b> để xem các upload theo từng ngày.</p>
+      <div id="qr-audio-loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Đang tìm kiếm...</p>
+      </div>
+      <div id="qr-audio-error" class="error-message" style="display: none;"></div>
+      <div id="qr-audio-no-results" class="no-results" style="display: none;">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <h3>Không tìm thấy</h3>
+          <p>Không có upload QR Ghi âm nào với SĐT này.</p>
+        </div>
+      </div>
+      <div id="qr-audio-results" class="results-section" style="display: none;">
+        <div class="results-header">
+          <h2>Kết quả QR Ghi âm</h2>
+          <p id="qr-audio-result-info" class="result-info"></p>
+        </div>
+        <div id="qr-audio-list"></div>
       </div>
     </div>
 
-    <div id="list-no-results" class="no-results" style="display: none;">
-      <div class="empty-state">
-        <div class="empty-icon">📭</div>
-        <h3>Không có upload trong khoảng này</h3>
-        <p>Hãy thử chọn một khoảng ngày khác.</p>
+    <!-- ============================================================ -->
+    <!-- TAB 3: LOVE COUNTER                                          -->
+    <!-- ============================================================ -->
+    <div class="tab-content" id="tab-love-counter">
+      <div class="search-section">
+        <div class="search-box">
+          <input type="text" id="lc-phone" placeholder="Nhập SĐT khách hàng">
+          <button id="lc-search-btn" class="btn-primary">
+            <span class="btn-icon">🔍</span>
+            Tìm kiếm
+          </button>
+        </div>
+        <p class="search-hint">Tìm các bản upload Love Counter theo số điện thoại</p>
       </div>
-    </div>
 
-    <div id="list-results" class="list-results-section" style="display: none;">
-      <div class="list-results-header">
-        <h2>Danh sách upload</h2>
-        <p id="list-result-info" class="result-info"></p>
+      <div id="lc-loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Đang tìm kiếm...</p>
       </div>
-      <div id="list-day-sections"></div>
+      <div id="lc-error" class="error-message" style="display: none;"></div>
+      <div id="lc-no-results" class="no-results" style="display: none;">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <h3>Không tìm thấy</h3>
+          <p>Không có upload Love Counter nào với SĐT này.</p>
+        </div>
+      </div>
+      <div id="lc-results" class="results-section" style="display: none;">
+        <div class="results-header">
+          <h2>Kết quả Love Counter</h2>
+          <p id="lc-result-info" class="result-info"></p>
+        </div>
+        <div id="lc-list"></div>
+      </div>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="./assets/admin.js"></script>
 </body>
 </html>

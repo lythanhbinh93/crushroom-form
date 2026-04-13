@@ -3,7 +3,6 @@
  *
  * Usage: each HTML page calls CrushForm.init(config) after DOM ready.
  *   config.action        — Apps Script action name (e.g. 'uploadQrAudio')
- *   config.viewPagePath  — view page relative path (e.g. '/view-qr-audio.html')
  *   config.fields        — array of { name, required, type, maxSize, ... }
  */
 (function () {
@@ -143,8 +142,8 @@
 
       progressEl.classList.remove('visible');
 
-      if (data.success && data.id) {
-        showSuccess(config, data.id, successEl);
+      if (data.success) {
+        successEl.classList.add('visible');
       } else {
         throw new Error(data.error || 'Upload thất bại.');
       }
@@ -153,50 +152,6 @@
       formCard.style.display = '';
       submitBtn.disabled = false;
       showError(errorBanner, err.message);
-    }
-  }
-
-  /* ─── Success + QR ─── */
-
-  function showSuccess(config, id, successEl) {
-    successEl.classList.add('visible');
-
-    const origin = window.location.origin;
-    const viewUrl = origin + config.viewPagePath + '?id=' + encodeURIComponent(id);
-
-    // Set link
-    const linkEl = document.getElementById('view-url');
-    if (linkEl) {
-      linkEl.innerHTML = '<a href="' + escapeHtml(viewUrl) + '" target="_blank">' + escapeHtml(viewUrl) + '</a>';
-    }
-
-    // Generate QR
-    const qrContainer = document.getElementById('qr-code');
-    if (qrContainer && typeof QRCode !== 'undefined') {
-      qrContainer.innerHTML = '';
-      new QRCode(qrContainer, {
-        text: viewUrl,
-        width: 200,
-        height: 200,
-        colorDark: '#111111',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    }
-
-    // Copy button
-    const btnCopy = document.getElementById('btn-copy');
-    if (btnCopy) {
-      btnCopy.onclick = function () {
-        navigator.clipboard.writeText(viewUrl).then(function () {
-          btnCopy.textContent = 'Copied!';
-          btnCopy.classList.add('copied');
-          setTimeout(function () {
-            btnCopy.textContent = 'Copy link';
-            btnCopy.classList.remove('copied');
-          }, 2000);
-        });
-      };
     }
   }
 

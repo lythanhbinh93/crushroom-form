@@ -385,4 +385,224 @@ document.addEventListener('DOMContentLoaded', function() {
     listNoResults.style.display = 'none';
     listResults.style.display = 'none';
   }
+
+  // ============================================================
+  // TAB NAVIGATION
+  // ============================================================
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ============================================================
+  // TAB 2: QR GHI ÂM — search by phone + generate QR
+  // ============================================================
+  const qrAudioPhone = document.getElementById('qr-audio-phone');
+  const qrAudioSearchBtn = document.getElementById('qr-audio-search-btn');
+  const qrAudioLoading = document.getElementById('qr-audio-loading');
+  const qrAudioError = document.getElementById('qr-audio-error');
+  const qrAudioNoResults = document.getElementById('qr-audio-no-results');
+  const qrAudioResults = document.getElementById('qr-audio-results');
+  const qrAudioResultInfo = document.getElementById('qr-audio-result-info');
+  const qrAudioList = document.getElementById('qr-audio-list');
+
+  qrAudioSearchBtn.addEventListener('click', searchQrAudio);
+  qrAudioPhone.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchQrAudio();
+  });
+
+  function hideAllQrAudio() {
+    qrAudioLoading.style.display = 'none';
+    qrAudioError.style.display = 'none';
+    qrAudioNoResults.style.display = 'none';
+    qrAudioResults.style.display = 'none';
+  }
+
+  function searchQrAudio() {
+    const phone = qrAudioPhone.value.trim().replace(/\D/g, '');
+    if (!phone) {
+      hideAllQrAudio();
+      qrAudioError.textContent = 'Vui lòng nhập số điện thoại';
+      qrAudioError.style.display = 'block';
+      return;
+    }
+    hideAllQrAudio();
+    qrAudioLoading.style.display = 'block';
+
+    fetch(SCRIPT_URL + '?action=searchQr&type=qr_audio&phone=' + phone)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        qrAudioLoading.style.display = 'none';
+        if (!data.success) { qrAudioError.textContent = data.error; qrAudioError.style.display = 'block'; return; }
+        if (!data.results || data.results.length === 0) { qrAudioNoResults.style.display = 'block'; return; }
+        renderQrAudioResults(data.results, phone);
+      })
+      .catch(err => {
+        qrAudioLoading.style.display = 'none';
+        qrAudioError.textContent = 'Lỗi: ' + err.message;
+        qrAudioError.style.display = 'block';
+      });
+  }
+
+  function renderQrAudioResults(rows, phone) {
+    qrAudioResultInfo.textContent = rows.length + ' kết quả cho SĐT: ' + phone;
+    qrAudioList.innerHTML = '';
+
+    rows.sort((a, b) => {
+      const da = a.created_at ? new Date(a.created_at) : new Date(0);
+      const db = b.created_at ? new Date(b.created_at) : new Date(0);
+      return db - da;
+    });
+
+    rows.forEach(function(row) {
+      qrAudioList.appendChild(buildQrCard(row, 'qr_audio', '/view-qr-audio.html'));
+    });
+    qrAudioResults.style.display = 'block';
+  }
+
+  // ============================================================
+  // TAB 3: LOVE COUNTER — search by phone + generate QR
+  // ============================================================
+  const lcPhone = document.getElementById('lc-phone');
+  const lcSearchBtn = document.getElementById('lc-search-btn');
+  const lcLoading = document.getElementById('lc-loading');
+  const lcError = document.getElementById('lc-error');
+  const lcNoResults = document.getElementById('lc-no-results');
+  const lcResults = document.getElementById('lc-results');
+  const lcResultInfo = document.getElementById('lc-result-info');
+  const lcList = document.getElementById('lc-list');
+
+  lcSearchBtn.addEventListener('click', searchLoveCounter);
+  lcPhone.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchLoveCounter();
+  });
+
+  function hideAllLc() {
+    lcLoading.style.display = 'none';
+    lcError.style.display = 'none';
+    lcNoResults.style.display = 'none';
+    lcResults.style.display = 'none';
+  }
+
+  function searchLoveCounter() {
+    const phone = lcPhone.value.trim().replace(/\D/g, '');
+    if (!phone) {
+      hideAllLc();
+      lcError.textContent = 'Vui lòng nhập số điện thoại';
+      lcError.style.display = 'block';
+      return;
+    }
+    hideAllLc();
+    lcLoading.style.display = 'block';
+
+    fetch(SCRIPT_URL + '?action=searchQr&type=love_counter&phone=' + phone)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        lcLoading.style.display = 'none';
+        if (!data.success) { lcError.textContent = data.error; lcError.style.display = 'block'; return; }
+        if (!data.results || data.results.length === 0) { lcNoResults.style.display = 'block'; return; }
+        renderLcResults(data.results, phone);
+      })
+      .catch(err => {
+        lcLoading.style.display = 'none';
+        lcError.textContent = 'Lỗi: ' + err.message;
+        lcError.style.display = 'block';
+      });
+  }
+
+  function renderLcResults(rows, phone) {
+    lcResultInfo.textContent = rows.length + ' kết quả cho SĐT: ' + phone;
+    lcList.innerHTML = '';
+
+    rows.sort((a, b) => {
+      const da = a.created_at ? new Date(a.created_at) : new Date(0);
+      const db = b.created_at ? new Date(b.created_at) : new Date(0);
+      return db - da;
+    });
+
+    rows.forEach(function(row) {
+      lcList.appendChild(buildQrCard(row, 'love_counter', '/view-love-counter.html'));
+    });
+    lcResults.style.display = 'block';
+  }
+
+  // ============================================================
+  // SHARED: Build a QR result card with info + "Tạo QR" button
+  // ============================================================
+  function buildQrCard(row, type, viewPath) {
+    const card = document.createElement('div');
+    card.className = 'qr-result-card';
+
+    const viewUrl = window.location.origin + viewPath + '?id=' + encodeURIComponent(row.id);
+    const dateStr = row.created_at ? new Date(row.created_at).toLocaleString('vi-VN') : 'N/A';
+
+    let infoRows = '';
+    infoRows += '<div class="qr-info-row"><span class="qr-info-label">ID</span><span class="qr-info-value">' + escapeHtml(row.id) + '</span></div>';
+    infoRows += '<div class="qr-info-row"><span class="qr-info-label">SĐT</span><span class="qr-info-value">' + escapeHtml(row.phone || '—') + '</span></div>';
+    infoRows += '<div class="qr-info-row"><span class="qr-info-label">Ngày tạo</span><span class="qr-info-value">' + escapeHtml(dateStr) + '</span></div>';
+
+    if (type === 'qr_audio') {
+      infoRows += '<div class="qr-info-row"><span class="qr-info-label">Tiêu đề</span><span class="qr-info-value">' + escapeHtml(row.audio_title || '—') + '</span></div>';
+    } else {
+      infoRows += '<div class="qr-info-row"><span class="qr-info-label">Tiêu đề</span><span class="qr-info-value">' + escapeHtml(row.love_title || '—') + '</span></div>';
+      infoRows += '<div class="qr-info-row"><span class="qr-info-label">Cặp đôi</span><span class="qr-info-value">' + escapeHtml(row.male_name || '') + ' & ' + escapeHtml(row.female_name || '') + '</span></div>';
+      infoRows += '<div class="qr-info-row"><span class="qr-info-label">Ngày yêu</span><span class="qr-info-value">' + escapeHtml(row.love_day || '—') + '</span></div>';
+    }
+
+    if (row.note) {
+      infoRows += '<div class="qr-info-row"><span class="qr-info-label">Ghi chú</span><span class="qr-info-value">' + escapeHtml(row.note) + '</span></div>';
+    }
+
+    // Generate unique container ID for QR
+    const qrContainerId = 'qr-' + row.id;
+
+    card.innerHTML = `
+      <div class="qr-card-info">${infoRows}</div>
+      <div class="qr-card-actions">
+        <a href="${escapeHtml(viewUrl)}" target="_blank" class="btn-view-page">Xem trang</a>
+        <button class="btn-generate-qr" data-url="${escapeHtml(viewUrl)}" data-qr-target="${qrContainerId}">Tạo QR</button>
+        <button class="btn-copy-link" data-url="${escapeHtml(viewUrl)}">Copy link</button>
+      </div>
+      <div class="qr-code-area" id="${qrContainerId}" style="display:none;"></div>
+    `;
+
+    // Bind "Tạo QR" button
+    card.querySelector('.btn-generate-qr').addEventListener('click', function() {
+      const target = document.getElementById(this.dataset.qrTarget);
+      if (target.style.display === 'none') {
+        target.style.display = 'block';
+        target.innerHTML = '';
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(target, {
+            text: this.dataset.url,
+            width: 200,
+            height: 200,
+            colorDark: '#333333',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        }
+        this.textContent = 'Ẩn QR';
+      } else {
+        target.style.display = 'none';
+        this.textContent = 'Tạo QR';
+      }
+    });
+
+    // Bind "Copy link"
+    card.querySelector('.btn-copy-link').addEventListener('click', function() {
+      const btn = this;
+      navigator.clipboard.writeText(this.dataset.url).then(function() {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(function() { btn.textContent = 'Copy link'; btn.classList.remove('copied'); }, 2000);
+      });
+    });
+
+    return card;
+  }
 });

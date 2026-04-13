@@ -38,6 +38,10 @@ function doGet(e) {
             return getById(e.parameter.type, e.parameter.id);
         }
 
+        if (action === 'searchQr') {
+            return searchQrByPhone(e.parameter.type, e.parameter.phone);
+        }
+
         return ContentService
             .createTextOutput(JSON.stringify({ 'success': false, 'error': 'Invalid request' }))
             .setMimeType(ContentService.MimeType.JSON);
@@ -469,6 +473,62 @@ function jsonResponse(obj) {
     return ContentService
         .createTextOutput(JSON.stringify(obj))
         .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ===== SEARCH QR UPLOADS BY PHONE (for admin panel) =====
+function searchQrByPhone(type, phone) {
+    try {
+        if (!type || !phone) {
+            return jsonResponse({ success: false, error: 'Thiếu tham số type hoặc phone' });
+        }
+
+        const cleanPhone = String(phone).replace(/\D/g, '');
+        if (cleanPhone.length < 8 || cleanPhone.length > 12) {
+            return jsonResponse({ success: false, error: 'Số điện thoại không hợp lệ (cần 8-12 chữ số)', results: [] });
+        }
+
+        let tabName;
+        if (type === 'qr_audio') tabName = QR_AUDIO_SHEET;
+        else if (type === 'love_counter') tabName = LOVE_COUNTER_SHEET;
+        else return jsonResponse({ success: false, error: 'Type không hợp lệ' });
+
+        const doc = SpreadsheetApp.openById(scriptProp.getProperty('key'));
+        const sheet = doc.getSheetByName(tabName);
+        if (!sheet) {
+            return jsonResponse({ success: false, error: 'Sheet "' + tabName + '" không tồn tại', results: [] });
+        }
+
+        const data = sheet.getDataRange().getValues();
+        if (data.length < 2) {
+            return jsonResponse({ success: true, results: [], count: 0 });
+        }
+
+        const headers = data[0];
+        const phoneIndex = headers.indexOf('phone');
+        if (phoneIndex === -1) {
+            return jsonResponse({ success: false, error: 'Cột "phone" không tồn tại' });
+        }
+
+        const results = [];
+        for (let i = 1; i < data.length; i++) {
+            const rowPhone = String(data[i][phoneIndex] || '').replace(/\D/g, '');
+
+            // Same matching logic as searchByPhone: exact, end-match, start-match
+            const isExact = rowPhone === cleanPhone;
+            const isEnd = rowPhone.endsWith(cleanPhone) && (rowPhone.length - cleanPhone.length) <= 3;
+            const isStart = cleanPhone.endsWith(rowPhone) && (cleanPhone.length - rowPhone.length) <= 3;
+
+            if (isExact || isEnd || isStart) {
+                const rowData = {};
+                headers.forEach(function (h, idx) { rowData[h] = data[i][idx]; });
+                results.push(rowData);
+            }
+        }
+
+        return jsonResponse({ success: true, results: results, count: results.length });
+    } catch (error) {
+        return jsonResponse({ success: false, error: error.toString(), results: [] });
+    }
 }
 
 // ===== UPLOAD QR AUDIO =====
