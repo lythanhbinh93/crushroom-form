@@ -17,6 +17,22 @@
       "dest": "/check-date.html"
     },
     {
+      "src": "/qr-ghi-am.html",
+      "dest": "/qr-ghi-am.html"
+    },
+    {
+      "src": "/love-counter.html",
+      "dest": "/love-counter.html"
+    },
+    {
+      "src": "/view-qr-audio.html",
+      "dest": "/view-qr-audio.html"
+    },
+    {
+      "src": "/view-love-counter.html",
+      "dest": "/view-love-counter.html"
+    },
+    {
       "src": "/",
       "dest": "/index.html"
     }

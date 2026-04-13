@@ -1,10 +1,19 @@
 /**
  * Google Apps Script for CouplePix Image Upload + Admin Panel
- * CẬP NHẬT: Thêm validation nghiêm ngặt cho tìm kiếm số điện thoại
+ * + QR Ghi âm Upload + Love Counter Upload
  */
 const sheetName = 'form data'
 const scriptProp = PropertiesService.getScriptProperties()
 const recipientEmail = 'crush@crushroom.vn';
+
+// ===== CẤU HÌNH THƯ MỤC DRIVE =====
+// CẦN CẬP NHẬT: Tạo 2 folder trên Google Drive và paste ID vào đây
+const QR_AUDIO_FOLDER_ID = 'REPLACE_WITH_YOUR_QR_AUDIO_FOLDER_ID';
+const LOVE_COUNTER_FOLDER_ID = 'REPLACE_WITH_YOUR_LOVE_COUNTER_FOLDER_ID';
+
+// Sheet tab names cho QR features
+const QR_AUDIO_SHEET = 'qr_audio_uploads';
+const LOVE_COUNTER_SHEET = 'love_counter_uploads';
 
 function intialSetup() {
     const activeSpreadsheet = SpreadsheetApp.getActiveSpreadsheet()
@@ -23,6 +32,10 @@ function doGet(e) {
 
         if (action === 'list') {
             return listByDateRange(e.parameter.from, e.parameter.to);
+        }
+
+        if (action === 'get') {
+            return getById(e.parameter.type, e.parameter.id);
         }
 
         return ContentService
@@ -257,11 +270,25 @@ function parseDateEnd(s) {
     );
 }
 
-// ===== XỬ LÝ POST REQUEST - UPLOAD ẢNH =====
+// ===== XỬ LÝ POST REQUEST =====
 function doPost(e) {
     const lock = LockService.getScriptLock()
     lock.tryLock(10000);
     try {
+        // Route to new upload handlers if action parameter is present
+        const action = e.parameter.action;
+        if (action === 'uploadQrAudio') {
+            const result = handleUploadQrAudio(e);
+            lock.releaseLock();
+            return result;
+        }
+        if (action === 'uploadLoveCounter') {
+            const result = handleUploadLoveCounter(e);
+            lock.releaseLock();
+            return result;
+        }
+
+        // ===== LEGACY: CouplePix image upload (no action param) =====
         const doc = SpreadsheetApp.openById(scriptProp.getProperty('key'));
         const sheet = doc.getSheetByName(sheetName);
 
@@ -327,6 +354,275 @@ function doPost(e) {
     }
 }
 
+// ===== GENERATE SHORT UNIQUE ID =====
+function generateId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const num = Math.floor(1000 + Math.random() * 9000); // 4-digit
+    let slug = '';
+    for (let i = 0; i < 7; i++) {
+        slug += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return num + '-' + slug;
+}
+
+// ===== HELPER: Extract Drive file ID from URL =====
+function extractDriveFileId(url) {
+    if (!url) return null;
+    const match = String(url).match(/[-\w]{25,}/);
+    return match ? match[0] : null;
+}
+
+// ===== HELPER: Make Drive file publicly viewable =====
+function makePublic(file) {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+}
+
+// ===== HELPER: Save base64 file to a Drive folder =====
+function saveFileToDrive(folder, base64Data, mimeType, filename) {
+    const decoded = Utilities.base64Decode(base64Data);
+    const blob = Utilities.newBlob(decoded, mimeType, filename);
+    const file = folder.createFile(blob);
+    makePublic(file);
+    return file;
+}
+
+// ===== HELPER: Get direct / thumbnail URLs from a Drive file =====
+function getDriveUrls(file) {
+    const id = file.getId();
+    return {
+        url: file.getUrl(),
+        directUrl: 'https://drive.google.com/uc?export=view&id=' + id,
+        thumbnailUrl: 'https://drive.google.com/thumbnail?id=' + id + '&sz=w2000'
+    };
+}
+
+// ===== GET BY ID (for view pages) =====
+function getById(type, id) {
+    try {
+        if (!type || !id) {
+            return jsonResponse({ success: false, error: 'Thiếu tham số type hoặc id' });
+        }
+
+        let tabName;
+        if (type === 'qr_audio') tabName = QR_AUDIO_SHEET;
+        else if (type === 'love_counter') tabName = LOVE_COUNTER_SHEET;
+        else return jsonResponse({ success: false, error: 'Type không hợp lệ' });
+
+        const doc = SpreadsheetApp.openById(scriptProp.getProperty('key'));
+        const sheet = doc.getSheetByName(tabName);
+        if (!sheet) {
+            return jsonResponse({ success: false, error: 'Sheet "' + tabName + '" không tồn tại' });
+        }
+
+        const data = sheet.getDataRange().getValues();
+        if (data.length < 2) {
+            return jsonResponse({ success: false, error: 'Không tìm thấy bản ghi' });
+        }
+
+        const headers = data[0];
+        const idIndex = headers.indexOf('id');
+        if (idIndex === -1) {
+            return jsonResponse({ success: false, error: 'Cột "id" không tồn tại' });
+        }
+
+        for (let i = 1; i < data.length; i++) {
+            if (String(data[i][idIndex]) === String(id)) {
+                const row = {};
+                headers.forEach(function (h, idx) {
+                    row[h] = data[i][idx];
+                });
+
+                // Convert Drive URLs to direct/thumbnail URLs for the view page
+                if (type === 'qr_audio') {
+                    row.cover_url = driveUrlToThumbnail(row.cover_url);
+                    row.voice_url = driveUrlToDirect(row.voice_url);
+                } else if (type === 'love_counter') {
+                    row.background_url = driveUrlToThumbnail(row.background_url);
+                    row.male_avatar_url = driveUrlToThumbnail(row.male_avatar_url);
+                    row.female_avatar_url = driveUrlToThumbnail(row.female_avatar_url);
+                    row.voice_url = driveUrlToDirect(row.voice_url);
+                }
+
+                return jsonResponse({ success: true, result: row });
+            }
+        }
+
+        return jsonResponse({ success: false, error: 'Không tìm thấy bản ghi với ID: ' + id });
+    } catch (error) {
+        return jsonResponse({ success: false, error: error.toString() });
+    }
+}
+
+function driveUrlToThumbnail(url) {
+    if (!url) return '';
+    const fid = extractDriveFileId(url);
+    return fid ? 'https://drive.google.com/thumbnail?id=' + fid + '&sz=w2000' : url;
+}
+
+function driveUrlToDirect(url) {
+    if (!url) return '';
+    const fid = extractDriveFileId(url);
+    return fid ? 'https://drive.google.com/uc?export=view&id=' + fid : url;
+}
+
+function jsonResponse(obj) {
+    return ContentService
+        .createTextOutput(JSON.stringify(obj))
+        .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ===== UPLOAD QR AUDIO =====
+function handleUploadQrAudio(e) {
+    try {
+        const id = generateId();
+        const phone = e.parameter.phone || '';
+        const audioTitle = e.parameter.audio_title || '';
+        const note = e.parameter.note || '';
+
+        // Create subfolder in QR Audio parent
+        const parentFolder = DriveApp.getFolderById(QR_AUDIO_FOLDER_ID);
+        const subFolder = parentFolder.createFolder(id + '_' + phone.replace(/\D/g, ''));
+
+        // Save voice (required)
+        let voiceUrl = '';
+        if (e.parameter.voice) {
+            const voiceType = e.parameter.voice_type || 'audio/mpeg';
+            const voiceFilename = e.parameter.voice_filename || 'voice';
+            const ext = guessExtension(voiceType, voiceFilename);
+            const file = saveFileToDrive(subFolder, e.parameter.voice, voiceType, 'voice' + ext);
+            voiceUrl = file.getUrl();
+        }
+
+        // Save cover image (optional)
+        let coverUrl = '';
+        if (e.parameter.cover_image) {
+            const imgType = e.parameter.cover_image_type || 'image/jpeg';
+            const file = saveFileToDrive(subFolder, e.parameter.cover_image, imgType, 'cover.jpg');
+            coverUrl = file.getUrl();
+        }
+
+        // Write to sheet
+        const doc = SpreadsheetApp.openById(scriptProp.getProperty('key'));
+        const sheet = doc.getSheetByName(QR_AUDIO_SHEET);
+        if (!sheet) throw new Error('Sheet "' + QR_AUDIO_SHEET + '" chưa được tạo. Hãy tạo tab này trong spreadsheet.');
+
+        sheet.appendRow([
+            id,
+            phone,
+            audioTitle,
+            coverUrl,
+            voiceUrl,
+            note,
+            new Date()
+        ]);
+
+        return jsonResponse({ success: true, id: id });
+    } catch (error) {
+        return jsonResponse({ success: false, error: error.toString() });
+    }
+}
+
+// ===== UPLOAD LOVE COUNTER =====
+function handleUploadLoveCounter(e) {
+    try {
+        const id = generateId();
+        const phone = e.parameter.phone || '';
+        const loveTitle = e.parameter.love_title || '';
+        const heartText = e.parameter.heart_text || '';
+        const maleName = e.parameter.male_name || '';
+        const femaleName = e.parameter.female_name || '';
+        const loveDay = e.parameter.love_day || '';
+        const audioTitle = e.parameter.audio_title || '';
+        const note = e.parameter.note || '';
+
+        // Create subfolder
+        const parentFolder = DriveApp.getFolderById(LOVE_COUNTER_FOLDER_ID);
+        const subFolder = parentFolder.createFolder(id + '_' + phone.replace(/\D/g, ''));
+
+        // Save background image (required)
+        let backgroundUrl = '';
+        if (e.parameter.background) {
+            const imgType = e.parameter.background_type || 'image/jpeg';
+            const file = saveFileToDrive(subFolder, e.parameter.background, imgType, 'background.jpg');
+            backgroundUrl = file.getUrl();
+        }
+
+        // Save male avatar (required)
+        let maleAvatarUrl = '';
+        if (e.parameter.male_avatar) {
+            const imgType = e.parameter.male_avatar_type || 'image/jpeg';
+            const file = saveFileToDrive(subFolder, e.parameter.male_avatar, imgType, 'male.jpg');
+            maleAvatarUrl = file.getUrl();
+        }
+
+        // Save female avatar (required)
+        let femaleAvatarUrl = '';
+        if (e.parameter.female_avatar) {
+            const imgType = e.parameter.female_avatar_type || 'image/jpeg';
+            const file = saveFileToDrive(subFolder, e.parameter.female_avatar, imgType, 'female.jpg');
+            femaleAvatarUrl = file.getUrl();
+        }
+
+        // Save voice (optional)
+        let voiceUrl = '';
+        if (e.parameter.voice) {
+            const voiceType = e.parameter.voice_type || 'audio/mpeg';
+            const voiceFilename = e.parameter.voice_filename || 'voice';
+            const ext = guessExtension(voiceType, voiceFilename);
+            const file = saveFileToDrive(subFolder, e.parameter.voice, voiceType, 'voice' + ext);
+            voiceUrl = file.getUrl();
+        }
+
+        // Write to sheet
+        const doc = SpreadsheetApp.openById(scriptProp.getProperty('key'));
+        const sheet = doc.getSheetByName(LOVE_COUNTER_SHEET);
+        if (!sheet) throw new Error('Sheet "' + LOVE_COUNTER_SHEET + '" chưa được tạo. Hãy tạo tab này trong spreadsheet.');
+
+        sheet.appendRow([
+            id,
+            phone,
+            loveTitle,
+            heartText,
+            backgroundUrl,
+            maleName,
+            maleAvatarUrl,
+            femaleName,
+            femaleAvatarUrl,
+            loveDay,
+            audioTitle,
+            voiceUrl,
+            note,
+            new Date()
+        ]);
+
+        return jsonResponse({ success: true, id: id });
+    } catch (error) {
+        return jsonResponse({ success: false, error: error.toString() });
+    }
+}
+
+// ===== HELPER: Guess file extension from MIME type or filename =====
+function guessExtension(mimeType, filename) {
+    // Try from filename first
+    if (filename) {
+        const dotIdx = filename.lastIndexOf('.');
+        if (dotIdx !== -1) return filename.substring(dotIdx);
+    }
+    // Fallback to MIME
+    const map = {
+        'audio/mpeg': '.mp3',
+        'audio/mp4': '.m4a',
+        'audio/x-m4a': '.m4a',
+        'audio/wav': '.wav',
+        'audio/x-wav': '.wav',
+        'audio/ogg': '.ogg',
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/webp': '.webp'
+    };
+    return map[mimeType] || '.bin';
+}
+
 // ===== HƯỚNG DẪN CẬP NHẬT =====
 // 1. Copy toàn bộ code này
 // 2. Mở Google Apps Script editor (Extensions > Apps Script)
@@ -343,5 +639,15 @@ function doPost(e) {
 // ✅ Loại bỏ các dòng có quá nhiều ký tự không phải số (ghi chú)
 // ✅ Chỉ match chính xác hoặc match với country code (tối đa 3 số khác biệt)
 // ✅ Giúp tránh trường hợp search trả về kết quả sai do khách nhập ghi chú vào trường số điện thoại
-// ✅ NEW: action=list&from=YYYY-MM-DD&to=YYYY-MM-DD trả về danh sách upload theo khoảng ngày
-//        (dùng cho Preview Table theo ngày trong Admin Panel)
+// ✅ action=list — danh sách upload theo khoảng ngày (Admin Panel)
+// ✅ action=get — lấy 1 bản ghi theo type + id (cho view pages)
+// ✅ action=uploadQrAudio — upload file ghi âm + ảnh bìa → Drive + sheet
+// ✅ action=uploadLoveCounter — upload love counter data → Drive + sheet
+//
+// ===== SETUP CHO QR FEATURES =====
+// 1. Tạo 2 tab mới trong spreadsheet:
+//    - "qr_audio_uploads" với headers: id | phone | audio_title | cover_url | voice_url | note | created_at
+//    - "love_counter_uploads" với headers: id | phone | love_title | heart_text | background_url | male_name | male_avatar_url | female_name | female_avatar_url | love_day | audio_title | voice_url | note | created_at
+// 2. Tạo 2 folder trên Google Drive và cập nhật ID ở đầu file:
+//    - QR_AUDIO_FOLDER_ID
+//    - LOVE_COUNTER_FOLDER_ID

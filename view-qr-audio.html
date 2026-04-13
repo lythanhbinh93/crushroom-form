@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: #000;
+      color: #fff;
+    }
+
+    /* Loading / error states */
+    .state-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .state-screen .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .state-screen p { font-size: 14px; color: #aaa; }
+    .state-screen .err { color: #ff6b6b; }
+
+    /* Player */
+    .audio-player {
+      background-color: #000;
+      color: #fff;
+      padding: 10px;
+      display: none;
+    }
+    .audio-player.ready { display: block; }
+
+    .audio-image {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .audio-image img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+    .audio-title {
+      text-align: center;
+      margin: 8px 0;
+    }
+    .audio-title strong { font-size: 14px; }
+
+    .player-container {
+      display: flex;
+      align-items: center;
+    }
+    #waveform {
+      flex-grow: 1;
+      height: 80px;
+      background-color: #000;
+      margin: 0 10px;
+    }
+    #timeDisplay {
+      font-size: 16px;
+      min-width: 50px;
+      text-align: right;
+      font-weight: 600;
+    }
+    button.play-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 40px;
+      height: 60px;
+      width: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    button.play-btn:hover { color: #fff; }
+
+    @media (max-width: 768px) {
+      .audio-player { padding: 5px; }
+      button.play-btn { font-size: 35px; height: 50px; width: 50px; }
+      #waveform { height: 80px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading state -->
+  <div class="state-screen" id="loading-screen">
+    <div>
+      <div class="spinner"></div>
+      <p>Đang tải...</p>
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <div class="state-screen" id="error-screen" style="display:none;">
+    <div>
+      <p class="err" id="error-msg">Không tìm thấy nội dung.</p>
+    </div>
+  </div>
+
+  <!-- Audio player (hidden until data loaded) -->
+  <div class="audio-player" id="player">
+    <div class="audio-image">
+      <img src="" alt="Audio Cover" id="audioCover" loading="lazy">
+    </div>
+    <div class="audio-title">
+      <strong><span id="audio-title"></span></strong>
+    </div>
+    <div class="player-container">
+      <button class="play-btn" id="playPauseButton" aria-label="Play/Pause Audio">
+        <i class="fa-solid fa-circle-play" id="playIcon"></i>
+      </button>
+      <div id="waveform"></div>
+      <div id="timeDisplay">0:00</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+  <script>
+    (function () {
+      var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbweeqxM3blNgfqB4A1y2HBaGfQcfUcpTdksG0GBiW29NLyUOr1C0Hl95Naju3AjgRq4qg/exec';
+      var DEFAULT_COVER = 'https://crushroom.vn/cdn/shop/files/CRUSH.png';
+
+      var params = new URLSearchParams(window.location.search);
+      var id = params.get('id');
+
+      var loadingScreen = document.getElementById('loading-screen');
+      var errorScreen = document.getElementById('error-screen');
+      var errorMsg = document.getElementById('error-msg');
+      var player = document.getElementById('player');
+
+      if (!id) {
+        showError('Link không hợp lệ — thiếu ID.');
+        return;
+      }
+
+      fetch(SCRIPT_URL + '?action=get&type=qr_audio&id=' + encodeURIComponent(id))
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          if (!data.success || !data.result) {
+            throw new Error(data.error || 'Không tìm thấy bản ghi.');
+          }
+          renderPlayer(data.result);
+        })
+        .catch(function (err) {
+          showError(err.message);
+        });
+
+      function showError(msg) {
+        loadingScreen.style.display = 'none';
+        errorMsg.textContent = msg;
+        errorScreen.style.display = 'flex';
+      }
+
+      function renderPlayer(d) {
+        loadingScreen.style.display = 'none';
+
+        // Cover image
+        var coverImg = document.getElementById('audioCover');
+        coverImg.src = d.cover_url || DEFAULT_COVER;
+        coverImg.onerror = function () { this.src = DEFAULT_COVER; };
+
+        // Title
+        document.getElementById('audio-title').textContent = d.audio_title || '';
+
+        // Show player
+        player.classList.add('ready');
+
+        // Wait for libs
+        if (typeof WaveSurfer === 'undefined') {
+          showError('WaveSurfer chưa được tải.');
+          return;
+        }
+
+        var audioUrl = d.voice_url;
+        if (!audioUrl) {
+          showError('Không có file ghi âm.');
+          return;
+        }
+
+        // Preload
+        var preloadLink = document.createElement('link');
+        preloadLink.rel = 'preload';
+        preloadLink.as = 'audio';
+        preloadLink.href = audioUrl;
+        document.head.appendChild(preloadLink);
+
+        var wavesurfer;
+
+        function adjustWaveformWidth() {
+          var cover = document.getElementById('audioCover');
+          var wf = document.getElementById('waveform');
+          if (cover && wf) {
+            wf.style.maxWidth = cover.offsetWidth + 'px';
+          }
+        }
+
+        if (coverImg.complete) {
+          adjustWaveformWidth();
+        } else {
+          coverImg.addEventListener('load', adjustWaveformWidth);
+        }
+
+        wavesurfer = WaveSurfer.create({
+          container: '#waveform',
+          waveColor: '#878787',
+          progressColor: '#fff',
+          barWidth: 2,
+          height: 80
+        });
+
+        var timeDisplay = document.getElementById('timeDisplay');
+        var playPauseButton = document.getElementById('playPauseButton');
+        var playIcon = document.getElementById('playIcon');
+
+        wavesurfer.load(audioUrl);
+
+        function formatTime(seconds) {
+          var m = Math.floor(seconds / 60);
+          var s = Math.floor(seconds % 60);
+          return m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        wavesurfer.on('ready', function () {
+          timeDisplay.textContent = formatTime(wavesurfer.getDuration());
+          adjustWaveformWidth();
+        });
+
+        var lastUpdate = 0;
+        wavesurfer.on('audioprocess', function () {
+          if (wavesurfer.isPlaying()) {
+            var now = Date.now();
+            if (now - lastUpdate > 200) {
+              timeDisplay.textContent = formatTime(wavesurfer.getCurrentTime());
+              lastUpdate = now;
+            }
+          }
+        });
+
+        playPauseButton.addEventListener('click', function () {
+          wavesurfer.playPause();
+          playIcon.classList.toggle('fa-circle-play', !wavesurfer.isPlaying());
+          playIcon.classList.toggle('fa-circle-pause', wavesurfer.isPlaying());
+        });
+
+        wavesurfer.on('finish', function () {
+          playIcon.classList.remove('fa-circle-pause');
+          playIcon.classList.add('fa-circle-play');
+        });
+
+        wavesurfer.on('error', function (error) {
+          console.error('Audio load error:', error);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

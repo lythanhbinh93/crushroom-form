@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Love Counter - CouplePix</title>
+  <link rel="stylesheet" href="./assets/form.css">
+</head>
+<body>
+  <div class="form-container">
+    <a href="./" class="form-back">&larr; Quay lại trang chủ</a>
+
+    <div class="form-header">
+      <h1>Upload QR Love Counter</h1>
+      <p class="subtitle">Tạo trang Love Counter với ảnh, thông tin cặp đôi và ghi âm</p>
+    </div>
+
+    <div class="error-banner"></div>
+
+    <div class="form-card">
+      <form id="upload-form" autocomplete="off">
+
+        <!-- Phone -->
+        <div class="field-group" id="group-phone">
+          <label>Số điện thoại <span class="required">*</span></label>
+          <input type="tel" name="phone" placeholder="VD: 0918260494">
+          <span class="field-error"></span>
+        </div>
+
+        <p class="form-section-title">Nội dung hiển thị</p>
+
+        <!-- Love title -->
+        <div class="field-group" id="group-love_title">
+          <label>Tiêu đề Love Counter</label>
+          <input type="text" name="love_title" placeholder="VD: Been Love Memory (mặc định nếu bỏ trống)">
+          <span class="hint">Để trống sẽ hiển thị mặc định.</span>
+          <span class="field-error"></span>
+        </div>
+
+        <!-- Heart text -->
+        <div class="field-group" id="group-heart_text">
+          <label>Chữ trong trái tim</label>
+          <input type="text" name="heart_text" placeholder="VD: Forever">
+          <span class="field-error"></span>
+        </div>
+
+        <!-- Background image -->
+        <div class="field-group" id="group-background">
+          <label>Ảnh nền <span class="required">*</span></label>
+          <div class="file-drop">
+            <input type="file" name="background" accept="image/*">
+            <span class="drop-icon">🖼️</span>
+            <span class="drop-text"><strong>Chọn ảnh nền</strong> hoặc kéo thả vào đây</span>
+            <span class="drop-hint">Khuyến nghị ảnh dọc (portrait) &middot; Tối đa 5 MB</span>
+          </div>
+          <div class="file-preview"></div>
+          <span class="field-error"></span>
+          <span class="field-warning"></span>
+        </div>
+
+        <p class="form-section-title">Thông tin cặp đôi</p>
+
+        <!-- Couple names row -->
+        <div class="couple-row">
+          <div class="field-group" id="group-male_name">
+            <label>Tên nam <span class="required">*</span></label>
+            <input type="text" name="male_name" placeholder="VD: Nam Nguyễn">
+            <span class="field-error"></span>
+          </div>
+          <div class="field-group" id="group-female_name">
+            <label>Tên nữ <span class="required">*</span></label>
+            <input type="text" name="female_name" placeholder="VD: Mai Trần">
+            <span class="field-error"></span>
+          </div>
+        </div>
+
+        <!-- Couple avatars row -->
+        <div class="couple-row">
+          <div class="field-group" id="group-male_avatar">
+            <label>Ảnh đại diện nam <span class="required">*</span></label>
+            <div class="file-drop">
+              <input type="file" name="male_avatar" accept="image/*">
+              <span class="drop-icon">👤</span>
+              <span class="drop-text"><strong>Chọn ảnh</strong></span>
+              <span class="drop-hint">Tối đa 5 MB</span>
+            </div>
+            <div class="file-preview"></div>
+            <span class="field-error"></span>
+          </div>
+          <div class="field-group" id="group-female_avatar">
+            <label>Ảnh đại diện nữ <span class="required">*</span></label>
+            <div class="file-drop">
+              <input type="file" name="female_avatar" accept="image/*">
+              <span class="drop-icon">👤</span>
+              <span class="drop-text"><strong>Chọn ảnh</strong></span>
+              <span class="drop-hint">Tối đa 5 MB</span>
+            </div>
+            <div class="file-preview"></div>
+            <span class="field-error"></span>
+          </div>
+        </div>
+
+        <!-- Love day -->
+        <div class="field-group" id="group-love_day">
+          <label>Ngày yêu nhau <span class="required">*</span></label>
+          <input type="date" name="love_day">
+          <span class="field-error"></span>
+        </div>
+
+        <p class="form-section-title">Ghi âm (không bắt buộc)</p>
+
+        <!-- Audio title -->
+        <div class="field-group" id="group-audio_title">
+          <label>Tiêu đề audio</label>
+          <input type="text" name="audio_title" placeholder="VD: Lời nhắn yêu thương">
+          <span class="field-error"></span>
+        </div>
+
+        <!-- Voice recording -->
+        <div class="field-group" id="group-voice">
+          <label>File ghi âm</label>
+          <div class="file-drop">
+            <input type="file" name="voice" accept="audio/*">
+            <span class="drop-icon">🎙️</span>
+            <span class="drop-text"><strong>Chọn file ghi âm</strong> hoặc kéo thả</span>
+            <span class="drop-hint">MP3, M4A, WAV, OGG &middot; 3-90 giây &middot; Tối đa 10 MB</span>
+          </div>
+          <div class="file-preview"></div>
+          <span class="field-error"></span>
+        </div>
+
+        <!-- Note -->
+        <div class="field-group" id="group-note">
+          <label>Ghi chú</label>
+          <textarea name="note" placeholder="Ghi chú thêm (không bắt buộc)"></textarea>
+          <span class="field-error"></span>
+        </div>
+
+        <button type="submit" class="btn-submit">Upload &amp; Tạo QR</button>
+      </form>
+    </div>
+
+    <!-- Progress -->
+    <div class="upload-progress">
+      <div class="spinner"></div>
+      <p class="progress-text">Đang upload...</p>
+      <p class="progress-sub">File lớn có thể mất vài phút. Vui lòng đợi.</p>
+    </div>
+
+    <!-- Success -->
+    <div class="success-screen">
+      <div class="success-icon">&#10003;</div>
+      <h2>Upload thành công!</h2>
+      <p class="success-sub">Quét mã QR hoặc chia sẻ link bên dưới.</p>
+      <div class="qr-box" id="qr-code"></div>
+      <div class="view-link" id="view-url"></div>
+      <button type="button" class="btn-copy" id="btn-copy">Copy link</button>
+      <br>
+      <button type="button" class="btn-new" id="btn-new">Upload file khác</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="./assets/form.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      CrushForm.init({
+        action: 'uploadLoveCounter',
+        viewPagePath: '/view-love-counter.html',
+        fields: [
+          { name: 'phone', required: true, type: 'text' },
+          { name: 'love_title', required: false, type: 'text' },
+          { name: 'heart_text', required: false, type: 'text' },
+          { name: 'background', required: true, type: 'file-image', maxSize: 5 * 1024 * 1024 },
+          { name: 'male_name', required: true, type: 'text' },
+          { name: 'female_name', required: true, type: 'text' },
+          { name: 'male_avatar', required: true, type: 'file-image', maxSize: 5 * 1024 * 1024 },
+          { name: 'female_avatar', required: true, type: 'file-image', maxSize: 5 * 1024 * 1024 },
+          { name: 'love_day', required: true, type: 'text' },
+          { name: 'audio_title', required: false, type: 'text' },
+          { name: 'voice', required: false, type: 'file-audio', maxSize: 10 * 1024 * 1024 },
+          { name: 'note', required: false, type: 'text' }
+        ]
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload QR Ghi âm - CouplePix</title>
+  <link rel="stylesheet" href="./assets/form.css">
+</head>
+<body>
+  <div class="form-container">
+    <a href="./" class="form-back">&larr; Quay lại trang chủ</a>
+
+    <div class="form-header">
+      <h1>Upload QR Ghi âm</h1>
+      <p class="subtitle">Upload file ghi âm và ảnh bìa để tạo trang QR audio</p>
+    </div>
+
+    <div class="error-banner"></div>
+
+    <div class="form-card">
+      <form id="upload-form" autocomplete="off">
+
+        <!-- Phone -->
+        <div class="field-group" id="group-phone">
+          <label>Số điện thoại <span class="required">*</span></label>
+          <input type="tel" name="phone" placeholder="VD: 0918260494">
+          <span class="field-error"></span>
+        </div>
+
+        <!-- Audio title -->
+        <div class="field-group" id="group-audio_title">
+          <label>Tiêu đề audio <span class="required">*</span></label>
+          <input type="text" name="audio_title" placeholder="VD: Lời nhắn yêu thương">
+          <span class="field-error"></span>
+        </div>
+
+        <!-- Cover image -->
+        <div class="field-group" id="group-cover_image">
+          <label>Ảnh bìa</label>
+          <span class="hint">Không bắt buộc. Nếu bỏ trống sẽ dùng ảnh mặc định.</span>
+          <div class="file-drop">
+            <input type="file" name="cover_image" accept="image/*">
+            <span class="drop-icon">🖼️</span>
+            <span class="drop-text"><strong>Chọn ảnh</strong> hoặc kéo thả vào đây</span>
+            <span class="drop-hint">JPG, PNG &middot; Tối đa 5 MB</span>
+          </div>
+          <div class="file-preview"></div>
+          <span class="field-error"></span>
+        </div>
+
+        <!-- Voice recording -->
+        <div class="field-group" id="group-voice">
+          <label>File ghi âm <span class="required">*</span></label>
+          <div class="file-drop">
+            <input type="file" name="voice" accept="audio/*">
+            <span class="drop-icon">🎙️</span>
+            <span class="drop-text"><strong>Chọn file ghi âm</strong> hoặc kéo thả vào đây</span>
+            <span class="drop-hint">MP3, M4A, WAV, OGG &middot; 3-90 giây &middot; Tối đa 10 MB</span>
+          </div>
+          <div class="file-preview"></div>
+          <span class="field-error"></span>
+        </div>
+
+        <!-- Note -->
+        <div class="field-group" id="group-note">
+          <label>Ghi chú</label>
+          <textarea name="note" placeholder="Ghi chú thêm (không bắt buộc)"></textarea>
+          <span class="field-error"></span>
+        </div>
+
+        <button type="submit" class="btn-submit">Upload &amp; Tạo QR</button>
+      </form>
+    </div>
+
+    <!-- Progress -->
+    <div class="upload-progress">
+      <div class="spinner"></div>
+      <p class="progress-text">Đang upload...</p>
+      <p class="progress-sub">Vui lòng đợi, không tắt trang.</p>
+    </div>
+
+    <!-- Success -->
+    <div class="success-screen">
+      <div class="success-icon">&#10003;</div>
+      <h2>Upload thành công!</h2>
+      <p class="success-sub">Quét mã QR hoặc chia sẻ link bên dưới.</p>
+      <div class="qr-box" id="qr-code"></div>
+      <div class="view-link" id="view-url"></div>
+      <button type="button" class="btn-copy" id="btn-copy">Copy link</button>
+      <br>
+      <button type="button" class="btn-new" id="btn-new">Upload file khác</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="./assets/form.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      CrushForm.init({
+        action: 'uploadQrAudio',
+        viewPagePath: '/view-qr-audio.html',
+        fields: [
+          { name: 'phone', required: true, type: 'text' },
+          { name: 'audio_title', required: true, type: 'text' },
+          { name: 'cover_image', required: false, type: 'file-image', maxSize: 5 * 1024 * 1024 },
+          { name: 'voice', required: true, type: 'file-audio', maxSize: 10 * 1024 * 1024 },
+          { name: 'note', required: false, type: 'text' }
+        ]
+      });
+    });
+  </script>
+</body>
+</html>
