@@ -459,7 +459,11 @@ document.addEventListener('DOMContentLoaded', function () {
     modal.classList.add('modal');
 
     var croppieContainer = document.createElement('div');
-    croppieContainer.className = 'croppie-container-slot';
+    // NOTE: do NOT use a class containing the substring "croppie-container".
+    // Croppie's ctor guards against re-init with
+    //   element.className.indexOf('croppie-container') > -1 → throw
+    // so e.g. 'croppie-container-slot' would false-match and never mount.
+    croppieContainer.className = 'couplepix-cropper';
     modal.appendChild(croppieContainer);
 
     // Action row: Cancel + OK. "OK" disables itself while cropping to

@@ -366,7 +366,7 @@ button:active {
 }
 
 .croppie-container .cr-boundary,
-.croppie-container-slot .cr-boundary {
+.couplepix-cropper .cr-boundary {
   background-color: black;
 }
 
