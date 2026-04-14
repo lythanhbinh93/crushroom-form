@@ -30,6 +30,10 @@ document.addEventListener('DOMContentLoaded', function () {
   var allProducts = [];
   var productsById = {};
   var selections = {};
+  // Active Type tab — '' means "Tất cả" (no type filter).
+  var activeType = '';
+  // Which tile has its inline detail panel open. null = none.
+  var expandedSku = null;
 
   // ------- Helpers (shared) -------
   function cleanSku(raw) {
@@ -82,8 +86,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var pickerCount = document.getElementById('product-picker-count');
   var pickerPrompt = document.getElementById('product-picker-prompt');
   var filterBar = document.getElementById('product-filter-bar');
+  var typeTabsEl = document.getElementById('type-tabs');
   var filterSearch = document.getElementById('filter-search');
-  var filterTypeSel = document.getElementById('filter-type');
   var filterMaterialSel = document.getElementById('filter-material');
   var skuQuickAddBox = document.getElementById('sku-quickadd');
   var skuQuickAddInput = document.getElementById('sku-quickadd-input');
@@ -116,8 +120,10 @@ document.addEventListener('DOMContentLoaded', function () {
           productsById[p.sku] = p;
           if (selections[p.sku] == null) selections[p.sku] = 0;
         });
-        var anyFilter = populateFilters(products);
-        filterBar.style.display = anyFilter ? 'flex' : 'none';
+        populateFilters(products);
+        // Filter bar hosts the name search — always useful — so keep it visible
+        // as long as we have any products.
+        filterBar.style.display = 'flex';
         skuQuickAddBox.style.display = 'block';
         reRender();
       })
@@ -149,13 +155,14 @@ document.addEventListener('DOMContentLoaded', function () {
   function populateFilters(products) {
     var typeValues = uniqueValues(products, 'type');
     var materialValues = uniqueValues(products, 'material');
-    var hasTypeFilter = fillFilterOptions(filterTypeSel, typeValues);
+    var hasTypeFilter = populateTypeTabs(typeValues);
     var hasMaterialFilter = fillFilterOptions(filterMaterialSel, materialValues);
-    // If GAS hasn't been redeployed yet, `type`/`material` won't come through and
-    // the only option would be "(Khác)" — hide the filter so the UI doesn't look broken.
-    filterTypeSel.style.display = hasTypeFilter ? '' : 'none';
+    // If GAS hasn't been redeployed yet, `type`/`material` won't come through.
+    typeTabsEl.style.display = hasTypeFilter ? 'flex' : 'none';
     filterMaterialSel.style.display = hasMaterialFilter ? '' : 'none';
-    return hasTypeFilter || hasMaterialFilter;
+    // Filter bar itself is shown if at least search or material is useful.
+    // With the tab strip owning Type, the bar hides only when both search + material are noise.
+    return hasMaterialFilter;
   }
 
   function fillFilterOptions(selectEl, values) {
@@ -173,6 +180,46 @@ document.addEventListener('DOMContentLoaded', function () {
     return true;
   }
 
+  // Build the Type tab strip from unique Type values. First tab is always "Tất cả"
+  // (activeType = ''). Returns false if there are no meaningful types (hide tab strip).
+  function populateTypeTabs(values) {
+    typeTabsEl.innerHTML = '';
+    var meaningful = values.filter(function (v) { return v !== OTHER_LABEL; });
+    if (!meaningful.length) return false;
+
+    var labels = [{ label: 'Tất cả', value: '' }];
+    values.forEach(function (v) { labels.push({ label: v, value: v }); });
+
+    labels.forEach(function (item) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'type-tab';
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('data-type', item.value);
+      btn.textContent = item.label;
+      if (item.value === activeType) {
+        btn.classList.add('is-active');
+        btn.setAttribute('aria-selected', 'true');
+      } else {
+        btn.setAttribute('aria-selected', 'false');
+      }
+      btn.addEventListener('click', function () {
+        if (activeType === item.value) return;
+        activeType = item.value;
+        // Update aria/active styling without re-building the strip.
+        typeTabsEl.querySelectorAll('.type-tab').forEach(function (b) {
+          var on = b.getAttribute('data-type') === activeType;
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        if (btn.scrollIntoView) btn.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+        reRender();
+      });
+      typeTabsEl.appendChild(btn);
+    });
+    return true;
+  }
+
   function matchesFilter(product, typeSel, materialSel) {
     var pType = String(product.type == null ? '' : product.type).trim();
     var pMat = String(product.material == null ? '' : product.material).trim();
@@ -186,7 +233,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function filteredProducts() {
-    var t = filterTypeSel.value;
+    var t = activeType;
     var m = filterMaterialSel.value;
     var q = (filterSearch.value || '').trim().toLowerCase();
     if (!t && !m && !q) return allProducts;
@@ -202,13 +249,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // With 200+ SKUs, rendering every card up front is wasteful — the customer
   // almost always wants to paste a SKU or search by name. Only paint cards when
-  // the customer has narrowed the catalog (search term / type / material).
+  // the customer has narrowed the catalog (search term / type tab / material).
   function hasActiveFilter() {
-    return !!(filterTypeSel.value || filterMaterialSel.value
+    return !!(activeType || filterMaterialSel.value
               || (filterSearch.value || '').trim());
   }
   function reRender() {
     if (!allProducts.length) return;
+    // Any filter/tab/search change collapses the inline detail panel.
+    closeDetail();
     if (!hasActiveFilter()) {
       pickerEl.style.display = 'none';
       pickerEmpty.style.display = 'none';
@@ -219,7 +268,6 @@ document.addEventListener('DOMContentLoaded', function () {
     pickerPrompt.style.display = 'none';
     renderPicker(filteredProducts());
   }
-  filterTypeSel.addEventListener('change', reRender);
   filterMaterialSel.addEventListener('change', reRender);
 
   // Debounce search input so we don't re-render on every keystroke when the list is large.
@@ -238,6 +286,9 @@ document.addEventListener('DOMContentLoaded', function () {
       : 'Đang hiển thị ' + shownCount + '/' + total + ' sản phẩm';
   }
 
+  // Render the compact thumbnail grid. Each product is a thumbnail-only button.
+  // Clicking a tile opens/closes an inline detail panel directly underneath
+  // (name + meta + hint + qty stepper). See openDetail() / closeDetail().
   function renderPicker(products) {
     pickerEl.innerHTML = '';
     updatePickerCount(products.length);
@@ -249,61 +300,99 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     pickerEmpty.style.display = 'none';
 
-    // Build into a fragment so re-layout happens once, not N times (important at 200 SKUs).
     var frag = document.createDocumentFragment();
+    var tileToReopen = null;
+    var productToReopen = null;
 
     products.forEach(function (p) {
-      var card = document.createElement('div');
-      card.className = 'product-card';
-      card.setAttribute('data-sku', p.sku);
-      if ((selections[p.sku] || 0) > 0) card.classList.add('is-selected');
+      var tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'product-tile';
+      tile.setAttribute('data-sku', p.sku);
+      tile.setAttribute('aria-label', p.name);
 
-      var thumbSrc = normalizeThumbUrl(p.thumbnailUrl, 600);
-      var thumbHtml;
-      if (thumbSrc) {
-        thumbHtml =
-          '<div class="product-card-thumb">' +
-            '<img src="' + escapeHtml(thumbSrc) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" ' +
-                 'onerror="this.onerror=null;this.parentNode.classList.add(\'product-card-thumb--placeholder\');this.remove();">' +
-          '</div>';
-      } else {
-        thumbHtml = '<div class="product-card-thumb product-card-thumb--placeholder">\uD83D\uDCF8</div>';
+      var thumbSrc = normalizeThumbUrl(p.thumbnailUrl, 400);
+      tile.innerHTML = thumbSrc
+        ? '<img src="' + escapeHtml(thumbSrc) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" ' +
+          'onerror="this.onerror=null;this.parentNode.classList.add(\'product-tile--placeholder\');this.remove();">'
+        : '<span class="product-tile-placeholder" aria-hidden="true">\uD83D\uDCF8</span>';
+
+      tile.addEventListener('click', function () { toggleDetail(p, tile); });
+      frag.appendChild(tile);
+
+      if (expandedSku === p.sku) {
+        tileToReopen = tile;
+        productToReopen = p;
       }
-
-      var metaBits = [];
-      metaBits.push('<span class="product-card-sku">' + escapeHtml(p.sku) + '</span>');
-      if (p.type) metaBits.push('<span class="product-card-tag">' + escapeHtml(p.type) + '</span>');
-      if (p.material) metaBits.push('<span class="product-card-tag">' + escapeHtml(p.material) + '</span>');
-      if (p.imagesPerUnit > 1) metaBits.push('<span class="product-card-badge">' + p.imagesPerUnit + ' ảnh/SP</span>');
-
-      var currentQty = selections[p.sku] || 0;
-
-      card.innerHTML =
-        thumbHtml +
-        '<div class="product-card-body">' +
-          '<div class="product-card-name">' + escapeHtml(p.name) + '</div>' +
-          '<div class="product-card-meta">' + metaBits.join('') + '</div>' +
-          (p.hint ? '<div class="product-card-hint">' + escapeHtml(p.hint) + '</div>' : '') +
-          '<div class="product-card-qty">' +
-            '<button type="button" class="qty-btn qty-minus" aria-label="Giảm">−</button>' +
-            '<input type="text" class="qty-input" value="' + currentQty + '" inputmode="numeric" readonly>' +
-            '<button type="button" class="qty-btn qty-plus qty-plus--primary" aria-label="Thêm số lượng">+ Thêm</button>' +
-          '</div>' +
-        '</div>';
-
-      frag.appendChild(card);
-
-      var qtyInput = card.querySelector('.qty-input');
-      card.querySelector('.qty-minus').addEventListener('click', function () {
-        setQty(p.sku, Math.max(0, (selections[p.sku] || 0) - 1), qtyInput, card);
-      });
-      card.querySelector('.qty-plus').addEventListener('click', function () {
-        setQty(p.sku, (selections[p.sku] || 0) + 1, qtyInput, card);
-      });
     });
 
     pickerEl.appendChild(frag);
-    pickerEl.style.display = 'block';
+    pickerEl.style.display = 'grid';
+
+    // Preserve an open detail panel across re-renders (e.g. material change
+    // while a tile was expanded and its product still matches the filter).
+    if (tileToReopen && productToReopen) {
+      expandedSku = null; // openDetail() will set it again
+      openDetail(productToReopen, tileToReopen, /*skipScroll*/ true);
+    }
+  }
+
+  // ------- Inline detail panel (afroyla-style) -------
+  function toggleDetail(p, tile) {
+    if (expandedSku === p.sku) {
+      closeDetail();
+      return;
+    }
+    closeDetail();
+    openDetail(p, tile, /*skipScroll*/ false);
+  }
+
+  function openDetail(p, tile, skipScroll) {
+    var metaBits = [];
+    metaBits.push('<span class="product-card-sku">' + escapeHtml(p.sku) + '</span>');
+    if (p.type) metaBits.push('<span class="product-card-tag">' + escapeHtml(p.type) + '</span>');
+    if (p.material) metaBits.push('<span class="product-card-tag">' + escapeHtml(p.material) + '</span>');
+    if (p.imagesPerUnit > 1) metaBits.push('<span class="product-card-badge">' + p.imagesPerUnit + ' ảnh/SP</span>');
+
+    var currentQty = selections[p.sku] || 0;
+
+    var detail = document.createElement('div');
+    detail.className = 'tile-detail';
+    detail.setAttribute('data-sku', p.sku);
+    detail.innerHTML =
+      '<div class="product-card-name">' + escapeHtml(p.name) + '</div>' +
+      '<div class="product-card-meta">' + metaBits.join('') + '</div>' +
+      (p.hint ? '<div class="product-card-hint">' + escapeHtml(p.hint) + '</div>' : '') +
+      '<div class="product-card-qty">' +
+        '<button type="button" class="qty-btn qty-minus" aria-label="Giảm">−</button>' +
+        '<input type="text" class="qty-input" value="' + currentQty + '" inputmode="numeric" readonly>' +
+        '<button type="button" class="qty-btn qty-plus qty-plus--primary" aria-label="Thêm số lượng">+ Thêm</button>' +
+      '</div>';
+
+    tile.insertAdjacentElement('afterend', detail);
+    tile.classList.add('is-expanded');
+    expandedSku = p.sku;
+
+    var qtyInput = detail.querySelector('.qty-input');
+    detail.querySelector('.qty-minus').addEventListener('click', function () {
+      setQty(p.sku, Math.max(0, (selections[p.sku] || 0) - 1), qtyInput, tile);
+    });
+    detail.querySelector('.qty-plus').addEventListener('click', function () {
+      setQty(p.sku, (selections[p.sku] || 0) + 1, qtyInput, tile);
+    });
+
+    if (!skipScroll && detail.scrollIntoView) {
+      detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  function closeDetail() {
+    if (!expandedSku) return;
+    var openedTile = pickerEl.querySelector('.product-tile.is-expanded');
+    if (openedTile) openedTile.classList.remove('is-expanded');
+    var openedDetail = pickerEl.querySelector('.tile-detail');
+    if (openedDetail && openedDetail.parentNode) openedDetail.parentNode.removeChild(openedDetail);
+    expandedSku = null;
   }
 
   function setQty(sku, qty, qtyInput, card) {
