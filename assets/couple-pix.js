@@ -80,10 +80,15 @@ document.addEventListener('DOMContentLoaded', function () {
   var pickerEl = document.getElementById('product-picker');
   var pickerEmpty = document.getElementById('product-picker-empty');
   var pickerCount = document.getElementById('product-picker-count');
+  var pickerPrompt = document.getElementById('product-picker-prompt');
   var filterBar = document.getElementById('product-filter-bar');
   var filterSearch = document.getElementById('filter-search');
   var filterTypeSel = document.getElementById('filter-type');
   var filterMaterialSel = document.getElementById('filter-material');
+  var skuQuickAddBox = document.getElementById('sku-quickadd');
+  var skuQuickAddInput = document.getElementById('sku-quickadd-input');
+  var skuQuickAddBtn = document.getElementById('sku-quickadd-btn');
+  var skuQuickAddMsg = document.getElementById('sku-quickadd-msg');
   var samePhotoControl = document.getElementById('same-photo-control');
   var samePhotoCheckbox = document.getElementById('same-photo-for-all');
   var slotsContainer = document.getElementById('slots-container');
@@ -113,7 +118,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         var anyFilter = populateFilters(products);
         filterBar.style.display = anyFilter ? 'flex' : 'none';
-        renderPicker(filteredProducts());
+        skuQuickAddBox.style.display = 'block';
+        reRender();
       })
       .catch(function (err) {
         pickerLoading.style.display = 'none';
@@ -194,7 +200,25 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  function reRender() { renderPicker(filteredProducts()); }
+  // With 200+ SKUs, rendering every card up front is wasteful — the customer
+  // almost always wants to paste a SKU or search by name. Only paint cards when
+  // the customer has narrowed the catalog (search term / type / material).
+  function hasActiveFilter() {
+    return !!(filterTypeSel.value || filterMaterialSel.value
+              || (filterSearch.value || '').trim());
+  }
+  function reRender() {
+    if (!allProducts.length) return;
+    if (!hasActiveFilter()) {
+      pickerEl.style.display = 'none';
+      pickerEmpty.style.display = 'none';
+      pickerCount.style.display = 'none';
+      pickerPrompt.style.display = 'flex';
+      return;
+    }
+    pickerPrompt.style.display = 'none';
+    renderPicker(filteredProducts());
+  }
   filterTypeSel.addEventListener('change', reRender);
   filterMaterialSel.addEventListener('change', reRender);
 
@@ -294,13 +318,70 @@ document.addEventListener('DOMContentLoaded', function () {
     // they can see where to upload the photo. Only auto-scroll once per session.
     if (scrollToSlotsOnNextPick && prev === 0 && qty > 0) {
       scrollToSlotsOnNextPick = false;
-      setTimeout(function () {
-        if (slotsContainer.firstElementChild && slotsContainer.firstElementChild.scrollIntoView) {
-          slotsContainer.firstElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 50);
+      setTimeout(scrollToFirstSlot, 50);
     }
   }
+
+  function scrollToFirstSlot() {
+    if (slotsContainer.firstElementChild && slotsContainer.firstElementChild.scrollIntoView) {
+      slotsContainer.firstElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // ------- Quick-add by SKU (v3c) -------
+  // Customer pastes / types the SKU from their order email, hits Enter → product
+  // is added to `selections` directly, bypassing the card grid entirely.
+  var quickAddMsgTimer = null;
+  function showQuickAddMsg(text, kind) {
+    skuQuickAddMsg.textContent = text;
+    skuQuickAddMsg.classList.remove('sku-quickadd-msg--error', 'sku-quickadd-msg--ok');
+    skuQuickAddMsg.classList.add(kind === 'ok' ? 'sku-quickadd-msg--ok' : 'sku-quickadd-msg--error');
+    skuQuickAddMsg.style.display = 'block';
+    clearTimeout(quickAddMsgTimer);
+    quickAddMsgTimer = setTimeout(function () {
+      skuQuickAddMsg.style.display = 'none';
+    }, 3000);
+  }
+
+  function quickAddSku() {
+    var raw = (skuQuickAddInput.value || '').trim();
+    if (!raw) return;
+    var cleaned = cleanSku(raw);
+    var hit = productsById[cleaned] || productsById[raw.toUpperCase()] || null;
+    if (!hit) {
+      for (var i = 0; i < allProducts.length; i++) {
+        if (cleanSku(allProducts[i].sku) === cleaned) { hit = allProducts[i]; break; }
+      }
+    }
+    if (!hit) {
+      showQuickAddMsg('Không tìm thấy SKU "' + raw + '". Kiểm tra lại hoặc tìm bằng tên bên dưới.', 'error');
+      return;
+    }
+    var curQty = selections[hit.sku] || 0;
+    selections[hit.sku] = curQty + 1;
+    rebuildSlots();
+    if (scrollToSlotsOnNextPick && curQty === 0) {
+      scrollToSlotsOnNextPick = false;
+      setTimeout(scrollToFirstSlot, 50);
+    }
+    showQuickAddMsg('Đã thêm: ' + hit.name + ' (số lượng: ' + selections[hit.sku] + ')', 'ok');
+    skuQuickAddInput.value = '';
+    // If the matching card is currently on screen (filter/search active), repaint
+    // so its qty input reflects the new value.
+    if (hasActiveFilter()) reRender();
+  }
+
+  skuQuickAddBtn.addEventListener('click', quickAddSku);
+  skuQuickAddInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      quickAddSku();
+    }
+  });
+  // Right-click → paste is the dominant flow. Defer so the input value is populated.
+  skuQuickAddInput.addEventListener('paste', function () {
+    setTimeout(quickAddSku, 0);
+  });
 
   // ------- Slot building -------
   // Each slot has a unique DOM node created from #slot-template. We attach a Croppie

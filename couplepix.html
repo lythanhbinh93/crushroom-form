@@ -59,6 +59,16 @@
             <span>Đang tải danh sách sản phẩm...</span>
           </div>
           <div id="product-picker-error" class="messages" style="display: none;"></div>
+          <div id="sku-quickadd" class="sku-quickadd" style="display: none;">
+            <label for="sku-quickadd-input" class="sku-quickadd-label">Dán SKU từ đơn hàng để thêm nhanh</label>
+            <div class="sku-quickadd-row">
+              <input type="text" id="sku-quickadd-input" class="sku-quickadd-input"
+                     placeholder="VD: CPFE107807" autocomplete="off" inputmode="latin"
+                     aria-label="Nhập SKU">
+              <button type="button" id="sku-quickadd-btn" class="sku-quickadd-btn">+ Thêm</button>
+            </div>
+            <small id="sku-quickadd-msg" class="sku-quickadd-msg" style="display: none;"></small>
+          </div>
           <div id="product-filter-bar" class="product-filter-bar" style="display: none;">
             <input type="search" id="filter-search" class="product-search"
                    placeholder="Tìm theo tên hoặc SKU…" autocomplete="off" aria-label="Tìm sản phẩm">
@@ -70,6 +80,11 @@
             </select>
           </div>
           <div id="product-picker-count" class="product-picker-count" style="display: none;"></div>
+          <div id="product-picker-prompt" class="product-picker-prompt" style="display: none;">
+            <div class="prompt-icon" aria-hidden="true">🔎</div>
+            <div class="prompt-title">Chọn sản phẩm</div>
+            <div class="prompt-text">Dán SKU từ đơn hàng ở ô trên, hoặc nhập tên / dùng bộ lọc để tìm sản phẩm.</div>
+          </div>
           <div id="product-picker" class="product-picker" style="display: none;"></div>
           <div id="product-picker-empty" class="product-picker-empty" style="display: none;">Không có sản phẩm phù hợp với bộ lọc.</div>
           <small class="help-text globo-description">Tăng số lượng cho sản phẩm bạn muốn làm ảnh. Mỗi số lượng sẽ sinh ra (các) ô tải ảnh bên dưới.</small>

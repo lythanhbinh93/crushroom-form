@@ -370,6 +370,97 @@ button:active {
   background-color: black;
 }
 
+/* ===== Quick-add by SKU (v3c) ===== */
+.sku-quickadd {
+  margin: 8px 0 10px;
+  padding: 12px 14px;
+  background: #f7f8fa;
+  border: 1px solid #e2e6ee;
+  border-radius: 10px;
+}
+.sku-quickadd-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 6px;
+}
+.sku-quickadd-row {
+  display: flex;
+  gap: 8px;
+}
+.sku-quickadd-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: ui-monospace, Menlo, monospace;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  background: #fff;
+  color: #222;
+}
+.sku-quickadd-input:focus {
+  outline: none;
+  border-color: #111;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
+}
+.sku-quickadd-btn {
+  height: 42px;
+  padding: 0 16px;
+  background: #111;
+  color: #fff;
+  border: 1px solid #111;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sku-quickadd-btn:hover {
+  background: #000;
+}
+.sku-quickadd-msg {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.sku-quickadd-msg--error { color: #dc3545; }
+.sku-quickadd-msg--ok    { color: #2e7d32; }
+
+/* ===== Empty-state prompt (v3c) ===== */
+.product-picker-prompt {
+  /* JS toggles display to "flex" when there's no active filter/search. */
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 16px;
+  margin-top: 6px;
+  background: #fafbfc;
+  border: 1px dashed #d8d8d8;
+  border-radius: 10px;
+  text-align: center;
+  color: #555;
+}
+.product-picker-prompt .prompt-icon {
+  font-size: 34px;
+  line-height: 1;
+}
+.product-picker-prompt .prompt-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+}
+.product-picker-prompt .prompt-text {
+  font-size: 13px;
+  color: #666;
+  max-width: 340px;
+  line-height: 1.45;
+}
+
 /* ===== Product picker (v2) ===== */
 .product-picker-loading {
   display: flex;
@@ -671,6 +762,12 @@ button:active {
   }
   .product-card-thumb {
     height: 280px;
+  }
+  .sku-quickadd-row {
+    flex-direction: column;
+  }
+  .sku-quickadd-btn {
+    width: 100%;
   }
 }
 
