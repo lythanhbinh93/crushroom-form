@@ -1,461 +1,557 @@
+/**
+ * CouplePix customer upload form (v2 — product-driven).
+ *
+ * Flow:
+ *  1. Fetch product catalog from GAS (action=listProducts).
+ *  2. Customer types phone + picks products (with qty).
+ *  3. Per picked product, render `qty × imagesPerUnit` upload slots dynamically.
+ *     Each slot reuses the existing Croppie crop modal via initCroppieSlot().
+ *  4. Submit posts indexed params ImgData_i / Sku_i / ProductName_i / Slot_i / Filename_i
+ *     plus SamePhoto flag to GAS doPost.
+ */
 document.addEventListener('DOMContentLoaded', function () {
-  const input = document.querySelector('#mobile_code');
-  window.intlTelInput(input, {
-    initialCountry: 'vn',
-    showSelectedDialCode: true,
-    countrySearch: false,
-    utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@20.3.0/build/js/utils.js',
-  });
+  var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbweeqxM3blNgfqB4A1y2HBaGfQcfUcpTdksG0GBiW29NLyUOr1C0Hl95Naju3AjgRq4qg/exec';
 
-  const chooseFile1 = document.getElementById('choose-file-1');
-  const imgPreview1 = document.getElementById('img-preview-1');
-  const chooseFile2 = document.getElementById('choose-file-2');
-  const imgPreview2 = document.getElementById('img-preview-2');
-
-  // khi button click thì input type="file" dược click
-  // document.querySelectorAll('button[for]').forEach(button => {
-  //   button.addEventListener('click', () => {
-  //       const targetId = button.getAttribute('for');
-  //       const targetInput = document.getElementById(targetId);
-  //       if (targetInput) {
-  //           targetInput.click();
-  //       }
-  //   });
-  // });
-
-  document.querySelectorAll('button[data-file-remove]').forEach(button => {
-    button.addEventListener('click', () => {
-        const targetId = button.getAttribute('data-file-remove');
-        const dataFileIndex = button.getAttribute('data-file-index');
-        const targetInput = document.getElementById(targetId);
-        const imgPreview = document.getElementById(`img-preview-${dataFileIndex}`);
-        if (targetInput) {
-          console.log("hihi")
-            targetInput.value= null;
-            imgPreview.innerHTML="";
-            button.closest('.dropzone--content').querySelector(".dropzone--placeholder").style.display="flex";
-            button.closest('.dropzone--content').querySelector(".dropzone--preview--area").style.display="none";
-        }
+  // ------- Phone input -------
+  var phoneInput = document.querySelector('#mobile_code');
+  if (window.intlTelInput) {
+    window.intlTelInput(phoneInput, {
+      initialCountry: 'vn',
+      showSelectedDialCode: true,
+      countrySearch: false,
+      utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@20.3.0/build/js/utils.js'
     });
-  });
+  }
 
-  document.querySelectorAll('input[type="file"]').forEach(chooseFile => {
-    chooseFile.addEventListener('change', function (event) {
-      var file = event.target.files[0];
-      if (file) {
-          // Hiển thị cửa sổ pop-up và cắt ảnh
-          const parentEmt = this.parentElement;
-          const imgPreview = parentEmt.querySelector(".img-preview");
-          openImageCropModal(this, imgPreview);
-          // getImgData(this,imgPreview);
-          parentEmt.querySelector(".dropzone--placeholder").style.display = "none";
-          parentEmt.querySelector(".dropzone--preview--area").style.display = "block";
+  // ------- State -------
+  // productsById: { [sku]: { sku, name, imagesPerUnit, hint, thumbnailUrl } }
+  // selections: { [sku]: qty } (qty=0 means not selected)
+  var productsById = {};
+  var selections = {};
+
+  // ------- Helpers (shared) -------
+  function cleanSku(raw) {
+    if (!raw) return '';
+    var s = String(raw).trim();
+    var up = s.toUpperCase();
+    if (up.indexOf('COUPLEPIX-') !== -1) {
+      var parts = up.split('COUPLEPIX-');
+      if (parts[1]) return parts[1].split(/\s+/)[0];
+    }
+    return up.replace(/\s+/g, '');
+  }
+
+  function last4(phone) {
+    var digits = String(phone || '').replace(/\D/g, '');
+    if (!digits) return '0000';
+    var slice = digits.slice(-4);
+    while (slice.length < 4) slice = '0' + slice;
+    return slice;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // ------- Product picker -------
+  var pickerLoading = document.getElementById('product-picker-loading');
+  var pickerError = document.getElementById('product-picker-error');
+  var pickerEl = document.getElementById('product-picker');
+  var samePhotoControl = document.getElementById('same-photo-control');
+  var samePhotoCheckbox = document.getElementById('same-photo-for-all');
+  var slotsContainer = document.getElementById('slots-container');
+
+  function loadProducts() {
+    fetch(SCRIPT_URL + '?action=listProducts')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        pickerLoading.style.display = 'none';
+        if (!data || !data.success) {
+          showPickerError((data && data.error) || 'Không tải được danh sách sản phẩm.');
+          return;
+        }
+        var products = data.products || [];
+        if (!products.length) {
+          showPickerError('Shop chưa cấu hình sản phẩm. Vui lòng liên hệ CS.');
+          return;
+        }
+        productsById = {};
+        products.forEach(function (p) { productsById[p.sku] = p; });
+        renderPicker(products);
+      })
+      .catch(function (err) {
+        pickerLoading.style.display = 'none';
+        showPickerError('Lỗi kết nối: ' + err.message);
+      });
+  }
+
+  function showPickerError(msg) {
+    pickerError.textContent = msg;
+    pickerError.style.display = 'block';
+  }
+
+  function renderPicker(products) {
+    pickerEl.innerHTML = '';
+    products.forEach(function (p) {
+      var row = document.createElement('div');
+      row.className = 'product-row';
+      row.setAttribute('data-sku', p.sku);
+
+      var thumbHtml = p.thumbnailUrl
+        ? '<img class="product-thumb" src="' + escapeHtml(p.thumbnailUrl) + '" alt="' + escapeHtml(p.name) + '" loading="lazy">'
+        : '<div class="product-thumb product-thumb--placeholder">📸</div>';
+
+      row.innerHTML =
+        thumbHtml +
+        '<div class="product-info">' +
+          '<div class="product-name">' + escapeHtml(p.name) + '</div>' +
+          '<div class="product-meta">' +
+            '<span class="product-sku">' + escapeHtml(p.sku) + '</span>' +
+            (p.imagesPerUnit > 1 ? '<span class="product-badge">' + p.imagesPerUnit + ' ảnh/SP</span>' : '') +
+          '</div>' +
+          (p.hint ? '<div class="product-hint">' + escapeHtml(p.hint) + '</div>' : '') +
+        '</div>' +
+        '<div class="product-qty">' +
+          '<button type="button" class="qty-btn qty-minus" aria-label="Giảm">−</button>' +
+          '<input type="text" class="qty-input" value="0" inputmode="numeric" readonly>' +
+          '<button type="button" class="qty-btn qty-plus" aria-label="Tăng">+</button>' +
+        '</div>';
+
+      pickerEl.appendChild(row);
+
+      selections[p.sku] = 0;
+
+      var qtyInput = row.querySelector('.qty-input');
+      row.querySelector('.qty-minus').addEventListener('click', function () {
+        setQty(p.sku, Math.max(0, (selections[p.sku] || 0) - 1), qtyInput, row);
+      });
+      row.querySelector('.qty-plus').addEventListener('click', function () {
+        setQty(p.sku, (selections[p.sku] || 0) + 1, qtyInput, row);
+      });
+    });
+
+    pickerEl.style.display = 'block';
+  }
+
+  function setQty(sku, qty, qtyInput, row) {
+    selections[sku] = qty;
+    qtyInput.value = qty;
+    if (qty > 0) row.classList.add('is-selected');
+    else row.classList.remove('is-selected');
+    rebuildSlots();
+  }
+
+  // ------- Slot building -------
+  // Each slot has a unique DOM node created from #slot-template. We attach a Croppie
+  // factory via initCroppieSlot so each slot has independent crop state.
+  function rebuildSlots() {
+    slotsContainer.innerHTML = '';
+
+    var pickedSkus = Object.keys(selections).filter(function (sku) { return selections[sku] > 0; });
+    var totalSlots = 0;
+    pickedSkus.forEach(function (sku) {
+      var p = productsById[sku];
+      if (!p) return;
+      totalSlots += (selections[sku] || 0) * (p.imagesPerUnit || 1);
+    });
+
+    if (totalSlots === 0) {
+      samePhotoControl.style.display = 'none';
+      samePhotoCheckbox.checked = false;
+      return;
+    }
+
+    // Show same-photo toggle only when there's more than 1 slot in total.
+    samePhotoControl.style.display = totalSlots > 1 ? 'block' : 'none';
+    if (totalSlots <= 1) samePhotoCheckbox.checked = false;
+
+    var tpl = document.getElementById('slot-template');
+    var globalIdx = 0;
+
+    pickedSkus.forEach(function (sku) {
+      var p = productsById[sku];
+      if (!p) return;
+      var qty = selections[sku] || 0;
+      var perUnit = p.imagesPerUnit || 1;
+      for (var unit = 0; unit < qty; unit++) {
+        for (var subIdx = 0; subIdx < perUnit; subIdx++) {
+          var slotEl = tpl.content.firstElementChild.cloneNode(true);
+          slotEl.setAttribute('data-slot-index', String(globalIdx));
+          slotEl.setAttribute('data-sku', sku);
+          slotEl.setAttribute('data-name', p.name);
+          slotEl.setAttribute('data-sub-index', String(subIdx));
+
+          var titleParts = [p.name];
+          if (qty > 1) titleParts.push('#' + (unit + 1));
+          if (perUnit > 1) titleParts.push('Ảnh ' + (subIdx + 1) + '/' + perUnit);
+          slotEl.querySelector('.slot-title').textContent = titleParts.join(' — ');
+
+          var hintEl = slotEl.querySelector('.slot-hint');
+          if (p.hint) hintEl.textContent = p.hint;
+          else hintEl.style.display = 'none';
+
+          initCroppieSlot(slotEl);
+          slotsContainer.appendChild(slotEl);
+          globalIdx++;
+        }
       }
     });
-  });
 
-  // function getImgData(chooseFile, imgPreview) {
-  //   const files = chooseFile.files[0];
-  //   if (files) {
-  //     const fileReader = new FileReader();
-  //     fileReader.readAsDataURL(files);
-  //     fileReader.addEventListener('load', function () {
-  //       imgPreview.style.display = 'block';
-  //       imgPreview.innerHTML = '<img src="' + this.result + '" />';
-  //       var ImgData = this.result.split("base64,")[1];
-  //       imgPreview.closest('.dropzone').querySelector('input[type="hidden"]').value = ImgData;
-  //     });
-  //   }
-  // }
+    updateSamePhotoVisibility();
+  }
 
+  // When "same photo for all" is on, hide all slots except the first.
+  function updateSamePhotoVisibility() {
+    var isSame = samePhotoCheckbox.checked;
+    var slots = slotsContainer.querySelectorAll('.slot-card');
+    slots.forEach(function (s, i) {
+      if (isSame && i > 0) s.classList.add('slot-hidden');
+      else s.classList.remove('slot-hidden');
+    });
+  }
 
-  function openImageCropModal(chooseFile, imgPreview) {
-    const file=  chooseFile.files[0];
+  samePhotoCheckbox.addEventListener('change', updateSamePhotoVisibility);
 
-     // Tạo phần tử overlay
-     let overlay = document.createElement('div');
-     overlay.classList.add('t4s-close-overlay', 't4s-op-0', 'is--visible');
+  // ------- Croppie per-slot init -------
+  function initCroppieSlot(slotEl) {
+    var fileInput = slotEl.querySelector('.slot-file-input');
+    var fileTrigger = slotEl.querySelector('.slot-file-trigger');
+    var imgPreview = slotEl.querySelector('.slot-img-preview');
+    var removeBtn = slotEl.querySelector('.slot-remove-btn');
+    var placeholder = slotEl.querySelector('.dropzone--placeholder');
+    var previewArea = slotEl.querySelector('.dropzone--preview--area');
 
-     // Chèn phần tử overlay vào sau thẻ body
-     document.body.insertAdjacentElement('afterend', overlay);
+    // Give each input a unique id so the <label> click forwards correctly.
+    var uid = 'slot-file-' + Math.random().toString(36).slice(2, 9);
+    fileInput.id = uid;
+    fileTrigger.setAttribute('for', uid);
 
-    // Tạo phần tử cho pop-up
-    let modal = document.createElement('div');
+    fileInput.addEventListener('change', function () {
+      if (!fileInput.files || !fileInput.files[0]) return;
+      openImageCropModal(fileInput, imgPreview, placeholder, previewArea);
+    });
+
+    removeBtn.addEventListener('click', function () {
+      fileInput.value = '';
+      imgPreview.innerHTML = '';
+      slotEl.querySelector('.slot-img-data').value = '';
+      placeholder.style.display = 'flex';
+      previewArea.style.display = 'none';
+      slotEl.classList.remove('has-image');
+    });
+  }
+
+  // Reused Croppie + zoom modal (logic preserved from v1, refactored for any slot).
+  function openImageCropModal(fileInput, imgPreview, placeholder, previewArea) {
+    var file = fileInput.files[0];
+    if (!file) return;
+
+    var overlay = document.createElement('div');
+    overlay.classList.add('t4s-close-overlay', 't4s-op-0', 'is--visible');
+    document.body.insertAdjacentElement('afterend', overlay);
+
+    var modal = document.createElement('div');
     modal.classList.add('modal');
 
-    // Tạo phần tử cho Croppie
-    let croppieContainer = document.createElement('div');
-    croppieContainer.id = 'croppie-container';
+    var croppieContainer = document.createElement('div');
+    croppieContainer.className = 'croppie-container-slot';
     modal.appendChild(croppieContainer);
 
-
-    // Tạo nút Crop
     var cropButton = document.createElement('button');
+    cropButton.type = 'button';
     cropButton.textContent = 'OK';
-    cropButton.classList.add('dropzone--placeholder--button'); // Thêm class "a" cho nút
+    cropButton.classList.add('dropzone--placeholder--button');
     cropButton.addEventListener('click', function () {
-        cropImage();
-        closeModal();
+      cropImage();
+      closeModal();
     });
     modal.appendChild(cropButton);
 
-    // Thêm pop-up vào trang web
     document.body.appendChild(modal);
 
-    // Khởi tạo Croppie
     var croppie = new Croppie(croppieContainer, {
-      viewport: {
-          width: 300, // Độ rộng của viewport
-          height: 300, // Chiều cao của viewport
-          type: 'circle' // Loại viewport là hình tròn
-      },
+      viewport: { width: 300, height: 300, type: 'circle' },
       boundary: { width: 300, height: 400, type: 'infinity' },
       enableZoom: true,
       enforceBoundary: false
-  });
-
-  // ===== Zoom +/- (chỉ bổ sung, không thay đổi code cũ) =====
-(function addZoomButtons() {
-  // Tạo 2 nút +/−
-  var zoomControls = document.createElement('div');
-  zoomControls.style.display = 'flex';
-  zoomControls.style.gap = '8px';
-  zoomControls.style.justifyContent = 'center';
-  zoomControls.style.margin = '8px 0';
-
-  var minusBtn = document.createElement('button');
-  minusBtn.type = 'button';
-  minusBtn.textContent = '−';
-  minusBtn.className = 'dropzone--placeholder--button';
-
-  var plusBtn = document.createElement('button');
-  plusBtn.type = 'button';
-  plusBtn.textContent = '+';
-  plusBtn.className = 'dropzone--placeholder--button';
-
-  zoomControls.appendChild(minusBtn);
-  zoomControls.appendChild(plusBtn);
-
-  // Chèn vào modal, ngay dưới vùng croppie
-  // (modal đã append croppieContainer trước đó)
-  modal.insertBefore(zoomControls, modal.lastChild);
-
-  // Tìm slider nội bộ của Croppie .cr-slider (có thể sinh ra sau 1 tick)
-  var STEP = 0.01;
-  function triggerInput(el) {
-    var ev = new Event('input', { bubbles: true });
-    el.dispatchEvent(ev);
-  }
-  function clamp(val, min, max) {
-    if (min == null || max == null) return val;
-    return Math.min(max, Math.max(min, val));
-  }
-
-  function wireWithSlider(slider) {
-    // Điều khiển slider để Croppie tự xử min/max
-    minusBtn.addEventListener('click', function () {
-      var cur = parseFloat(slider.value || '0');
-      var min = parseFloat(slider.min || '0');
-      var max = parseFloat(slider.max || '1');
-      slider.value = String(clamp(cur - STEP, min, max));
-      triggerInput(slider);
     });
-    plusBtn.addEventListener('click', function () {
-      var cur = parseFloat(slider.value || '0');
-      var min = parseFloat(slider.min || '0');
-      var max = parseFloat(slider.max || '1');
-      slider.value = String(clamp(cur + STEP, min, max));
-      triggerInput(slider);
-    });
-  }
 
-  // Thử lấy ngay
-  var sliderNow = croppieContainer.querySelector('.cr-slider');
-  if (sliderNow) {
-    wireWithSlider(sliderNow);
-    return;
-  }
+    // Zoom +/- buttons (lifted from v1).
+    (function addZoomButtons() {
+      var zoomControls = document.createElement('div');
+      zoomControls.style.display = 'flex';
+      zoomControls.style.gap = '8px';
+      zoomControls.style.justifyContent = 'center';
+      zoomControls.style.margin = '8px 0';
 
-  // Nếu slider chưa sẵn, dùng MutationObserver đợi nó xuất hiện
-  var ob = new MutationObserver(function () {
-    var slider = croppieContainer.querySelector('.cr-slider');
-    if (slider) {
-      wireWithSlider(slider);
-      ob.disconnect();
-    }
-  });
-  ob.observe(croppieContainer, { childList: true, subtree: true });
+      var minusBtn = document.createElement('button');
+      minusBtn.type = 'button';
+      minusBtn.textContent = '−';
+      minusBtn.className = 'dropzone--placeholder--button';
 
-  // Fallback: nếu vì lý do nào đó không có slider, dùng API setZoom
-  minusBtn.addEventListener('click', function () {
-    var cur = (croppie.get() || {}).zoom || 0;
-    croppie.setZoom(cur - STEP);
-  });
-  plusBtn.addEventListener('click', function () {
-    var cur = (croppie.get() || {}).zoom || 0;
-    croppie.setZoom(cur + STEP);
-  });
-})();
+      var plusBtn = document.createElement('button');
+      plusBtn.type = 'button';
+      plusBtn.textContent = '+';
+      plusBtn.className = 'dropzone--placeholder--button';
 
+      zoomControls.appendChild(minusBtn);
+      zoomControls.appendChild(plusBtn);
+      modal.insertBefore(zoomControls, modal.lastChild);
 
-    // Đặt ảnh vào Croppie để cắt
-    var reader = new FileReader();
-    reader.onload = function (e) {
-        croppie.bind({
-            url: e.target.result
+      var STEP = 0.01;
+      function triggerInput(el) { el.dispatchEvent(new Event('input', { bubbles: true })); }
+      function clamp(v, mn, mx) { return Math.min(mx, Math.max(mn, v)); }
+
+      function wireWithSlider(slider) {
+        minusBtn.addEventListener('click', function () {
+          var cur = parseFloat(slider.value || '0');
+          var mn = parseFloat(slider.min || '0');
+          var mx = parseFloat(slider.max || '1');
+          slider.value = String(clamp(cur - STEP, mn, mx));
+          triggerInput(slider);
         });
-    };
+        plusBtn.addEventListener('click', function () {
+          var cur = parseFloat(slider.value || '0');
+          var mn = parseFloat(slider.min || '0');
+          var mx = parseFloat(slider.max || '1');
+          slider.value = String(clamp(cur + STEP, mn, mx));
+          triggerInput(slider);
+        });
+      }
+
+      var sliderNow = croppieContainer.querySelector('.cr-slider');
+      if (sliderNow) { wireWithSlider(sliderNow); return; }
+      var ob = new MutationObserver(function () {
+        var slider = croppieContainer.querySelector('.cr-slider');
+        if (slider) { wireWithSlider(slider); ob.disconnect(); }
+      });
+      ob.observe(croppieContainer, { childList: true, subtree: true });
+
+      // Fallback API if slider never appears.
+      minusBtn.addEventListener('click', function () {
+        var cur = (croppie.get() || {}).zoom || 0;
+        croppie.setZoom(cur - STEP);
+      });
+      plusBtn.addEventListener('click', function () {
+        var cur = (croppie.get() || {}).zoom || 0;
+        croppie.setZoom(cur + STEP);
+      });
+    })();
+
+    var reader = new FileReader();
+    reader.onload = function (e) { croppie.bind({ url: e.target.result }); };
     reader.readAsDataURL(file);
 
-  // Hàm để cắt ảnh
-  function cropImage() {
-    croppie.result({
-      type: 'blob', // Trả về dữ liệu dạng blob
-      size: { width: 700, height: 700 } // Kích thước mong muốn
-    }).then(function (blob) {
-        // Khởi tạo FileReader
-        var reader = new FileReader();
-        // reader.readAsDataURL(file);
-        // Đặt hành động khi FileReader hoàn thành việc đọc blob
-        // reader.onload = function(event) {
-        //     // Lấy base64 image từ blob và log ra console
-        //     var base64Image = event.target.result;
-        //     console.log(base64Image);
-        // };
-
-        reader.addEventListener('load', function (e) {
+    function cropImage() {
+      croppie.result({
+        type: 'blob',
+        size: { width: 700, height: 700 }
+      }).then(function (blob) {
+        var br = new FileReader();
+        br.addEventListener('load', function (ev) {
           var oldImage = new Image();
-          // var base64Image = e.target.result;
-          oldImage.src = e.target.result;;
-          // imgPreview.style.display = 'block';
-          // imgPreview.innerHTML = '<img src="' + base64Image + '" />';
-          oldImage.onload = function() {
-              var radius = Math.max(oldImage.width, oldImage.height) / 2;
-              var borderWidth = 2; // Độ dày của viền
-              radius += borderWidth;
+          oldImage.src = ev.target.result;
+          oldImage.onload = function () {
+            var radius = Math.max(oldImage.width, oldImage.height) / 2;
+            var borderWidth = 2;
+            radius += borderWidth;
 
-              var canvas = document.createElement('canvas');
-              var ctx = canvas.getContext('2d');
-              canvas.width = radius * 2;
-              canvas.height = radius * 2;
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            canvas.width = radius * 2;
+            canvas.height = radius * 2;
 
-              ctx.beginPath();
-              ctx.arc(radius, radius, radius, 0, Math.PI * 2);
-              ctx.closePath();
-              ctx.fillStyle = 'black'; // Màu nền là đen
-              ctx.fill();
+            ctx.beginPath();
+            ctx.arc(radius, radius, radius, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.fillStyle = 'black';
+            ctx.fill();
 
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(radius, radius, radius - borderWidth, 0, Math.PI * 2, true); // Trừ đi độ dày của viền
-              ctx.closePath();
-              ctx.clip();
-              ctx.drawImage(oldImage, radius - oldImage.width / 2, radius - oldImage.height / 2, oldImage.width, oldImage.height);
-              ctx.restore();
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(radius, radius, radius - borderWidth, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(oldImage, radius - oldImage.width / 2, radius - oldImage.height / 2,
+              oldImage.width, oldImage.height);
+            ctx.restore();
 
-              var newImage = new Image();
-              newImage.src = canvas.toDataURL();
+            var newImage = new Image();
+            newImage.src = canvas.toDataURL();
 
-              // Hiển thị ảnh mới
-              imgPreview.appendChild(newImage);
-              imgPreview.style.display = 'block';
-              var ImgData =  canvas.toDataURL().split("base64,")[1];
-              imgPreview.closest('.dropzone').querySelector('input[type="hidden"]').value = ImgData;
+            imgPreview.innerHTML = '';
+            imgPreview.appendChild(newImage);
+            imgPreview.style.display = 'flex';
+            placeholder.style.display = 'none';
+            previewArea.style.display = 'block';
+
+            var slotEl = imgPreview.closest('.slot-card');
+            if (slotEl) {
+              slotEl.querySelector('.slot-img-data').value = canvas.toDataURL().split('base64,')[1];
+              slotEl.classList.add('has-image');
+            }
           };
         });
-        // Đọc blob như base64
-        reader.readAsDataURL(blob);
+        br.readAsDataURL(blob);
       });
-  }
+    }
 
-  // Hàm để đóng pop-up
-  function closeModal() {
-      document.body.removeChild(modal);
-      // document.body.removeChild(overlay);
+    function closeModal() {
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
       overlay.remove();
+    }
   }
-}
 
-  const radios = document.querySelectorAll('.radio-input');
-  radios.forEach(function (radio) {
-    radio.addEventListener('change', function () {
-      const value = this.value;
-      const showBlock = document.querySelectorAll('.show-block');
-      showBlock.forEach(function (element) {
-        if (value === 'many-image') {
-          element.style.display = 'block';
-        } else if (value === 'one-image') {
-          element.style.display = 'none';
-        }
-      });
+  // ------- Validation -------
+  function clearError() {
+    document.getElementById('phone-error').style.display = 'none';
+    document.querySelector('.form-phone #mobile_code').classList.remove('has-error');
+    document.getElementById('product-error').style.display = 'none';
+    document.getElementById('slots-error').style.display = 'none';
+    slotsContainer.querySelectorAll('.slot-card').forEach(function (s) {
+      s.classList.remove('has-error');
     });
-  });
+  }
 
-  //validate
+  function showErr(el, msg) {
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
   function validateForm() {
-    const phoneNumber = document.getElementById('mobile_code').value.trim();
-    const phoneError = document.getElementById('phone-error');
-    const fileInput = document.getElementById('choose-file-1');
-    const fileError = document.getElementById('file-error');
-    // const textarea1 = document.querySelector('.textarea-1');
-    // const textarea1Error = document.getElementById('textarea-1');
-    // const textarea2 = document.querySelector('.textarea-2');
-    // const textarea2Error = document.getElementById('textarea-2');
-    clearError()
-    let hasError = false; // Biến để kiểm tra có lỗi hay không
+    clearError();
+    var phoneEl = document.getElementById('mobile_code');
+    var phoneVal = phoneEl.value.trim();
+    var phoneError = document.getElementById('phone-error');
+    var productError = document.getElementById('product-error');
+    var slotsError = document.getElementById('slots-error');
+    var hasError = false;
 
-    // Validate phone number
-    if (phoneNumber === '') {
-      phoneError.textContent = 'Vui lòng nhập số điện thoại';
-      phoneError.style.display = 'block';
-      document.querySelector('.form-phone #mobile_code').classList.add('has-error');
+    // Phone
+    if (!phoneVal) {
+      showErr(phoneError, 'Vui lòng nhập số điện thoại');
+      phoneEl.classList.add('has-error');
       hasError = true;
     } else {
-      // Chỉ giữ lại số
-      const digitsOnly = phoneNumber.replace(/\D/g, '');
-
-      // Kiểm tra độ dài hợp lệ (8-12 số cho số điện thoại Việt Nam)
+      var digitsOnly = phoneVal.replace(/\D/g, '');
       if (digitsOnly.length < 8 || digitsOnly.length > 12) {
-        phoneError.textContent = 'Số điện thoại không hợp lệ (cần 8-12 chữ số)';
-        phoneError.style.display = 'block';
-        document.querySelector('.form-phone #mobile_code').classList.add('has-error');
+        showErr(phoneError, 'Số điện thoại không hợp lệ (cần 8-12 chữ số)');
+        phoneEl.classList.add('has-error');
         hasError = true;
-      }
-
-      // Kiểm tra xem có quá nhiều ký tự không phải số không (để phát hiện ghi chú)
-      const nonDigitCount = phoneNumber.length - digitsOnly.length;
-      if (nonDigitCount > 5) {
-        phoneError.textContent = 'Vui lòng chỉ nhập số điện thoại (không nhập ghi chú ở đây)';
-        phoneError.style.display = 'block';
-        document.querySelector('.form-phone #mobile_code').classList.add('has-error');
+      } else if (phoneVal.length - digitsOnly.length > 5) {
+        showErr(phoneError, 'Vui lòng chỉ nhập số điện thoại (không nhập ghi chú ở đây)');
+        phoneEl.classList.add('has-error');
         hasError = true;
       }
     }
-    if (fileInput.files.length === 0) {
-      fileError.textContent = 'Please fill in field';
-      fileError.style.display = 'block';
-      document.querySelector('.choose-file .dropzone').classList.add('has-error');
+
+    // Products picked?
+    var totalSlots = slotsContainer.querySelectorAll('.slot-card').length;
+    if (totalSlots === 0) {
+      showErr(productError, 'Vui lòng chọn ít nhất 1 sản phẩm.');
       hasError = true;
+    } else {
+      // Image per slot (or slot 0 only when same-photo is on)
+      var samePhoto = samePhotoCheckbox.checked;
+      var requiredSlots = samePhoto ? 1 : totalSlots;
+      var missing = 0;
+      slotsContainer.querySelectorAll('.slot-card').forEach(function (s, i) {
+        if (samePhoto && i > 0) return;
+        var imgData = s.querySelector('.slot-img-data').value;
+        if (!imgData) {
+          s.classList.add('has-error');
+          missing++;
+        }
+      });
+      if (missing > 0) {
+        showErr(slotsError, 'Vui lòng tải ảnh cho ' + missing + '/' + requiredSlots + ' slot còn thiếu.');
+        hasError = true;
+      }
     }
 
-    // const elementsBlock = document.querySelectorAll('.form-control.show-block');
-    // elementsBlock.forEach((element) => {
-    //   if (getComputedStyle(element).display === 'block') {
-    //     if (textarea1.value.trim() === '') {
-    //       textarea1Error.textContent = 'Please fill in field';
-    //       textarea1Error.style.display = 'block';
-    //       textarea1.classList.add('has-error');
-    //       hasError = true;
-    //     }
-    //     if (textarea2.value.trim() === '') {
-    //       textarea2Error.textContent = 'Please fill in field';
-    //       textarea2Error.style.display = 'block';
-    //       textarea2.classList.add('has-error');
-    //       hasError = true;
-    //     }
-    //   }
-    // });
     return !hasError;
   }
 
-  function clearError() {
-    const phoneError = document.getElementById('phone-error');
-    const fileError = document.getElementById('file-error');
-    // const textarea1 = document.querySelector('.textarea-1');
-    // const textarea1Error = document.getElementById('textarea-1');
-    // const textarea2 = document.querySelector('.textarea-2');
-    // const textarea2Error = document.getElementById('textarea-2');
+  // ------- Submit -------
+  var form = document.forms['contact-form'];
+  var loaderBtn = document.getElementById('loaderBtn');
+  var submitBtn = document.getElementById('submitBtn');
+  var submitButton = document.querySelector('button[type="submit"]');
 
-    phoneError.textContent = '';
-    phoneError.style.display = 'none';
-    document.querySelector('.form-phone #mobile_code').classList.remove('has-error');
-
-    fileError.textContent = '';
-    fileError.style.display = 'none';
-    document.querySelector('.choose-file .dropzone').classList.remove('has-error');
-
-    // textarea1Error.textContent = '';
-    // textarea1Error.style.display = 'none';
-    // textarea1.classList.remove('has-error');
-
-    // textarea2Error.textContent = '';
-    // textarea2Error.style.display = 'none';
-    // textarea2.classList.remove('has-error');
-  }
-
-  const scriptURL = 'https://script.google.com/macros/s/AKfycbweeqxM3blNgfqB4A1y2HBaGfQcfUcpTdksG0GBiW29NLyUOr1C0Hl95Naju3AjgRq4qg/exec'
-
-  const form = document.forms['contact-form'];
-  const loaderBtn = document.getElementById('loaderBtn');
-  const submitBtn = document.getElementById('submitBtn');
-  const submitButton = document.querySelector('button[type="submit"]');
-
-  form.addEventListener('submit', e => {
+  form.addEventListener('submit', function (e) {
     e.preventDefault();
-    if(validateForm()){
-      e.preventDefault();
-      loaderBtn.style.display = 'inline-block';
-      submitBtn.style.display = 'none';
-      submitButton.disabled = true;
+    if (!validateForm()) return;
 
-      // Lấy số điện thoại và format (chỉ giữ số)
-      const phoneInput = document.getElementById('mobile_code');
-      let phoneNumber = phoneInput ? phoneInput.value.replace(/\D/g, '') : '';
+    loaderBtn.style.display = 'inline-block';
+    submitBtn.style.display = 'none';
+    submitButton.disabled = true;
 
-      // Tạo FormData từ form
-      const formData = new FormData(form);
+    var phoneDigits = (document.getElementById('mobile_code').value || '').replace(/\D/g, '');
+    var phone4 = last4(phoneDigits);
+    var samePhoto = samePhotoCheckbox.checked;
 
-      // Nếu không có phone từ input, thử lấy từ field 'Name'
-      if (!phoneNumber && formData.get('Name')) {
-        phoneNumber = formData.get('Name').replace(/\D/g, '');
-      }
+    var slotEls = Array.prototype.slice.call(slotsContainer.querySelectorAll('.slot-card'));
 
-      // Thêm tên file
-      const filename1 = phoneNumber || 'image_' + Date.now();
-      formData.set('Filename1', filename1);
+    var formData = new FormData();
+    formData.set('Name', phoneDigits || document.getElementById('mobile_code').value);
+    formData.set('message', ''); // kept for schema compat; structured mapping replaces the free-text note
+    formData.set('SamePhoto', samePhoto ? 'true' : 'false');
+    formData.set('radio', samePhoto || slotEls.length <= 1 ? 'one-image' : 'many-image');
+    formData.set('ItemCount', String(slotEls.length));
 
-      // Kiểm tra nếu có ảnh 2
-      const imgData2 = document.getElementById('ImgData2').value;
-      if (imgData2 && imgData2.trim() !== '') {
-        const filename2 = phoneNumber ? phoneNumber + '_2' : 'image_' + Date.now() + '_2';
-        formData.set('Filename2', filename2);
-      }
+    // If same-photo is on, duplicate slot 0's image into every slot's payload.
+    var sharedImgData = samePhoto && slotEls[0] ? slotEls[0].querySelector('.slot-img-data').value : null;
 
-      fetch(scriptURL, { method: 'POST', body: formData})
-      .then(response => {
-        alert("Bạn đã gửi ảnh thành công." );
-        // console.log("hihi")
+    slotEls.forEach(function (slotEl, i) {
+      var sku = slotEl.getAttribute('data-sku') || '';
+      var name = slotEl.getAttribute('data-name') || '';
+      var subIdx = slotEl.getAttribute('data-sub-index') || '0';
+      var imgData = sharedImgData != null ? sharedImgData : slotEl.querySelector('.slot-img-data').value;
+      var filename = (phoneDigits || 'image') + '_' + i + '_' + phone4 + '_' + cleanSku(sku);
 
-      })
-      .then(() => {
-        window.location.href="https://crushroom.vn/pages/thank-you";
-        // window.location.reload();
-      })
-      .catch(error => {
-        alert("Chưa gửi được ảnh. Xin thử lại" );
-        console.error('Error!', error.message);
-      })
-      .finally(()=>{
-          submitButton.disabled = false;
-          loaderBtn.style.display = 'none';
-          submitBtn.style.display = 'inline-block';
-      })
+      formData.set('ImgData_' + i, imgData);
+      formData.set('Sku_' + i, sku);
+      formData.set('ProductName_' + i, name);
+      formData.set('Slot_' + i, subIdx);
+      formData.set('Filename_' + i, filename);
+    });
+
+    // Legacy fallback so the existing sheet mirror columns still receive data even if someone
+    // downgrades the Apps Script.
+    if (slotEls[0]) {
+      formData.set('ImgData1', sharedImgData != null ? sharedImgData : slotEls[0].querySelector('.slot-img-data').value);
+      formData.set('Filename1', (phoneDigits || 'image') + '_0_' + phone4 + '_' + cleanSku(slotEls[0].getAttribute('data-sku') || ''));
     }
-  })
+    if (slotEls[1] && !samePhoto) {
+      formData.set('ImgData2', slotEls[1].querySelector('.slot-img-data').value);
+      formData.set('Filename2', (phoneDigits || 'image') + '_1_' + phone4 + '_' + cleanSku(slotEls[1].getAttribute('data-sku') || ''));
+    } else {
+      formData.set('ImgData2', '');
+    }
 
+    fetch(SCRIPT_URL, { method: 'POST', body: formData })
+      .then(function () {
+        alert('Bạn đã gửi ảnh thành công.');
+      })
+      .then(function () {
+        window.location.href = 'https://crushroom.vn/pages/thank-you';
+      })
+      .catch(function (err) {
+        alert('Chưa gửi được ảnh. Xin thử lại');
+        console.error('Error!', err && err.message);
+      })
+      .finally(function () {
+        submitButton.disabled = false;
+        loaderBtn.style.display = 'none';
+        submitBtn.style.display = 'inline-block';
+      });
+  });
 
-  // const submitButton = document.querySelector('button[type="submit"]');
-  // submitButton.addEventListener('click', function (event) {
-  //   event.preventDefault();
-  //   if(validateForm()){
-  //       e.preventDefault();
-  //       console.log("hihi");
-  //       fetch(scriptURL, { method: 'POST', body: new FormData(form)})
-  //       .then(response => alert("Thank you! your form is submitted successfully." ))
-  //       .then(() => { window.location.reload(); })
-  //       .catch(error => console.error('Error!', error.message))
-
-  //   }
-  // });
+  // Kick things off.
+  loadProducts();
 });
-
