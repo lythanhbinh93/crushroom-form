@@ -108,8 +108,8 @@ document.addEventListener('DOMContentLoaded', function () {
           productsById[p.sku] = p;
           if (selections[p.sku] == null) selections[p.sku] = 0;
         });
-        populateFilters(products);
-        filterBar.style.display = 'flex';
+        var anyFilter = populateFilters(products);
+        filterBar.style.display = anyFilter ? 'flex' : 'none';
         renderPicker(filteredProducts());
       })
       .catch(function (err) {
@@ -138,19 +138,30 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function populateFilters(products) {
-    fillFilterOptions(filterTypeSel, uniqueValues(products, 'type'));
-    fillFilterOptions(filterMaterialSel, uniqueValues(products, 'material'));
+    var typeValues = uniqueValues(products, 'type');
+    var materialValues = uniqueValues(products, 'material');
+    var hasTypeFilter = fillFilterOptions(filterTypeSel, typeValues);
+    var hasMaterialFilter = fillFilterOptions(filterMaterialSel, materialValues);
+    // If GAS hasn't been redeployed yet, `type`/`material` won't come through and
+    // the only option would be "(Khác)" — hide the filter so the UI doesn't look broken.
+    filterTypeSel.style.display = hasTypeFilter ? '' : 'none';
+    filterMaterialSel.style.display = hasMaterialFilter ? '' : 'none';
+    return hasTypeFilter || hasMaterialFilter;
   }
 
   function fillFilterOptions(selectEl, values) {
     // Preserve the first option ("Tất cả ...") already in HTML.
     while (selectEl.options.length > 1) selectEl.remove(1);
+    // Drop a lone "(Khác)" — it means no real categorization is available.
+    var meaningful = values.filter(function (v) { return v !== OTHER_LABEL; });
+    if (!meaningful.length) return false;
     values.forEach(function (v) {
       var opt = document.createElement('option');
       opt.value = v;
       opt.textContent = v;
       selectEl.appendChild(opt);
     });
+    return true;
   }
 
   function matchesFilter(product, typeSel, materialSel) {
