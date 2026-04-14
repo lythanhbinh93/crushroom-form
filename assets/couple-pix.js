@@ -58,6 +58,19 @@ document.addEventListener('DOMContentLoaded', function () {
       .replace(/'/g, '&#39;');
   }
 
+  // Google Drive share links (e.g. https://drive.google.com/file/d/{id}/view) can't be
+  // used directly as <img src>. Convert to the public thumbnail endpoint.
+  function normalizeThumbUrl(url, size) {
+    if (!url) return '';
+    var s = String(url).trim();
+    if (!s) return '';
+    if (s.indexOf('drive.google.com') === -1) return s;
+    var m = s.match(/[-\w]{25,}/);
+    if (!m) return s;
+    var px = size || 200;
+    return 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + px;
+  }
+
   // ------- Product picker -------
   var pickerLoading = document.getElementById('product-picker-loading');
   var pickerError = document.getElementById('product-picker-error');
@@ -102,9 +115,11 @@ document.addEventListener('DOMContentLoaded', function () {
       row.className = 'product-row';
       row.setAttribute('data-sku', p.sku);
 
-      var thumbHtml = p.thumbnailUrl
-        ? '<img class="product-thumb" src="' + escapeHtml(p.thumbnailUrl) + '" alt="' + escapeHtml(p.name) + '" loading="lazy">'
-        : '<div class="product-thumb product-thumb--placeholder">📸</div>';
+      var thumbSrc = normalizeThumbUrl(p.thumbnailUrl, 200);
+      var placeholderFallback = "this.onerror=null;this.outerHTML='<div class=\\'product-thumb product-thumb--placeholder\\'>\uD83D\uDCF8</div>';";
+      var thumbHtml = thumbSrc
+        ? '<img class="product-thumb" src="' + escapeHtml(thumbSrc) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="' + placeholderFallback + '">'
+        : '<div class="product-thumb product-thumb--placeholder">\uD83D\uDCF8</div>';
 
       row.innerHTML =
         thumbHtml +
