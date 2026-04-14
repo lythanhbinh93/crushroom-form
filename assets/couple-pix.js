@@ -64,7 +64,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!url) return '';
     var s = String(url).trim();
     if (!s) return '';
-    if (s.indexOf('drive.google.com') === -1) return s;
+    var isGoogle = s.indexOf('drive.google.com') !== -1 || s.indexOf('docs.google.com') !== -1;
+    if (!isGoogle) return s;
     var m = s.match(/[-\w]{25,}/);
     if (!m) return s;
     var px = size || 200;

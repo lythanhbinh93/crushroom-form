@@ -62,7 +62,10 @@ function listProducts() {
             });
         }
 
-        const data = sheet.getDataRange().getValues();
+        const range = sheet.getDataRange();
+        const data = range.getValues();
+        // Also read formulas so we can extract URLs from cells authored as =IMAGE("...")
+        const formulas = range.getFormulas();
         if (!data || data.length < 2) {
             return jsonOut({ success: true, products: [] });
         }
@@ -101,12 +104,18 @@ function listProducts() {
                 if (!isNaN(parsed) && parsed > 0) imagesPerUnit = parsed;
             }
 
+            let thumbnailUrl = '';
+            if (idx.thumbnailUrl !== -1) {
+                const formulaCell = formulas[i] ? String(formulas[i][idx.thumbnailUrl] || '') : '';
+                thumbnailUrl = extractThumbnailUrl_(formulaCell, row[idx.thumbnailUrl]);
+            }
+
             products.push({
                 sku: sku,
                 name: name,
                 imagesPerUnit: imagesPerUnit,
                 hint: idx.hint !== -1 ? String(row[idx.hint] || '') : '',
-                thumbnailUrl: idx.thumbnailUrl !== -1 ? String(row[idx.thumbnailUrl] || '') : ''
+                thumbnailUrl: thumbnailUrl
             });
         }
 
@@ -114,6 +123,35 @@ function listProducts() {
     } catch (error) {
         return jsonOut({ success: false, error: error.toString(), products: [] });
     }
+}
+
+// Extract a usable thumbnail URL from either a plain-text cell value
+// or a cell authored as `=IMAGE("https://...")` / `=HYPERLINK("https://...", "...")`.
+// Also normalizes Google Drive / docs.google.com share URLs into a public
+// thumbnail endpoint so the browser can render them as <img>.
+function extractThumbnailUrl_(formulaCell, rawValue) {
+    var url = '';
+    var formula = String(formulaCell || '').trim();
+    if (formula) {
+        // Match IMAGE("...") or HYPERLINK("..."...) — the first quoted URL wins.
+        var m = formula.match(/"(https?:\/\/[^"]+)"/);
+        if (m) url = m[1];
+    }
+    if (!url) {
+        var raw = String(rawValue == null ? '' : rawValue).trim();
+        // If a user pasted the raw =IMAGE formula as plain text, still recognize it.
+        var m2 = raw.match(/"(https?:\/\/[^"]+)"/);
+        if (m2) url = m2[1];
+        else if (/^https?:\/\//i.test(raw)) url = raw;
+    }
+    if (!url) return '';
+
+    // Normalize Google file URLs to a publicly viewable thumbnail.
+    if (url.indexOf('drive.google.com') !== -1 || url.indexOf('docs.google.com') !== -1) {
+        var id = url.match(/[-\w]{25,}/);
+        if (id) return 'https://drive.google.com/thumbnail?id=' + id[0] + '&sz=w400';
+    }
+    return url;
 }
 
 // Helper used inside doPost to re-validate customer-submitted SKUs against the catalog.
