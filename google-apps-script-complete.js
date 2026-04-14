@@ -57,7 +57,7 @@ function listProducts() {
         if (!sheet) {
             return jsonOut({
                 success: false,
-                error: 'Chưa có sheet "' + productsSheetName + '". Vui lòng tạo sheet với cột: SKU, Name, ImagesPerUnit, Hint, ThumbnailUrl, Active.',
+                error: 'Chưa có sheet "' + productsSheetName + '". Vui lòng tạo sheet với cột: SKU, Name, Type, Material, ImagesPerUnit, Hint, ThumbnailUrl, Active.',
                 products: []
             });
         }
@@ -74,6 +74,8 @@ function listProducts() {
         const idx = {
             sku: headers.indexOf('SKU'),
             name: headers.indexOf('Name'),
+            type: headers.indexOf('Type'),
+            material: headers.indexOf('Material'),
             imagesPerUnit: headers.indexOf('ImagesPerUnit'),
             hint: headers.indexOf('Hint'),
             thumbnailUrl: headers.indexOf('ThumbnailUrl'),
@@ -113,6 +115,8 @@ function listProducts() {
             products.push({
                 sku: sku,
                 name: name,
+                type: idx.type !== -1 ? String(row[idx.type] || '').trim() : '',
+                material: idx.material !== -1 ? String(row[idx.material] || '').trim() : '',
                 imagesPerUnit: imagesPerUnit,
                 hint: idx.hint !== -1 ? String(row[idx.hint] || '') : '',
                 thumbnailUrl: thumbnailUrl
@@ -476,7 +480,7 @@ function ensureFormDataColumns_(sheet) {
 
 // ===== HƯỚNG DẪN CẬP NHẬT =====
 // 1. Copy toàn bộ code này vào Apps Script editor và Deploy > New deployment (Web app, Anyone access).
-// 2. Tạo sheet "products" với header: SKU | Name | ImagesPerUnit | Hint | ThumbnailUrl | Active.
+// 2. Tạo sheet "products" với header: SKU | Name | Type | Material | ImagesPerUnit | Hint | ThumbnailUrl | Active.
 // 3. Thêm/sửa sản phẩm trong sheet "products"; set Active=FALSE để ẩn SKU.
 // 4. Sheet "form data" sẽ tự được thêm cột Items và SchemaVersion khi có upload đầu tiên.
 //
@@ -485,3 +489,7 @@ function ensureFormDataColumns_(sheet) {
 // ✅ doPost hỗ trợ N slot (ImgData_0..N-1) kèm SKU/ProductName/Slot
 // ✅ Items JSON ghi kèm mỗi row (có fallback image-1/image-2 cho admin cũ)
 // ✅ Email thông báo liệt kê từng sản phẩm + link Drive
+//
+// ===== CHANGELOG v3 =====
+// ✅ listProducts trả thêm type + material để form lọc dropdown
+// ✅ Thêm cột Type và Material vào sheet products (optional — để trống sẽ vào nhóm "Khác")

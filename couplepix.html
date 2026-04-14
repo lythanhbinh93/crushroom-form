@@ -59,7 +59,16 @@
             <span>Đang tải danh sách sản phẩm...</span>
           </div>
           <div id="product-picker-error" class="messages" style="display: none;"></div>
+          <div id="product-filter-bar" class="product-filter-bar" style="display: none;">
+            <select id="filter-type" class="product-filter" aria-label="Lọc theo loại sản phẩm">
+              <option value="">Tất cả loại</option>
+            </select>
+            <select id="filter-material" class="product-filter" aria-label="Lọc theo chất liệu">
+              <option value="">Tất cả chất liệu</option>
+            </select>
+          </div>
           <div id="product-picker" class="product-picker" style="display: none;"></div>
+          <div id="product-picker-empty" class="product-picker-empty" style="display: none;">Không có sản phẩm phù hợp với bộ lọc.</div>
           <small class="help-text globo-description">Tăng số lượng cho sản phẩm bạn muốn làm ảnh. Mỗi số lượng sẽ sinh ra (các) ô tải ảnh bên dưới.</small>
           <small class="messages" id="product-error" style="display: none;"></small>
         </div>

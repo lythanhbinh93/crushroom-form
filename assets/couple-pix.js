@@ -24,8 +24,10 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ------- State -------
-  // productsById: { [sku]: { sku, name, imagesPerUnit, hint, thumbnailUrl } }
-  // selections: { [sku]: qty } (qty=0 means not selected)
+  // allProducts: full catalog as returned by GAS (preserved for filter re-renders).
+  // productsById: { [sku]: { sku, name, type, material, imagesPerUnit, hint, thumbnailUrl } }
+  // selections: { [sku]: qty } (qty=0 means not selected). Persists across filter changes.
+  var allProducts = [];
   var productsById = {};
   var selections = {};
 
@@ -76,9 +78,15 @@ document.addEventListener('DOMContentLoaded', function () {
   var pickerLoading = document.getElementById('product-picker-loading');
   var pickerError = document.getElementById('product-picker-error');
   var pickerEl = document.getElementById('product-picker');
+  var pickerEmpty = document.getElementById('product-picker-empty');
+  var filterBar = document.getElementById('product-filter-bar');
+  var filterTypeSel = document.getElementById('filter-type');
+  var filterMaterialSel = document.getElementById('filter-material');
   var samePhotoControl = document.getElementById('same-photo-control');
   var samePhotoCheckbox = document.getElementById('same-photo-for-all');
   var slotsContainer = document.getElementById('slots-container');
+
+  var OTHER_LABEL = '(Khác)';
 
   function loadProducts() {
     fetch(SCRIPT_URL + '?action=listProducts')
@@ -94,9 +102,15 @@ document.addEventListener('DOMContentLoaded', function () {
           showPickerError('Shop chưa cấu hình sản phẩm. Vui lòng liên hệ CS.');
           return;
         }
+        allProducts = products;
         productsById = {};
-        products.forEach(function (p) { productsById[p.sku] = p; });
-        renderPicker(products);
+        products.forEach(function (p) {
+          productsById[p.sku] = p;
+          if (selections[p.sku] == null) selections[p.sku] = 0;
+        });
+        populateFilters(products);
+        filterBar.style.display = 'flex';
+        renderPicker(filteredProducts());
       })
       .catch(function (err) {
         pickerLoading.style.display = 'none';
@@ -109,56 +123,124 @@ document.addEventListener('DOMContentLoaded', function () {
     pickerError.style.display = 'block';
   }
 
+  // Collect unique non-empty values of a product field (plus OTHER_LABEL if any blank exists).
+  function uniqueValues(products, field) {
+    var seen = {};
+    var hasBlank = false;
+    products.forEach(function (p) {
+      var v = String(p[field] == null ? '' : p[field]).trim();
+      if (!v) hasBlank = true;
+      else seen[v] = true;
+    });
+    var list = Object.keys(seen).sort(function (a, b) { return a.localeCompare(b, 'vi'); });
+    if (hasBlank) list.push(OTHER_LABEL);
+    return list;
+  }
+
+  function populateFilters(products) {
+    fillFilterOptions(filterTypeSel, uniqueValues(products, 'type'));
+    fillFilterOptions(filterMaterialSel, uniqueValues(products, 'material'));
+  }
+
+  function fillFilterOptions(selectEl, values) {
+    // Preserve the first option ("Tất cả ...") already in HTML.
+    while (selectEl.options.length > 1) selectEl.remove(1);
+    values.forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      selectEl.appendChild(opt);
+    });
+  }
+
+  function matchesFilter(product, typeSel, materialSel) {
+    var pType = String(product.type == null ? '' : product.type).trim();
+    var pMat = String(product.material == null ? '' : product.material).trim();
+    if (typeSel) {
+      if (typeSel === OTHER_LABEL ? pType !== '' : pType !== typeSel) return false;
+    }
+    if (materialSel) {
+      if (materialSel === OTHER_LABEL ? pMat !== '' : pMat !== materialSel) return false;
+    }
+    return true;
+  }
+
+  function filteredProducts() {
+    var t = filterTypeSel.value;
+    var m = filterMaterialSel.value;
+    if (!t && !m) return allProducts;
+    return allProducts.filter(function (p) { return matchesFilter(p, t, m); });
+  }
+
+  filterTypeSel.addEventListener('change', function () { renderPicker(filteredProducts()); });
+  filterMaterialSel.addEventListener('change', function () { renderPicker(filteredProducts()); });
+
   function renderPicker(products) {
     pickerEl.innerHTML = '';
+
+    if (!products.length) {
+      pickerEl.style.display = 'none';
+      pickerEmpty.style.display = 'block';
+      return;
+    }
+    pickerEmpty.style.display = 'none';
+
     products.forEach(function (p) {
-      var row = document.createElement('div');
-      row.className = 'product-row';
-      row.setAttribute('data-sku', p.sku);
+      var card = document.createElement('div');
+      card.className = 'product-card';
+      card.setAttribute('data-sku', p.sku);
+      if ((selections[p.sku] || 0) > 0) card.classList.add('is-selected');
 
-      var thumbSrc = normalizeThumbUrl(p.thumbnailUrl, 200);
-      var placeholderFallback = "this.onerror=null;this.outerHTML='<div class=\\'product-thumb product-thumb--placeholder\\'>\uD83D\uDCF8</div>';";
-      var thumbHtml = thumbSrc
-        ? '<img class="product-thumb" src="' + escapeHtml(thumbSrc) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="' + placeholderFallback + '">'
-        : '<div class="product-thumb product-thumb--placeholder">\uD83D\uDCF8</div>';
-
-      row.innerHTML =
-        thumbHtml +
-        '<div class="product-info">' +
-          '<div class="product-name">' + escapeHtml(p.name) + '</div>' +
-          '<div class="product-meta">' +
-            '<span class="product-sku">' + escapeHtml(p.sku) + '</span>' +
-            (p.imagesPerUnit > 1 ? '<span class="product-badge">' + p.imagesPerUnit + ' ảnh/SP</span>' : '') +
-          '</div>' +
-          (p.hint ? '<div class="product-hint">' + escapeHtml(p.hint) + '</div>' : '') +
-        '</div>' +
-        '<div class="product-qty">' +
-          '<button type="button" class="qty-btn qty-minus" aria-label="Giảm">−</button>' +
-          '<input type="text" class="qty-input" value="0" inputmode="numeric" readonly>' +
-          '<button type="button" class="qty-btn qty-plus" aria-label="Tăng">+</button>' +
+      var thumbSrc = normalizeThumbUrl(p.thumbnailUrl, 800);
+      var thumbStyle = thumbSrc
+        ? 'background-image:url(' + escapeHtml(thumbSrc) + ')'
+        : '';
+      var thumbHtml = '<div class="product-card-thumb' +
+        (thumbSrc ? '' : ' product-card-thumb--placeholder') +
+        '"' + (thumbStyle ? ' style="' + thumbStyle + '"' : '') + '>' +
+        (thumbSrc ? '' : '\uD83D\uDCF8') +
         '</div>';
 
-      pickerEl.appendChild(row);
+      var metaBits = [];
+      metaBits.push('<span class="product-card-sku">' + escapeHtml(p.sku) + '</span>');
+      if (p.type) metaBits.push('<span class="product-card-tag">' + escapeHtml(p.type) + '</span>');
+      if (p.material) metaBits.push('<span class="product-card-tag">' + escapeHtml(p.material) + '</span>');
+      if (p.imagesPerUnit > 1) metaBits.push('<span class="product-card-badge">' + p.imagesPerUnit + ' ảnh/SP</span>');
 
-      selections[p.sku] = 0;
+      var currentQty = selections[p.sku] || 0;
 
-      var qtyInput = row.querySelector('.qty-input');
-      row.querySelector('.qty-minus').addEventListener('click', function () {
-        setQty(p.sku, Math.max(0, (selections[p.sku] || 0) - 1), qtyInput, row);
+      card.innerHTML =
+        thumbHtml +
+        '<div class="product-card-body">' +
+          '<div class="product-card-name">' + escapeHtml(p.name) + '</div>' +
+          '<div class="product-card-meta">' + metaBits.join('') + '</div>' +
+          (p.hint ? '<div class="product-card-hint">' + escapeHtml(p.hint) + '</div>' : '') +
+          '<div class="product-card-qty">' +
+            '<button type="button" class="qty-btn qty-minus" aria-label="Giảm">−</button>' +
+            '<input type="text" class="qty-input" value="' + currentQty + '" inputmode="numeric" readonly>' +
+            '<button type="button" class="qty-btn qty-plus" aria-label="Tăng">+</button>' +
+          '</div>' +
+        '</div>';
+
+      pickerEl.appendChild(card);
+
+      var qtyInput = card.querySelector('.qty-input');
+      card.querySelector('.qty-minus').addEventListener('click', function () {
+        setQty(p.sku, Math.max(0, (selections[p.sku] || 0) - 1), qtyInput, card);
       });
-      row.querySelector('.qty-plus').addEventListener('click', function () {
-        setQty(p.sku, (selections[p.sku] || 0) + 1, qtyInput, row);
+      card.querySelector('.qty-plus').addEventListener('click', function () {
+        setQty(p.sku, (selections[p.sku] || 0) + 1, qtyInput, card);
       });
     });
 
     pickerEl.style.display = 'block';
   }
 
-  function setQty(sku, qty, qtyInput, row) {
+  function setQty(sku, qty, qtyInput, card) {
     selections[sku] = qty;
     qtyInput.value = qty;
-    if (qty > 0) row.classList.add('is-selected');
-    else row.classList.remove('is-selected');
+    if (qty > 0) card.classList.add('is-selected');
+    else card.classList.remove('is-selected');
     rebuildSlots();
   }
 
