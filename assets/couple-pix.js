@@ -79,7 +79,9 @@ document.addEventListener('DOMContentLoaded', function () {
   var pickerError = document.getElementById('product-picker-error');
   var pickerEl = document.getElementById('product-picker');
   var pickerEmpty = document.getElementById('product-picker-empty');
+  var pickerCount = document.getElementById('product-picker-count');
   var filterBar = document.getElementById('product-filter-bar');
+  var filterSearch = document.getElementById('filter-search');
   var filterTypeSel = document.getElementById('filter-type');
   var filterMaterialSel = document.getElementById('filter-material');
   var samePhotoControl = document.getElementById('same-photo-control');
@@ -87,6 +89,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var slotsContainer = document.getElementById('slots-container');
 
   var OTHER_LABEL = '(Khác)';
+  var scrollToSlotsOnNextPick = true;
 
   function loadProducts() {
     fetch(SCRIPT_URL + '?action=listProducts')
@@ -179,15 +182,41 @@ document.addEventListener('DOMContentLoaded', function () {
   function filteredProducts() {
     var t = filterTypeSel.value;
     var m = filterMaterialSel.value;
-    if (!t && !m) return allProducts;
-    return allProducts.filter(function (p) { return matchesFilter(p, t, m); });
+    var q = (filterSearch.value || '').trim().toLowerCase();
+    if (!t && !m && !q) return allProducts;
+    return allProducts.filter(function (p) {
+      if (!matchesFilter(p, t, m)) return false;
+      if (q) {
+        var hay = ((p.name || '') + ' ' + (p.sku || '')).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
   }
 
-  filterTypeSel.addEventListener('change', function () { renderPicker(filteredProducts()); });
-  filterMaterialSel.addEventListener('change', function () { renderPicker(filteredProducts()); });
+  function reRender() { renderPicker(filteredProducts()); }
+  filterTypeSel.addEventListener('change', reRender);
+  filterMaterialSel.addEventListener('change', reRender);
+
+  // Debounce search input so we don't re-render on every keystroke when the list is large.
+  var searchDebounce = null;
+  filterSearch.addEventListener('input', function () {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(reRender, 120);
+  });
+
+  function updatePickerCount(shownCount) {
+    var total = allProducts.length;
+    if (!total) { pickerCount.style.display = 'none'; return; }
+    pickerCount.style.display = 'block';
+    pickerCount.textContent = shownCount === total
+      ? 'Tổng ' + total + ' sản phẩm'
+      : 'Đang hiển thị ' + shownCount + '/' + total + ' sản phẩm';
+  }
 
   function renderPicker(products) {
     pickerEl.innerHTML = '';
+    updatePickerCount(products.length);
 
     if (!products.length) {
       pickerEl.style.display = 'none';
@@ -196,21 +225,26 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     pickerEmpty.style.display = 'none';
 
+    // Build into a fragment so re-layout happens once, not N times (important at 200 SKUs).
+    var frag = document.createDocumentFragment();
+
     products.forEach(function (p) {
       var card = document.createElement('div');
       card.className = 'product-card';
       card.setAttribute('data-sku', p.sku);
       if ((selections[p.sku] || 0) > 0) card.classList.add('is-selected');
 
-      var thumbSrc = normalizeThumbUrl(p.thumbnailUrl, 800);
-      var thumbStyle = thumbSrc
-        ? 'background-image:url(' + escapeHtml(thumbSrc) + ')'
-        : '';
-      var thumbHtml = '<div class="product-card-thumb' +
-        (thumbSrc ? '' : ' product-card-thumb--placeholder') +
-        '"' + (thumbStyle ? ' style="' + thumbStyle + '"' : '') + '>' +
-        (thumbSrc ? '' : '\uD83D\uDCF8') +
-        '</div>';
+      var thumbSrc = normalizeThumbUrl(p.thumbnailUrl, 600);
+      var thumbHtml;
+      if (thumbSrc) {
+        thumbHtml =
+          '<div class="product-card-thumb">' +
+            '<img src="' + escapeHtml(thumbSrc) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" ' +
+                 'onerror="this.onerror=null;this.parentNode.classList.add(\'product-card-thumb--placeholder\');this.remove();">' +
+          '</div>';
+      } else {
+        thumbHtml = '<div class="product-card-thumb product-card-thumb--placeholder">\uD83D\uDCF8</div>';
+      }
 
       var metaBits = [];
       metaBits.push('<span class="product-card-sku">' + escapeHtml(p.sku) + '</span>');
@@ -229,11 +263,11 @@ document.addEventListener('DOMContentLoaded', function () {
           '<div class="product-card-qty">' +
             '<button type="button" class="qty-btn qty-minus" aria-label="Giảm">−</button>' +
             '<input type="text" class="qty-input" value="' + currentQty + '" inputmode="numeric" readonly>' +
-            '<button type="button" class="qty-btn qty-plus" aria-label="Tăng">+</button>' +
+            '<button type="button" class="qty-btn qty-plus qty-plus--primary" aria-label="Thêm số lượng">+ Thêm</button>' +
           '</div>' +
         '</div>';
 
-      pickerEl.appendChild(card);
+      frag.appendChild(card);
 
       var qtyInput = card.querySelector('.qty-input');
       card.querySelector('.qty-minus').addEventListener('click', function () {
@@ -244,15 +278,28 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
 
+    pickerEl.appendChild(frag);
     pickerEl.style.display = 'block';
   }
 
   function setQty(sku, qty, qtyInput, card) {
+    var prev = selections[sku] || 0;
     selections[sku] = qty;
     qtyInput.value = qty;
     if (qty > 0) card.classList.add('is-selected');
     else card.classList.remove('is-selected');
     rebuildSlots();
+
+    // First time a user picks any product, scroll to the freshly generated slots so
+    // they can see where to upload the photo. Only auto-scroll once per session.
+    if (scrollToSlotsOnNextPick && prev === 0 && qty > 0) {
+      scrollToSlotsOnNextPick = false;
+      setTimeout(function () {
+        if (slotsContainer.firstElementChild && slotsContainer.firstElementChild.scrollIntoView) {
+          slotsContainer.firstElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
+    }
   }
 
   // ------- Slot building -------
