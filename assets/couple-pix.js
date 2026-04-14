@@ -381,16 +381,55 @@ document.addEventListener('DOMContentLoaded', function () {
     var removeBtn = slotEl.querySelector('.slot-remove-btn');
     var placeholder = slotEl.querySelector('.dropzone--placeholder');
     var previewArea = slotEl.querySelector('.dropzone--preview--area');
+    var dropzone = slotEl.querySelector('.dropzone');
 
-    // Give each input a unique id so the <label> click forwards correctly.
-    var uid = 'slot-file-' + Math.random().toString(36).slice(2, 9);
-    fileInput.id = uid;
-    fileTrigger.setAttribute('for', uid);
+    // Explicit click dispatch — more reliable than <label for> on a display:none
+    // file input across mobile browsers / iOS Safari / webviews.
+    fileTrigger.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    // Clicking the placeholder area (anywhere in the empty dropzone) also
+    // opens the picker — bigger tap target on phones.
+    placeholder.addEventListener('click', function (e) {
+      if (e.target === fileTrigger) return; // already handled above
+      fileInput.click();
+    });
 
     fileInput.addEventListener('change', function () {
       if (!fileInput.files || !fileInput.files[0]) return;
-      openImageCropModal(fileInput, imgPreview, placeholder, previewArea);
+      handleFileSelected(fileInput.files[0]);
     });
+
+    // Drag-and-drop (the UI says "kéo ảnh vào đây" so let's honor it).
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      dropzone.addEventListener(ev, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('is-dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      dropzone.addEventListener(ev, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('is-dragover');
+      });
+    });
+    dropzone.addEventListener('drop', function (e) {
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files[0]) handleFileSelected(files[0]);
+    });
+
+    function handleFileSelected(file) {
+      if (!file.type || file.type.indexOf('image/') !== 0) {
+        alert('Chỉ hỗ trợ ảnh (JPG, PNG, HEIC...).');
+        return;
+      }
+      openImageCropModal(file, imgPreview, placeholder, previewArea, fileInput);
+    }
 
     removeBtn.addEventListener('click', function () {
       fileInput.value = '';
@@ -403,13 +442,18 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Reused Croppie + zoom modal (logic preserved from v1, refactored for any slot).
-  function openImageCropModal(fileInput, imgPreview, placeholder, previewArea) {
-    var file = fileInput.files[0];
+  function openImageCropModal(file, imgPreview, placeholder, previewArea, fileInput) {
     if (!file) return;
+    if (typeof Croppie === 'undefined') {
+      alert('Không tải được bộ cắt ảnh. Vui lòng refresh trang và thử lại.');
+      console.error('[CouplePix] Croppie library not loaded.');
+      return;
+    }
 
+    // Visible backdrop — user clearly sees the modal is open.
     var overlay = document.createElement('div');
-    overlay.classList.add('t4s-close-overlay', 't4s-op-0', 'is--visible');
-    document.body.insertAdjacentElement('afterend', overlay);
+    overlay.className = 'couplepix-backdrop';
+    document.body.appendChild(overlay);
 
     var modal = document.createElement('div');
     modal.classList.add('modal');
@@ -418,32 +462,63 @@ document.addEventListener('DOMContentLoaded', function () {
     croppieContainer.className = 'croppie-container-slot';
     modal.appendChild(croppieContainer);
 
+    // Action row: Cancel + OK. "OK" disables itself while cropping to
+    // prevent double-clicks and gives visible feedback.
+    var actionRow = document.createElement('div');
+    actionRow.className = 'couplepix-modal-actions';
+
+    var cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.textContent = 'Huỷ';
+    cancelButton.className = 'dropzone--placeholder--button';
+    cancelButton.addEventListener('click', function () {
+      if (fileInput) fileInput.value = '';
+      closeModal();
+    });
+
     var cropButton = document.createElement('button');
     cropButton.type = 'button';
     cropButton.textContent = 'OK';
-    cropButton.classList.add('dropzone--placeholder--button');
+    cropButton.className = 'dropzone--placeholder--button couplepix-modal-ok';
     cropButton.addEventListener('click', function () {
-      cropImage();
-      closeModal();
+      if (cropButton.disabled) return;
+      cropButton.disabled = true;
+      cropButton.textContent = 'Đang xử lý…';
+      cropImage()
+        .then(function () { closeModal(); })
+        .catch(function (err) {
+          console.error('[CouplePix] Crop failed:', err);
+          alert('Không xử lý được ảnh: ' + (err && err.message ? err.message : 'lỗi không rõ') + '. Vui lòng thử ảnh khác.');
+          cropButton.disabled = false;
+          cropButton.textContent = 'OK';
+        });
     });
-    modal.appendChild(cropButton);
+
+    actionRow.appendChild(cancelButton);
+    actionRow.appendChild(cropButton);
+    modal.appendChild(actionRow);
 
     document.body.appendChild(modal);
 
-    var croppie = new Croppie(croppieContainer, {
-      viewport: { width: 300, height: 300, type: 'circle' },
-      boundary: { width: 300, height: 400, type: 'infinity' },
-      enableZoom: true,
-      enforceBoundary: false
-    });
+    var croppie;
+    try {
+      croppie = new Croppie(croppieContainer, {
+        viewport: { width: 300, height: 300, type: 'circle' },
+        boundary: { width: 300, height: 400, type: 'infinity' },
+        enableZoom: true,
+        enforceBoundary: false
+      });
+    } catch (e) {
+      console.error('[CouplePix] Croppie init failed:', e);
+      alert('Không khởi tạo được bộ cắt ảnh. Vui lòng thử lại.');
+      closeModal();
+      return;
+    }
 
     // Zoom +/- buttons (lifted from v1).
     (function addZoomButtons() {
       var zoomControls = document.createElement('div');
-      zoomControls.style.display = 'flex';
-      zoomControls.style.gap = '8px';
-      zoomControls.style.justifyContent = 'center';
-      zoomControls.style.margin = '8px 0';
+      zoomControls.className = 'couplepix-zoom-controls';
 
       var minusBtn = document.createElement('button');
       minusBtn.type = 'button';
@@ -457,7 +532,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       zoomControls.appendChild(minusBtn);
       zoomControls.appendChild(plusBtn);
-      modal.insertBefore(zoomControls, modal.lastChild);
+      modal.insertBefore(zoomControls, actionRow);
 
       var STEP = 0.01;
       function triggerInput(el) { el.dispatchEvent(new Event('input', { bubbles: true })); }
@@ -500,66 +575,87 @@ document.addEventListener('DOMContentLoaded', function () {
     })();
 
     var reader = new FileReader();
-    reader.onload = function (e) { croppie.bind({ url: e.target.result }); };
+    reader.onload = function (e) {
+      croppie.bind({ url: e.target.result }).catch(function (err) {
+        console.error('[CouplePix] Croppie bind failed:', err);
+      });
+    };
+    reader.onerror = function () {
+      console.error('[CouplePix] Failed to read selected file.');
+      alert('Không đọc được file ảnh. Vui lòng thử ảnh khác.');
+      closeModal();
+    };
     reader.readAsDataURL(file);
 
+    // Returns a Promise that resolves after the cropped image is painted into
+    // the slot preview + hidden <input>. Must be awaited before closing the
+    // modal, otherwise Croppie's internal canvas can be torn down mid-read.
     function cropImage() {
-      croppie.result({
+      return croppie.result({
         type: 'blob',
         size: { width: 700, height: 700 }
       }).then(function (blob) {
-        var br = new FileReader();
-        br.addEventListener('load', function (ev) {
-          var oldImage = new Image();
-          oldImage.src = ev.target.result;
-          oldImage.onload = function () {
-            var radius = Math.max(oldImage.width, oldImage.height) / 2;
-            var borderWidth = 2;
-            radius += borderWidth;
+        return new Promise(function (resolve, reject) {
+          var br = new FileReader();
+          br.addEventListener('error', function () { reject(new Error('Không đọc được ảnh đã cắt')); });
+          br.addEventListener('load', function (ev) {
+            var oldImage = new Image();
+            oldImage.onerror = function () { reject(new Error('Ảnh đã cắt bị lỗi')); };
+            oldImage.onload = function () {
+              try {
+                var radius = Math.max(oldImage.width, oldImage.height) / 2;
+                var borderWidth = 2;
+                radius += borderWidth;
 
-            var canvas = document.createElement('canvas');
-            var ctx = canvas.getContext('2d');
-            canvas.width = radius * 2;
-            canvas.height = radius * 2;
+                var canvas = document.createElement('canvas');
+                var ctx = canvas.getContext('2d');
+                canvas.width = radius * 2;
+                canvas.height = radius * 2;
 
-            ctx.beginPath();
-            ctx.arc(radius, radius, radius, 0, Math.PI * 2);
-            ctx.closePath();
-            ctx.fillStyle = 'black';
-            ctx.fill();
+                ctx.beginPath();
+                ctx.arc(radius, radius, radius, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.fillStyle = 'black';
+                ctx.fill();
 
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(radius, radius, radius - borderWidth, 0, Math.PI * 2, true);
-            ctx.closePath();
-            ctx.clip();
-            ctx.drawImage(oldImage, radius - oldImage.width / 2, radius - oldImage.height / 2,
-              oldImage.width, oldImage.height);
-            ctx.restore();
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(radius, radius, radius - borderWidth, 0, Math.PI * 2, true);
+                ctx.closePath();
+                ctx.clip();
+                ctx.drawImage(oldImage, radius - oldImage.width / 2, radius - oldImage.height / 2,
+                  oldImage.width, oldImage.height);
+                ctx.restore();
 
-            var newImage = new Image();
-            newImage.src = canvas.toDataURL();
+                var dataUrl = canvas.toDataURL();
+                var newImage = new Image();
+                newImage.src = dataUrl;
 
-            imgPreview.innerHTML = '';
-            imgPreview.appendChild(newImage);
-            imgPreview.style.display = 'flex';
-            placeholder.style.display = 'none';
-            previewArea.style.display = 'block';
+                imgPreview.innerHTML = '';
+                imgPreview.appendChild(newImage);
+                imgPreview.style.display = 'flex';
+                placeholder.style.display = 'none';
+                previewArea.style.display = 'block';
 
-            var slotEl = imgPreview.closest('.slot-card');
-            if (slotEl) {
-              slotEl.querySelector('.slot-img-data').value = canvas.toDataURL().split('base64,')[1];
-              slotEl.classList.add('has-image');
-            }
-          };
+                var slotEl = imgPreview.closest('.slot-card');
+                if (slotEl) {
+                  slotEl.querySelector('.slot-img-data').value = dataUrl.split('base64,')[1] || '';
+                  slotEl.classList.add('has-image');
+                }
+                resolve();
+              } catch (err) { reject(err); }
+            };
+            oldImage.src = ev.target.result;
+          });
+          br.readAsDataURL(blob);
         });
-        br.readAsDataURL(blob);
       });
     }
 
     function closeModal() {
+      try { if (croppie && croppie.destroy) croppie.destroy(); } catch (e) { /* ignore */ }
       if (modal.parentNode) modal.parentNode.removeChild(modal);
-      overlay.remove();
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
   }
 

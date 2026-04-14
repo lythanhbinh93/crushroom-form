@@ -321,9 +321,48 @@ button:active {
   left: 50%;
   transform: translate(-50%, -50%);
   background-color: white;
-  z-index: 9999;
+  z-index: 10000;
   padding: 20px;
   border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.couplepix-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9999;
+}
+
+.couplepix-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+.couplepix-modal-actions .dropzone--placeholder--button {
+  min-width: 80px;
+  padding: 8px 16px;
+}
+.couplepix-modal-ok {
+  background: #111 !important;
+  color: #fff !important;
+  border-color: #111 !important;
+}
+.couplepix-modal-ok:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.couplepix-zoom-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 8px 0;
+}
+
+.dropzone.is-dragover {
+  border-color: #111;
+  background: #eef0f3;
 }
 
 .croppie-container .cr-boundary,
