@@ -1,41 +1,134 @@
-# 📸 Order → Photo Naming Helper
+# CouplePix — Internal Staff Toolkit
+
+Bộ công cụ nội bộ cho một cửa hàng e-commerce chuyên chụp ảnh cá nhân hóa (couple portraits, in ấn tùy chỉnh). Bao gồm 4 công cụ chính, backend Google Apps Script, và frontend tĩnh trên Vercel.
+
+## 📋 Các Công Cụ
+
+### 1. Photo Naming Helper (Streamlit App)
 
 Web app giúp đặt tên ảnh theo đơn hàng từ file Excel, giảm sai sót khi rename thủ công.
 
-## 🎯 Mục tiêu
+**Link**: https://crushroomapp.streamlit.app/
 
-Thay vì user tự rename ảnh, app sẽ:
-1. Tạo "slot naming" theo order từ file Excel
-2. Tự động fetch ảnh từ Google Drive theo số điện thoại
-3. Cho phép user map ảnh vào slot bằng UI dạng bảng
-4. Export ZIP gồm ảnh đã rename + file Excel worklist
+**Chức năng**:
+- Upload file orders-check.xlsx
+- Tự động fetch ảnh từ Google Drive theo số điện thoại
+- Map ảnh vào slot theo UI (paginated)
+- Export ZIP: ảnh đã rename + file Excel worklist
 
-## 📋 Yêu cầu hệ thống
+**Thời gian tiết kiệm**: <2 phút cho 50 ảnh (vs 15+ phút thủ công)
 
-- Python 3.8+
-- Các thư viện trong `requirements.txt`
+### 2. Admin Panel (Check Photo)
 
-## 🚀 Cài đặt & Chạy
+Tìm và xem ảnh khách hàng đã upload.
 
-### Bước 1: Clone hoặc tải code
+**Link**: https://crushroom-form.vercel.app/admin.html
+
+**Tính năng**:
+- **Tìm kiếm theo SĐT**: Nhập số điện thoại → xem grid ảnh
+- **Duyệt theo ngày**: Chọn khoảng thời gian → xem bảng upload (nhóm theo ngày)
+
+**Giao diện**: Gradient purple (#667eea → #764ba2)
+
+### 3. Customer Upload Form (Couplepix)
+
+Form upload ảnh + crop cho khách hàng (nhúng trong Shopify hoặc dùng standalone).
+
+**Link**: https://crushroom-form.vercel.app/couplepix.html (standalone)  
+**Shopify**: Nhúng file `templates/couplepix.liquid` vào theme
+
+**Tính năng**:
+- Nhập SĐT (VN format mặc định)
+- Upload ảnh kép + crop real-time (Croppie)
+- POST data → GAS backend → lưu Drive + Sheet
+
+### 4. Check Delivery Date (Ngày Có Hàng)
+
+Tính toán ngày sản xuất xong và ngày khách nhận hàng theo tỉnh thành.
+
+**Link**: https://crushroom-form.vercel.app/check-date.html
+
+**Quy tắc**:
+- Cutoff: 17:00 (sau 17h = tính ngày hôm sau)
+- Production schedule: Thứ 6, Thứ 2, Thứ 3
+- Delivery offset by province:
+  - HCM: +2 ngày
+  - Hà Nội: +3 ngày
+  - Phú Quốc: +5 ngày
+  - Grab HCM: +1 ngày
+  - Khác: +3 ngày (mặc định)
+
+### 5. Staff Homepage
+
+Trang điều khiển nội bộ — liên kết đến các công cụ.
+
+**Link**: https://crushroom-form.vercel.app/
+
+**Giao diện**: B&W minimalist (card grid)
+
+## 🚀 Setup & Local Development
+
+### Photo Naming Helper (Streamlit)
 
 ```bash
+# Clone repo
+git clone https://github.com/lythanhbinh93/crushroom-form.git
 cd crushroom-form
-```
 
-### Bước 2: Cài đặt dependencies
-
-```bash
+# Cài dependencies
 pip install -r requirements.txt
-```
 
-### Bước 3: Chạy app
-
-```bash
+# Chạy local
 streamlit run app.py
 ```
 
-App sẽ tự động mở trong browser tại `http://localhost:8501`
+App sẽ mở tại `http://localhost:8501`
+
+### Static Frontend (Local + Dev)
+
+Các tệp HTML/CSS/JS có thể mở trực tiếp:
+```bash
+# Từ thư mục gốc
+open index.html           # Homepage
+open admin.html           # Admin panel
+open couplepix.html       # Upload form
+open check-date.html      # Date calculator
+```
+
+Hoặc dùng local server:
+```bash
+# Python 3
+python3 -m http.server 8000
+
+# Node.js
+npx http-server
+```
+
+Truy cập `http://localhost:8000`
+
+## 📡 Backend (Google Apps Script)
+
+### Setup GAS Endpoint
+
+1. Tạo Google Sheet (hoặc dùng cái có sẵn)
+2. Copy Spreadsheet ID
+3. Tạo Google Apps Script project
+4. Paste `google-apps-script-complete.js` vào editor
+5. Chạy function `intialSetup()` (tự động lưu Spreadsheet ID)
+6. Deploy → "New deployment" → "Web app"
+7. Copy deployment URL
+8. Update URL hardcoded trong:
+   - `app.py` line 14
+   - `assets/admin.js`
+   - `assets/couple-pix.js`
+   - `couplepix.html`
+
+**Yêu cầu Google Setup**:
+- Google Drive folder (lưu ảnh) — copy FOLDER_ID vào script
+- Google Sheet "form data" — auto-created trên upload đầu tiên
+- Gmail access (MailApp) — gửi thông báo tới crush@crushroom.vn
+
+Chi tiết: Xem [docs/deployment-guide.md](docs/deployment-guide.md)
 
 ## 📖 Hướng dẫn sử dụng
 
@@ -187,24 +280,121 @@ Format: `A. BBBB_XX_YY.ext`
 - **Handle lỗi**: App sẽ show `st.error()` và stop nếu thiếu cột bắt buộc
 - **Clean code**: Các function độc lập, dễ maintain và test
 
-## 🐛 Troubleshooting
+## 📚 Documentation
 
-### Lỗi "Thiếu các cột bắt buộc"
-- Kiểm tra file Excel có đúng tên cột không (phân biệt hoa thường, dấu)
-- Đảm bảo các cột theo đúng danh sách yêu cầu
+Xem thư mục `docs/` để hiểu rõ hơn:
 
-### Ảnh không hiển thị
-- Kiểm tra định dạng file (chỉ hỗ trợ JPG, PNG, WEBP, HEIC)
-- File ảnh có thể bị corrupt
+| Document | Nội dung |
+|----------|----------|
+| [project-overview-pdr.md](docs/project-overview-pdr.md) | Mục tiêu dự án, user personas, constraints |
+| [codebase-summary.md](docs/codebase-summary.md) | Cấu trúc code, file counts, entry points |
+| [code-standards.md](docs/code-standards.md) | Convention, naming, style guide |
+| [system-architecture.md](docs/system-architecture.md) | Component design, data flow, integrations |
+| [project-roadmap.md](docs/project-roadmap.md) | Phases, progress, milestones |
+| [deployment-guide.md](docs/deployment-guide.md) | Setup production (Streamlit, Vercel, GAS) |
+| [design-guidelines.md](docs/design-guidelines.md) | Color palette, typography, components |
 
-### ZIP không tải được
-- Đảm bảo tất cả slot đã được map
-- Kiểm tra dung lượng file không quá lớn
+## ⚠️ Troubleshooting
+
+### Streamlit App
+
+**Lỗi: "Không kết nối được tới GAS endpoint"**
+- Kiểm tra URL trong `app.py` line 14
+- Curl URL để test: `curl https://script.google.com/macros/s/[ID]/exec?action=search&phone=0918260494`
+- Nếu 404: GAS deployment không đúng
+
+**Lỗi: "Thiếu các cột bắt buộc"**
+- File Excel phải có các cột: Mã mẫu mã, Số điện thoại, Mã đơn hàng, Ghi chú để in, v.v
+- Xem full list ở README cũ hoặc `docs/codebase-summary.md`
+
+**Lỗi: "Ảnh không hiển thị"**
+- Kiểm tra Drive folder ID có đúng không
+- Verify GAS script có quyền access Drive
+
+### Admin Panel
+
+**Lỗi: "Tìm kiếm không ra kết quả"**
+- Verify GAS endpoint URL có đúng không (xem Network tab)
+- Check Sheet "form data" có row không
+- Test phone validation: phải 8-12 chữ số
+
+**Lỗi: "Ảnh blur hoặc không load"**
+- Drive thumbnail có thể mất (URL expire)
+- Chạy GAS upload lại từ couplepix.html
+
+### Customer Upload (Couplepix)
+
+**Lỗi: "Crop không hoạt động"**
+- Croppie CDN có thể bị block (check Network tab)
+- Fallback: Download ảnh, crop offline, upload lại
+
+**Lỗi: "Upload không gửi được"**
+- Verify GAS endpoint URL (trong couple-pix.js)
+- Check FormData fields: Phone, ImgData1, Filename1, v.v
+
+### GAS Backend
+
+**Lỗi: "Không kết nối được Sheet"**
+- Chạy `intialSetup()` function lại
+- Verify Spreadsheet ID lưu trong PropertiesService
+
+**Lỗi: "Upload timeout"**
+- LockService timeout 10s có thể quá ngắn
+- Increase timeout hoặc optimize upload flow
+
+## 📖 Hướng Dẫn Chi Tiết (Photo Naming Helper)
+
+### Input: File Excel
+
+File `orders-check.xlsx` cần có các cột sau:
+
+| Cột | Mô tả | Ví dụ |
+|-----|-------|-------|
+| Mã mẫu mã | SKU sản phẩm | COUPLEPIX-DCW |
+| Số điện thoại | SĐT khách | 0918260494 |
+| Mã đơn hàng | Order ID | ORD-001 |
+| Mã đơn hàng đầy đủ | Full order code | ORD-001-FULL |
+| Sản phẩm | Tên SP | Khung ảnh 20x30 |
+| Ghi chú để in | Note trên ảnh | Yêu nhau mãi |
+| Ghi chú nội bộ | Note staff | Note riêng |
+| Số lượng | Qty | 2 |
+| Loại | Khắc / Chiếu ảnh | Chiếu ảnh |
+
+### Quy Tắc Đặt Tên
+
+Format: `A. BBBB_XX_YY.ext`
+
+- **A**: Slot number (1..N)
+- **BBBB**: 4 số cuối SĐT (zero-padded)
+- **XX**: SKU clean (COUPLEPIX-DCW → DCW, else uppercase)
+- **YY**: Note sanitize (35 char, no special chars)
+- **ext**: File extension
+
+Ví dụ: `1. 0494_DCW_YeuNhauMai.jpg`
+
+### Heuristic: Cần Ảnh?
+
+Dòng cần ảnh nếu:
+- Sản phẩm chứa "chiếu ảnh" HOẶC
+- SKU bắt đầu "COUPLEPIX"
+
+Nếu Loại chứa "khắc" → FALSE (không cần)
+
+### Workflow 4 Bước
+
+1. **Upload Excel** → Validate cột → Compute columns
+2. **Chọn Đơn** → Review & edit _yy, _need_photo, _img_per_unit
+3. **Lấy Ảnh** → Fetch Drive OR upload thủ công
+4. **Export ZIP** → Map slot → Download
+
+Output: `{order_key}_FULL.zip` (renamed images + checklist.xlsx)
 
 ## 📝 License
 
 Internal tool - For authorized use only
 
-## 👨‍💻 Developer
+## 👨‍💻 Team
 
-Created by Senior Full-Stack Engineer
+**Owner**: CouplePix  
+**Maintainer**: lythanhbinh93  
+**Tech Stack**: Streamlit (Python) + Vercel (HTML/CSS/JS) + Google Apps Script
