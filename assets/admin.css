@@ -399,6 +399,25 @@ body {
 .btn-copy-messenger:active {
   transform: translateY(0);
 }
+.btn-copy-messenger[disabled],
+.btn-copy-messenger.is-loading {
+  opacity: 0.7;
+  cursor: wait;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 132, 255, 0.15);
+}
+.btn-copy-messenger .btn-spinner {
+  display: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin 0.8s linear infinite;
+}
+.btn-copy-messenger.is-loading .btn-spinner { display: inline-block; }
+.btn-copy-messenger.is-loading .btn-icon { display: none; }
+@keyframes btn-spin { to { transform: rotate(360deg); } }
 .copy-legacy-tag {
   font-size: 12px;
   color: #b85c00;

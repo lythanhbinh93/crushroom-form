@@ -10,6 +10,11 @@
 const sheetName = 'form data';
 const productsSheetName = 'products';
 const driveFolderId = '1JB9vANvnKu52WQX4Mg1fYqF6i-Jthhs7';
+// Folder id holding product catalog images (the ones referenced by
+// products!ThumbnailUrl). MUST be set before deploying imageProxy — leaving
+// it blank means imageProxy only allows customer-upload files and refuses
+// every product-thumb request.
+const productImagesFolderId = '';
 const scriptProp = PropertiesService.getScriptProperties();
 const recipientEmail = 'crush@crushroom.vn';
 
@@ -36,6 +41,10 @@ function doGet(e) {
             return listByDateRange(e.parameter.from, e.parameter.to);
         }
 
+        if (action === 'imageProxy' && e.parameter.id) {
+            return imageProxy(e.parameter.id, e.parameter.size || 'w600');
+        }
+
         return jsonOut({ success: false, error: 'Invalid request' });
     } catch (error) {
         return jsonOut({ success: false, error: error.toString() });
@@ -46,6 +55,71 @@ function jsonOut(obj) {
     return ContentService
         .createTextOutput(JSON.stringify(obj))
         .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Run ONCE from the Apps Script editor to grant the external_request scope.
+// After the auth dialog approves, UrlFetchApp is unlocked for imageProxy.
+// Can be deleted after authorization succeeds.
+function authorizeUrlFetch() {
+    const res = UrlFetchApp.fetch('https://www.google.com/');
+    Logger.log('status: ' + res.getResponseCode());
+}
+
+// Run from the editor with TEST_ID set to a real product Drive id to confirm
+// DriveApp can read product files. If it errors in the editor, the file id is
+// wrong or the owner account lacks access. If it works in the editor but fails
+// via the web app, the deployment's "Execute as" is not set to "Me".
+function testImageProxy() {
+    const TEST_ID = 'PASTE_A_REAL_PRODUCT_DRIVE_ID_HERE';
+    const out = imageProxy(TEST_ID, 'w200');
+    Logger.log(out.getContent().substring(0, 200));
+}
+
+// Server-side Drive image fetcher — returns image bytes as base64 JSON.
+// Uses DriveApp (script-owner credentials) so it works for files in the owner's
+// Drive regardless of sharing setting. This is the CORS-safe fallback when a
+// file's sharing blocks direct <img crossOrigin="anonymous"> loads in the browser.
+//
+// SECURITY: this endpoint runs with the script-owner's Drive permissions and
+// is reachable by anyone who knows SCRIPT_URL. We MUST allow-list which files
+// it will read — otherwise a caller could enumerate Drive ids and pull any
+// file the script-owner can see. The allow-list checks that the file's parent
+// folder is one of the two known folders: customer uploads or product images.
+function imageProxy(id, size) {
+    try {
+        const file = DriveApp.getFileById(id);
+        if (!isProxyAllowed_(file)) {
+            return jsonOut({ success: false, error: 'forbidden' });
+        }
+        // Thumbnail only — never return the full file blob. Keeps payloads
+        // bounded and avoids exposing original-resolution assets.
+        let blob = null;
+        try { blob = file.getThumbnail(); } catch (_) { /* some file types have none */ }
+        if (!blob) {
+            return jsonOut({ success: false, error: 'no thumbnail' });
+        }
+        return jsonOut({
+            success: true,
+            mime: blob.getContentType() || 'image/jpeg',
+            base64: Utilities.base64Encode(blob.getBytes())
+        });
+    } catch (err) {
+        return jsonOut({ success: false, error: String(err) });
+    }
+}
+
+// True when `file` is a direct child of the customer-upload folder or the
+// product-images folder. Single-level check — does NOT traverse subfolders,
+// since the existing flows put files directly in those folders.
+function isProxyAllowed_(file) {
+    const allowed = [driveFolderId, productImagesFolderId].filter(Boolean);
+    if (!allowed.length) return false;
+    const parents = file.getParents();
+    while (parents.hasNext()) {
+        const folderId = parents.next().getId();
+        if (allowed.indexOf(folderId) !== -1) return true;
+    }
+    return false;
 }
 
 // ===== LIST PRODUCTS (catalog cho form khách) =====

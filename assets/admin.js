@@ -151,7 +151,8 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="copy-bar">
           <button type="button" class="btn-copy-messenger" data-copy-btn>
             <span class="btn-icon">📋</span>
-            Copy Messenger
+            <span class="btn-spinner" aria-hidden="true"></span>
+            <span class="btn-label">Copy ảnh + tin nhắn</span>
           </button>
           ${isLegacy ? '<span class="copy-legacy-tag">Dữ liệu cũ — sản phẩm không rõ</span>' : ''}
         </div>
@@ -166,13 +167,57 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
 
     // Wire up the Copy button with the session's own data (closure).
+    // One click writes a multi-mime ClipboardItem (image + text). Each paste
+    // target picks the MIME it supports: Messenger → image; Gmail → text.
     const copyBtn = sessionCard.querySelector('[data-copy-btn]');
     if (copyBtn) {
-      copyBtn.addEventListener('click', function () {
+      copyBtn.addEventListener('click', async () => {
+        if (copyBtn.classList.contains('is-loading')) return;
+        setBtnLoading(copyBtn, true);
+
         const text = buildMessengerMessage(row.Name || '', items);
-        copyToClipboard(text)
-          .then(() => showToast('Đã copy tin nhắn Messenger'))
-          .catch(() => showToast('Không copy được — vui lòng thử lại', true));
+
+        // Hard cap: too many items → skip montage, copy text only.
+        if (items.length > 12) {
+          try { await copyToClipboard(text); showToast('Quá nhiều ảnh — chỉ copy tin nhắn'); }
+          catch { showToast('Không copy được — vui lòng thử lại', true); }
+          finally { setBtnLoading(copyBtn, false); }
+          return;
+        }
+
+        // Lazy-load product catalog; on failure, continue with empty map
+        // so customer cells still render (product cells become placeholders).
+        let productMap = {};
+        let catalogFailed = false;
+        try {
+          const cat = await loadProductCatalog();
+          productMap = cat.productMap;
+        } catch (err) {
+          console.warn('listProducts failed:', err);
+          catalogFailed = true;
+        }
+
+        try {
+          const { blob, failedLoads } = await buildPairedMontage(items, productMap);
+          await writeImageAndText(blob, text);
+          let msg = catalogFailed
+            ? 'Không tải được ảnh sản phẩm — đã copy ảnh khách + tin nhắn'
+            : 'Đã copy ảnh + tin nhắn';
+          if (failedLoads > 0) msg += ` (${failedLoads} ảnh lỗi)`;
+          showToast(msg);
+        } catch (err) {
+          if (err && err.kind === 'no-image-support') {
+            showToast('Trình duyệt không hỗ trợ ảnh — chỉ copy được tin nhắn', true);
+          } else if (err && err.kind === 'taint') {
+            showToast('Không lấy được ảnh từ Drive — vui lòng thử lại', true);
+          } else {
+            console.error('copy failed:', err);
+            try { await copyToClipboard(text); showToast('Chỉ copy được tin nhắn — ảnh lỗi', true); }
+            catch { showToast('Không copy được — vui lòng thử lại', true); }
+          }
+        } finally {
+          setBtnLoading(copyBtn, false);
+        }
       });
     }
 
@@ -182,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function renderProductRow(item, idx) {
     const imageId = extractGoogleDriveId(item.fileUrl || '');
     const thumbnailUrl = imageId
-      ? `https://drive.google.com/thumbnail?id=${imageId}&sz=w600`
+      ? buildDriveThumbUrl(imageId, 600)
       : (item.fileUrl || '');
     const viewUrl = imageId
       ? `https://drive.google.com/file/d/${imageId}/view`
@@ -260,6 +305,15 @@ document.addEventListener('DOMContentLoaded', function() {
     return match ? match[0] : null;
   }
 
+  // Build a Drive thumbnail URL that serves publicly-shared files without
+  // requiring auth cookies. drive.google.com/thumbnail recently started
+  // failing cross-origin <img> loads (cookie / SameSite policy changes);
+  // lh3.googleusercontent.com/d/<id>=w<size> is the stable replacement.
+  function buildDriveThumbUrl(id, size) {
+    if (!id) return '';
+    return `https://lh3.googleusercontent.com/d/${id}=w${size || 600}`;
+  }
+
   function showError(message) {
     hideAll();
     errorMessage.textContent = message;
@@ -271,6 +325,244 @@ document.addEventListener('DOMContentLoaded', function() {
     errorMessage.style.display = 'none';
     results.style.display = 'none';
     noResults.style.display = 'none';
+  }
+
+  // ============================================================
+  // COPY ẢNH + TIN NHẮN — product×customer paired montage → clipboard
+  // ============================================================
+
+  // Lazy-memoized catalog. 5-min TTL so SKUs added mid-session surface without
+  // a hard refresh; stale after that a click refetches.
+  let productCatalogPromise = null;
+  let productCatalogExpiresAt = 0;
+  const PRODUCT_CATALOG_TTL_MS = 5 * 60 * 1000;
+
+  // Fetch product catalog from GAS, build a SKU→product map.
+  // Matches the shape couple-pix.js:loadProducts already consumes.
+  function loadProductCatalog() {
+    if (productCatalogPromise && Date.now() < productCatalogExpiresAt) {
+      return productCatalogPromise;
+    }
+    productCatalogPromise = fetch(`${SCRIPT_URL}?action=listProducts`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data || data.success === false) {
+          throw new Error(data && data.error ? data.error : 'listProducts failed');
+        }
+        const products = data.products || data || [];
+        const productMap = {};
+        for (const p of products) {
+          // Normalize SKU key (trim + uppercase) so sheet whitespace / case drift
+          // doesn't drop product matches into placeholder fallback. Keep the
+          // original-case `sku` on the value for display.
+          const skuRaw = String(p.sku || '').trim();
+          if (!skuRaw) continue;
+          const skuKey = skuRaw.toUpperCase();
+          const thumbUrl = normalizeThumbUrl(p.thumbnailUrl || '', 600);
+          productMap[skuKey] = {
+            sku: skuRaw,
+            name: p.name || '',
+            _thumbId: extractGoogleDriveId(thumbUrl)
+          };
+        }
+        productCatalogExpiresAt = Date.now() + PRODUCT_CATALOG_TTL_MS;
+        return { productMap, loadedAt: Date.now() };
+      })
+      .catch(err => {
+        // Clear memo so a later click can retry after transient failures.
+        productCatalogPromise = null;
+        productCatalogExpiresAt = 0;
+        throw err;
+      });
+    return productCatalogPromise;
+  }
+
+  // Normalize a Drive share / thumbnail URL to the public thumbnail endpoint
+  // (same logic as couple-pix.js:normalizeThumbUrl — duplicated rather than
+  // imported because these two tools don't share a module loader).
+  function normalizeThumbUrl(url, size) {
+    if (!url) return '';
+    const s = String(url).trim();
+    if (!s) return '';
+    const isGoogle = s.indexOf('drive.google.com') !== -1 || s.indexOf('docs.google.com') !== -1;
+    if (!isGoogle) return s;
+    const m = s.match(/[-\w]{25,}/);
+    if (!m) return s;
+    return buildDriveThumbUrl(m[0], size || 200);
+  }
+
+  // Load a Drive thumbnail as a CORS-enabled <img>. Rejects on error so the
+  // caller can try the proxy fallback.
+  function loadThumbDirect(id, size) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => { img.src = ''; reject(new Error('direct load failed')); };
+      img.src = buildDriveThumbUrl(id, size || 600);
+    });
+  }
+
+  // Fallback: fetch image bytes via GAS imageProxy (same-origin JSON response),
+  // decode base64 into a Blob, and load that via a blob: URL — clean canvas.
+  async function loadThumbViaProxy(id, size) {
+    const r = await fetch(`${SCRIPT_URL}?action=imageProxy&id=${encodeURIComponent(id)}&size=w${size || 600}`);
+    if (!r.ok) throw new Error(`proxy HTTP ${r.status}`);
+    const j = await r.json();
+    if (!j || !j.success || !j.base64) throw new Error((j && j.error) || 'proxy returned no image');
+    const bytes = Uint8Array.from(atob(j.base64), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: j.mime || 'image/jpeg' });
+    const url = URL.createObjectURL(blob);
+    try {
+      return await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('proxy img decode failed'));
+        img.src = url;
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  // Render an N-row grid of [product thumb | customer thumb] cells onto a canvas,
+  // return as PNG Blob. Missing product thumb → labeled placeholder cell.
+  async function buildPairedMontage(items, productMap, opts) {
+    const o = Object.assign({
+      cellW: 400, cellH: 400, labelH: 40, gap: 12, pad: 20,
+      bg: '#ffffff', thumbSize: 600, maxItems: 12
+    }, opts || {});
+
+    if (!items.length) {
+      const e = new Error('no items'); e.kind = 'empty'; throw e;
+    }
+    if (items.length > o.maxItems) {
+      const e = new Error('too many items'); e.kind = 'cap'; e.count = items.length; throw e;
+    }
+
+    // Build pairs. Lookup uses uppercase+trim key to match productMap;
+    // display labels keep the customer-submitted casing intact.
+    const pairs = items.map((it, idx) => {
+      const skuRaw = (it.sku || '').trim();
+      const skuKey = skuRaw.toUpperCase();
+      const product = skuKey ? productMap[skuKey] : null;
+      return {
+        sku: skuRaw || '—',
+        slot: idx + 1,
+        customerId: extractGoogleDriveId(it.fileUrl || ''),
+        productId: product ? product._thumbId : null,
+        productLabel: product ? product.sku : (skuRaw || 'Không rõ SKU'),
+        customerLabel: `#${idx + 1} • ${skuRaw || '—'}`
+      };
+    });
+
+    // Load each image: try direct Drive thumbnail first; on error (typically a
+    // CORS/ACL mismatch for product files not shared "Anyone with link"), fall
+    // back to the GAS imageProxy action which returns the bytes as base64 JSON.
+    // Missing / failed everywhere → null (placeholder cell).
+    const loadOne = (id) => {
+      if (!id) return Promise.resolve(null);
+      return loadThumbDirect(id, o.thumbSize)
+        .catch(() => loadThumbViaProxy(id, o.thumbSize))
+        .catch(() => null);
+    };
+    const loaded = await Promise.all(
+      pairs.flatMap(p => [loadOne(p.productId), loadOne(p.customerId)])
+    );
+    // Count product/customer slots that had a Drive id but failed to load —
+    // distinct from "no id" (which is a valid placeholder for unknown SKU).
+    let failedLoads = 0;
+    for (let i = 0; i < pairs.length; i++) {
+      if (pairs[i].productId && !loaded[i * 2]) failedLoads++;
+      if (pairs[i].customerId && !loaded[i * 2 + 1]) failedLoads++;
+    }
+
+    const rowH = o.cellH + o.labelH;
+    const cvW = o.pad * 2 + o.cellW * 2 + o.gap;
+    const cvH = o.pad * 2 + rowH * pairs.length + o.gap * Math.max(0, pairs.length - 1);
+    const cv = document.createElement('canvas');
+    cv.width = cvW; cv.height = cvH;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = o.bg; ctx.fillRect(0, 0, cvW, cvH);
+
+    for (let i = 0; i < pairs.length; i++) {
+      const p = pairs[i];
+      const y = o.pad + i * (rowH + o.gap);
+      const prodImg = loaded[i * 2];
+      const custImg = loaded[i * 2 + 1];
+      drawMontageCell(ctx, prodImg, p.productLabel, o.pad, y, o);
+      drawMontageCell(ctx, custImg, p.customerLabel, o.pad + o.cellW + o.gap, y, o);
+    }
+
+    // toBlob rejects with SecurityError if canvas was tainted — surface that
+    // as kind:'taint' so the caller can switch to a proxy path (Phase 4).
+    const blob = await new Promise((resolve, reject) => {
+      try {
+        cv.toBlob(b => {
+          if (b) resolve(b);
+          else { const e = new Error('toBlob returned null'); e.kind = 'load'; reject(e); }
+        }, 'image/png');
+      } catch (err) {
+        const e = new Error('canvas tainted'); e.kind = 'taint'; e.cause = err; reject(e);
+      }
+    });
+    return { blob, failedLoads };
+  }
+
+  function drawMontageCell(ctx, img, label, x, y, o) {
+    // Image area — placeholder tone if no image.
+    ctx.fillStyle = img ? '#fafafa' : '#f5f5f5';
+    ctx.fillRect(x, y, o.cellW, o.cellH);
+
+    if (img) {
+      // object-fit: cover — scale then center.
+      const r = Math.max(o.cellW / img.naturalWidth, o.cellH / img.naturalHeight);
+      const dw = img.naturalWidth * r, dh = img.naturalHeight * r;
+      ctx.drawImage(img, x + (o.cellW - dw) / 2, y + (o.cellH - dh) / 2, dw, dh);
+    } else {
+      ctx.fillStyle = '#999';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '700 22px system-ui, -apple-system, "Segoe UI", sans-serif';
+      ctx.fillText(label, x + o.cellW / 2, y + o.cellH / 2 - 12);
+      ctx.font = '400 13px system-ui, -apple-system, "Segoe UI", sans-serif';
+      ctx.fillText('Không có ảnh sản phẩm', x + o.cellW / 2, y + o.cellH / 2 + 16);
+    }
+
+    // Label strip — dark band under the cell with the SKU/slot label.
+    const ly = y + o.cellH;
+    ctx.fillStyle = '#111';
+    ctx.fillRect(x, ly, o.cellW, o.labelH);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '600 14px system-ui, -apple-system, "Segoe UI", sans-serif';
+    ctx.fillText(label, x + o.cellW / 2, ly + o.labelH / 2);
+  }
+
+  // Write a multi-mime ClipboardItem. Each paste target picks the MIME it
+  // handles: Messenger web takes image/png; Gmail / plain textarea takes
+  // text/plain. Same clipboard, different surfaces — explain this to CS.
+  async function writeImageAndText(blob, text) {
+    const canMultiMime = typeof ClipboardItem === 'function'
+                      && !!(navigator.clipboard && navigator.clipboard.write);
+    if (!canMultiMime) {
+      // Fallback: write text only so the click isn't a no-op.
+      await copyToClipboard(text);
+      const e = new Error('no-image-support'); e.kind = 'no-image-support'; throw e;
+    }
+    const item = new ClipboardItem({
+      'image/png': blob,
+      'text/plain': new Blob([text], { type: 'text/plain' })
+    });
+    await navigator.clipboard.write([item]);
+  }
+
+  // Small helper for button loading/disabled state.
+  function setBtnLoading(btn, on) {
+    if (!btn) return;
+    btn.disabled = !!on;
+    btn.classList.toggle('is-loading', !!on);
   }
 
   // ============================================================
@@ -415,7 +707,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const imgsHTML = items.length
       ? items.map(it => {
           const id = extractGoogleDriveId(it.fileUrl || '');
-          const thumb = id ? `https://drive.google.com/thumbnail?id=${id}&sz=w200` : (it.fileUrl || '');
+          const thumb = id ? buildDriveThumbUrl(id, 200) : (it.fileUrl || '');
           const full = id ? `https://drive.google.com/file/d/${id}/view` : (it.fileUrl || '');
           const title = (it.sku || '—') + ' — ' + (it.name || '');
           return `
