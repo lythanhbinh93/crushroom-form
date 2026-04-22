@@ -164,11 +164,12 @@ Output: Ngày sản xuất + Ngày giao hàng
 ```
 1. Extract FormData (Phone, ImgData1/2, Filename1/2, extras)
 2. Decode base64 → binary image
-3. Acquire LockService (10s lock, prevent concurrent writes)
-4. Upload to Drive → Get shareable URL
-5. Append row to Sheet "form data"
-6. Send email notification to crush@crushroom.vn
-7. Release lock, return JSON
+3. Normalize phone via normalizeVNPhone_() — strip spaces, prepend 0 if 9-digit mobile
+4. Acquire LockService (10s lock, prevent concurrent writes)
+5. Upload to Drive → Get shareable URL
+6. Append row to Sheet "form data" (Name column: normalized phone)
+7. Send email notification to crush@crushroom.vn
+8. Release lock, return JSON
 ```
 
 **searchByPhone(phone) Validation**:

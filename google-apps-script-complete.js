@@ -404,6 +404,15 @@ function parseDateEnd(s) {
     return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 23, 59, 59, 999);
 }
 
+// Canonical VN phone: digits only; auto-prepend 0 when length 9 and starts 3-9
+// (mobile prefix without leading 0). International (11+), landlines (10 starting 0),
+// and short garbage (<9) pass through after digit-strip unchanged.
+function normalizeVNPhone_(raw) {
+    var digits = String(raw || '').replace(/\D/g, '');
+    if (digits.length === 9 && /^[3-9]/.test(digits)) digits = '0' + digits;
+    return digits;
+}
+
 // ===== XỬ LÝ POST REQUEST - UPLOAD ẢNH =====
 // Expected POST params (v2):
 //   Name               : phone number
@@ -434,7 +443,7 @@ function doPost(e) {
         const itemCountRaw = parseInt(e.parameter['ItemCount'], 10);
         const itemCount = isNaN(itemCountRaw) ? 0 : itemCountRaw;
         const samePhoto = String(e.parameter['SamePhoto'] || '').toLowerCase() === 'true';
-        const phone = String(e.parameter['Name'] || '').replace(/\D/g, '');
+        const phone = normalizeVNPhone_(e.parameter['Name']);
 
         const items = [];
 
@@ -500,7 +509,7 @@ function doPost(e) {
         const newRow = headers.map(function (header) {
             switch (header) {
                 case 'Date': return new Date();
-                case 'Name': return e.parameter['Name'] || '';
+                case 'Name': return normalizeVNPhone_(e.parameter['Name']);
                 case 'radio': return derivedRadio;
                 case 'message': return e.parameter['message'] || '';
                 case 'image-1': return items[0] ? items[0].fileUrl : '';
