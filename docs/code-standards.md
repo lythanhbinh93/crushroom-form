@@ -238,16 +238,16 @@ def clean_sku(sku: str) -> str:
 
 **GAS phone normalization** (google-apps-script-complete.js):
 ```javascript
-function normalizeVNPhone_(phone) {
-  // Strip spaces, prepend 0 if 9-digit mobile (0xx pattern)
-  let digits = phone.replace(/\s/g, '');
-  if (digits.length === 9 && /^\d/.test(digits)) {
-    digits = '0' + digits;
+function normalizeVNPhone_(raw) {
+  var digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length >= 11 && digits.length <= 12 && digits.indexOf('84') === 0) {
+    digits = digits.slice(2);  // Strip country code 84
   }
+  if (digits.length === 9 && /^[3-9]/.test(digits)) digits = '0' + digits;
   return digits;
 }
 ```
-Applied at write-time (doPost, image-1/2 filenames) and used during sheet persistence.
+Applied at write-time (doPost, image-1/2 filenames). Handles intl format (`+84 96...` → `0963...`) and raw 11-12 digit country codes.
 
 **GAS search validation** (google-apps-script-complete.js):
 - Validate phone length: 8–12 digits

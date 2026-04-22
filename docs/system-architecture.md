@@ -164,7 +164,7 @@ Output: Ngày sản xuất + Ngày giao hàng
 ```
 1. Extract FormData (Phone, ImgData1/2, Filename1/2, extras)
 2. Decode base64 → binary image
-3. Normalize phone via normalizeVNPhone_() — strip spaces, prepend 0 if 9-digit mobile
+3. Normalize phone via normalizeVNPhone_() — strip country code 84 (11–12 digits), prepend 0 if 9-digit mobile
 4. Acquire LockService (10s lock, prevent concurrent writes)
 5. Upload to Drive → Get shareable URL
 6. Append row to Sheet "form data" (Name column: normalized phone)

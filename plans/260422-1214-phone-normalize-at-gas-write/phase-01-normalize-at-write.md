@@ -4,6 +4,8 @@ name: Normalize at Write
 status: code-complete
 priority: high
 effort: S (≤30 min incl. deploy + manual test)
+extensions:
+  - 2026-04-22 13:03 — added VN country code 84 stripping to normalizeVNPhone_
 ---
 
 # Phase 01 — Normalize at Write
@@ -112,13 +114,16 @@ Frontend → FormData.Name (unchanged)
 - [x] Add `normalizeVNPhone_` helper function in `google-apps-script-complete.js`
 - [x] Replace `L437` phone normalization call
 - [x] Replace `L503` Sheet-write `Name` case
+- [x] Extend helper to strip VN country code 84 (11-12 digit input starting with 84)
 - [ ] Deploy new GAS version ("New version" to preserve URL)
 - [ ] Verify deployment URL unchanged; if changed, update 4 hardcoded URLs
 - [ ] Manual test: upload `"0886 534 797"` → Sheet shows `"0886534797"`
 - [ ] Manual test: upload `"886534797"` → Sheet shows `"0886534797"`
 - [ ] Manual test: upload `"0886534797"` → Sheet unchanged
+- [ ] Manual test: upload `"84963815024"` → Sheet shows `"0963815024"`
+- [ ] Manual test: upload `"+84 96 381 5024"` → Sheet shows `"0963815024"`
 - [ ] Manual test: run Photo Naming Helper on fresh order → confirm consistent result set
-- [ ] Commit with conventional message: `fix(gas): canonicalize Name column on write (strip spaces + restore VN leading 0)`
+- [ ] Commit with conventional message: `fix(gas): canonicalize Name column on write (strip spaces + restore VN leading 0 + strip 84 prefix)`
 
 ## Success Criteria
 

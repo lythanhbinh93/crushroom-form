@@ -404,11 +404,15 @@ function parseDateEnd(s) {
     return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 23, 59, 59, 999);
 }
 
-// Canonical VN phone: digits only; auto-prepend 0 when length 9 and starts 3-9
-// (mobile prefix without leading 0). International (11+), landlines (10 starting 0),
-// and short garbage (<9) pass through after digit-strip unchanged.
+// Canonical VN phone: digits only. Two normalization steps:
+//  1) Strip leading VN country code 84 when digits is 11-12 long (mobile/landline w/ country code).
+//  2) Auto-prepend 0 when result is 9 digits starting 3-9 (VN mobile w/o leading 0).
+// Short garbage (<9) and non-VN internationals (>12 or not starting 84) pass through unchanged.
 function normalizeVNPhone_(raw) {
     var digits = String(raw || '').replace(/\D/g, '');
+    if (digits.length >= 11 && digits.length <= 12 && digits.indexOf('84') === 0) {
+        digits = digits.slice(2);
+    }
     if (digits.length === 9 && /^[3-9]/.test(digits)) digits = '0' + digits;
     return digits;
 }
