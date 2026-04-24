@@ -2,6 +2,42 @@ document.addEventListener('DOMContentLoaded', function() {
   // Google Apps Script URL - CẦN CẬP NHẬT URL NÀY
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbweeqxM3blNgfqB4A1y2HBaGfQcfUcpTdksG0GBiW29NLyUOr1C0Hl95Naju3AjgRq4qg/exec';
 
+  // ============================================================
+  // TAB SWITCHING — hash-based routing (#photos / #voice)
+  // ============================================================
+  function wireTabs() {
+    const tabBtns = document.querySelectorAll('.admin-tab-btn');
+    const tabPanels = document.querySelectorAll('.admin-tab-panel');
+
+    function activateTab(name) {
+      tabBtns.forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.tab === name);
+      });
+      tabPanels.forEach(function(panel) {
+        panel.classList.toggle('active', panel.id === 'tab-' + name);
+      });
+      // Notify voice tab module if switching to voice
+      if (name === 'voice' && window.voiceTabActivated) {
+        window.voiceTabActivated();
+      }
+    }
+
+    tabBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const name = btn.dataset.tab;
+        history.replaceState(null, '', '#' + name);
+        activateTab(name);
+      });
+    });
+
+    // Restore tab from URL hash on load
+    const hash = (location.hash || '').replace('#', '');
+    const validTabs = ['photos', 'voice'];
+    activateTab(validTabs.includes(hash) ? hash : 'photos');
+  }
+
+  wireTabs();
+
   const phoneInput = document.getElementById('phone-search');
   const searchBtn = document.getElementById('search-btn');
   const loading = document.getElementById('loading');
@@ -145,14 +181,21 @@ document.addEventListener('DOMContentLoaded', function() {
       ? `<div class="product-rows">${items.map((it, idx) => renderProductRow(it, idx)).join('')}</div>`
       : '<div class="no-img">Không có ảnh</div>';
 
-    // Copy Messenger button
+    // Two-button copy bar — image and text are split so CS can paste each into
+    // a separate Messenger bubble. Messenger only consumes one MIME per Ctrl+V,
+    // so a combined ClipboardItem never produced "text bubble + image bubble"
+    // anyway; explicit buttons make the two-paste workflow obvious.
     const copyBarHTML = items.length
       ? `
         <div class="copy-bar">
-          <button type="button" class="btn-copy-messenger" data-copy-btn>
-            <span class="btn-icon">📋</span>
+          <button type="button" class="btn-copy-messenger btn-copy-image" data-copy-image-btn>
+            <span class="btn-icon">🖼️</span>
             <span class="btn-spinner" aria-hidden="true"></span>
-            <span class="btn-label">Copy ảnh + tin nhắn</span>
+            <span class="btn-label">Copy ảnh</span>
+          </button>
+          <button type="button" class="btn-copy-messenger btn-copy-text" data-copy-text-btn>
+            <span class="btn-icon">📝</span>
+            <span class="btn-label">Copy tin nhắn</span>
           </button>
           ${isLegacy ? '<span class="copy-legacy-tag">Dữ liệu cũ — sản phẩm không rõ</span>' : ''}
         </div>
@@ -166,27 +209,34 @@ document.addEventListener('DOMContentLoaded', function() {
       ${copyBarHTML}
     `;
 
-    // Wire up the Copy button with the session's own data (closure).
-    // One click writes a multi-mime ClipboardItem (image + text). Each paste
-    // target picks the MIME it supports: Messenger → image; Gmail → text.
-    const copyBtn = sessionCard.querySelector('[data-copy-btn]');
-    if (copyBtn) {
-      copyBtn.addEventListener('click', async () => {
-        if (copyBtn.classList.contains('is-loading')) return;
-        setBtnLoading(copyBtn, true);
-
+    // Text button — synchronous, instant. Plain string to clipboard.
+    const copyTextBtn = sessionCard.querySelector('[data-copy-text-btn]');
+    if (copyTextBtn) {
+      copyTextBtn.addEventListener('click', async () => {
         const text = buildMessengerMessage(row.Name || '', items);
+        try { await copyToClipboard(text); showToast('Đã copy tin nhắn'); }
+        catch { showToast('Không copy được tin nhắn — vui lòng thử lại', true); }
+      });
+    }
 
-        // Hard cap: too many items → skip montage, copy text only.
+    // Image button — heavy: lazy-fetches product catalog, builds paired
+    // montage on canvas, writes image-only ClipboardItem. Spinner during build.
+    const copyImageBtn = sessionCard.querySelector('[data-copy-image-btn]');
+    if (copyImageBtn) {
+      copyImageBtn.addEventListener('click', async () => {
+        if (copyImageBtn.classList.contains('is-loading')) return;
+        setBtnLoading(copyImageBtn, true);
+
+        // Hard cap on image build — past 12 the montage gets unwieldy.
+        // Text button is unaffected.
         if (items.length > 12) {
-          try { await copyToClipboard(text); showToast('Quá nhiều ảnh — chỉ copy tin nhắn'); }
-          catch { showToast('Không copy được — vui lòng thử lại', true); }
-          finally { setBtnLoading(copyBtn, false); }
+          showToast('Quá nhiều ảnh — chỉ dùng nút Copy tin nhắn', true);
+          setBtnLoading(copyImageBtn, false);
           return;
         }
 
-        // Lazy-load product catalog; on failure, continue with empty map
-        // so customer cells still render (product cells become placeholders).
+        // Lazy-load product catalog; on failure continue with empty map so
+        // customer cells still render (product cells become placeholders).
         let productMap = {};
         let catalogFailed = false;
         try {
@@ -199,24 +249,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
           const { blob, failedLoads } = await buildPairedMontage(items, productMap);
-          await writeImageAndText(blob, text);
+          await writeImageOnly(blob);
           let msg = catalogFailed
-            ? 'Không tải được ảnh sản phẩm — đã copy ảnh khách + tin nhắn'
-            : 'Đã copy ảnh + tin nhắn';
+            ? 'Không tải được ảnh sản phẩm — đã copy ảnh khách'
+            : 'Đã copy ảnh';
           if (failedLoads > 0) msg += ` (${failedLoads} ảnh lỗi)`;
           showToast(msg);
         } catch (err) {
           if (err && err.kind === 'no-image-support') {
-            showToast('Trình duyệt không hỗ trợ ảnh — chỉ copy được tin nhắn', true);
+            showToast('Trình duyệt không hỗ trợ copy ảnh', true);
           } else if (err && err.kind === 'taint') {
             showToast('Không lấy được ảnh từ Drive — vui lòng thử lại', true);
           } else {
-            console.error('copy failed:', err);
-            try { await copyToClipboard(text); showToast('Chỉ copy được tin nhắn — ảnh lỗi', true); }
-            catch { showToast('Không copy được — vui lòng thử lại', true); }
+            console.error('copy image failed:', err);
+            showToast('Không copy được ảnh — vui lòng thử lại', true);
           }
         } finally {
-          setBtnLoading(copyBtn, false);
+          setBtnLoading(copyImageBtn, false);
         }
       });
     }
@@ -251,18 +300,29 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
   }
 
+  // Single source of truth for the message header/footer. Reused by both the
+  // text/plain clipboard MIME (full message with per-SKU links) and the image
+  // MIME's text bands (header+footer only — links are visualized as cells).
+  function normalizePhoneDigits(phoneRaw) {
+    return String(phoneRaw || '').replace(/\D/g, '') || phoneRaw || '';
+  }
+  function messengerHeader(phoneRaw, count) {
+    return `Shop đã nhận ảnh cho đơn SĐT ${normalizePhoneDigits(phoneRaw)} (${count} sản phẩm). Anh/chị xác nhận giúp shop:`;
+  }
+  function messengerFooter() {
+    return 'Nếu có sai sót ảnh nào, anh/chị báo lại trong 2h nhé. Cảm ơn ạ!';
+  }
+
   // Messenger template — line-per-product with Drive view links.
   function buildMessengerMessage(phoneRaw, items) {
-    const phoneDigits = String(phoneRaw || '').replace(/\D/g, '') || phoneRaw;
-    const lines = [];
-    lines.push(`Shop đã nhận ảnh cho đơn SĐT ${phoneDigits} (${items.length} sản phẩm). Anh/chị xác nhận giúp shop:`);
+    const lines = [messengerHeader(phoneRaw, items.length)];
     items.forEach(function (it) {
       const id = extractGoogleDriveId(it.fileUrl || '');
       const link = id ? `https://drive.google.com/file/d/${id}/view` : (it.fileUrl || '');
       lines.push(`- ${it.sku || '—'} — ${it.name || ''}: ${link}`);
     });
     lines.push('');
-    lines.push('Nếu có sai sót ảnh nào, anh/chị báo lại trong 2h nhé. Cảm ơn ạ!');
+    lines.push(messengerFooter());
     return lines.join('\n');
   }
 
@@ -427,6 +487,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Render an N-row grid of [product thumb | customer thumb] cells onto a canvas,
   // return as PNG Blob. Missing product thumb → labeled placeholder cell.
+  // Image-only — no text bake. The call-to-action message is copied separately
+  // by the Copy tin nhắn button so CS pastes each into its own Messenger bubble.
   async function buildPairedMontage(items, productMap, opts) {
     const o = Object.assign({
       cellW: 400, cellH: 400, labelH: 40, gap: 12, pad: 20,
@@ -540,21 +602,15 @@ document.addEventListener('DOMContentLoaded', function() {
     ctx.fillText(label, x + o.cellW / 2, ly + o.labelH / 2);
   }
 
-  // Write a multi-mime ClipboardItem. Each paste target picks the MIME it
-  // handles: Messenger web takes image/png; Gmail / plain textarea takes
-  // text/plain. Same clipboard, different surfaces — explain this to CS.
-  async function writeImageAndText(blob, text) {
-    const canMultiMime = typeof ClipboardItem === 'function'
-                      && !!(navigator.clipboard && navigator.clipboard.write);
-    if (!canMultiMime) {
-      // Fallback: write text only so the click isn't a no-op.
-      await copyToClipboard(text);
+  // Write image-only ClipboardItem. Throws kind:'no-image-support' if the
+  // browser lacks ClipboardItem (handler shows a toast + suggests text button).
+  async function writeImageOnly(blob) {
+    const canImage = typeof ClipboardItem === 'function'
+                  && !!(navigator.clipboard && navigator.clipboard.write);
+    if (!canImage) {
       const e = new Error('no-image-support'); e.kind = 'no-image-support'; throw e;
     }
-    const item = new ClipboardItem({
-      'image/png': blob,
-      'text/plain': new Blob([text], { type: 'text/plain' })
-    });
+    const item = new ClipboardItem({ 'image/png': blob });
     await navigator.clipboard.write([item]);
   }
 

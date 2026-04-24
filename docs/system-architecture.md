@@ -210,7 +210,113 @@ Output: Ngày sản xuất + Ngày giao hàng
 
 **Security**: Allow-list check in `isProxyAllowed_()` restricts imageProxy to two folder IDs only: `driveFolderId` (customer uploads) and `productImagesFolderId` (product images). Prevents arbitrary Drive enumeration.
 
-### 6. Staff Homepage
+### 6. Voice Gift Pages
+
+**Files**:
+- `google-apps-script-voice.js` — standalone GAS project (separate from main GAS)
+- `voice-upload.html` + `assets/voice-upload.{js,css}` — customer upload form
+- `voice.html` + `assets/voice-page.{js,css}` — public recipient page
+- `assets/admin-voice-tab.js` — admin panel voice tab
+
+**GAS Deployment**:
+```
+https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec
+```
+
+**Component Diagram**:
+```
+[Customer — mobile]          [Staff — desktop]        [Recipient — mobile]
+voice-upload.html            admin.html#voice          voice.html?id=SLUG
+   │                            │                           │
+   │ POST finishUpload           │ GET listVoice             │ GET getVoice
+   │ (base64 audio+img+text)     │ POST publishVoice         │ GET audioProxy
+   ▼                            ▼                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  google-apps-script-voice.js (GAS — separate deployment)         │
+│                                                                  │
+│  finishUpload → save audio + image to Drive, write sheet row     │
+│  listVoice    → filter voice_pages sheet by status               │
+│  publishVoice → set status=published, generate slug, write URL   │
+│  getVoice     → lookup row by slug, return data for recipient    │
+│  archiveVoice → toggle status (archived / pending)               │
+│  audioProxy   → stream Drive audio as base64 (CORP bypass)       │
+└──────────┬────────────────────────────────────────────────────────┘
+           │
+           ▼
+    [Google Drive]            [Google Sheet "voice_pages"]
+    VOICE_AUDIO_FOLDER_ID     phone | order_id | status | slug |
+    VOICE_IMAGE_FOLDER_ID     audio_id | image_id | message_text |
+                              uploaded_at | published_at | url
+```
+
+**Data Flow — Upload**:
+```
+Customer fills form (phone, order, audio, image, text)
+→ FileReader reads audio as base64 (~35 MB max)
+→ Single POST finishUpload to GAS (audio + image base64 + text)
+→ GAS: saves audio to Drive (VOICE_AUDIO_FOLDER_ID)
+→ GAS: saves image to Drive (VOICE_IMAGE_FOLDER_ID)
+→ GAS: appends row to voice_pages sheet (status=pending)
+→ GAS: sends email to crush@crushroom.vn
+→ Returns { ok: true }
+→ Customer sees success screen
+```
+
+**Data Flow — Publish**:
+```
+Staff clicks Publish on admin #voice tab
+→ POST publishVoice (phone, order_id)
+→ GAS: generates slug (e.g. "abc123"), sets status=published
+→ GAS: writes URL = https://crushroom-form.vercel.app/voice.html?id=SLUG
+→ Returns { ok: true, slug, url }
+→ Admin shows QR code (qr-code-styling) + Copy URL button
+→ Staff sends URL / QR to customer
+```
+
+**Data Flow — Recipient View**:
+```
+Recipient opens voice.html?id=SLUG
+→ GET getVoice&id=SLUG → { ok, text_message, audio_file_id, image_url, published_at }
+→ Render image (Drive thumbnail URL, referrerpolicy=no-referrer)
+→ textContent = text_message (XSS-safe — never innerHTML)
+→ GET audioProxy&id=AUDIO_FILE_ID → { ok, base64, mime }
+→ Decode base64 → Blob → ObjectURL → WaveSurfer.load()
+→ Player shows waveform + play button
+```
+
+**Why GAS Audio Proxy**:
+Google Drive sets `Cross-Origin-Resource-Policy: same-site` and `Content-Disposition: attachment` on media files served to non-Google origins. This blocks `<audio src>` and `fetch()` from Vercel. The `audioProxy` endpoint uses `DriveApp.getFileById()` (script-owner credentials) and returns the file as base64 JSON — same-origin to the GAS exec URL, bypassing CORP.
+
+**Sheet Schema — voice_pages**:
+
+| Column | Type | Notes |
+|--------|------|-------|
+| phone | string | Normalized VN phone |
+| order_id | string | From upload form |
+| status | enum | pending / published / archived |
+| slug | string | Random 8-char ID (set on publish) |
+| audio_id | string | Drive file ID |
+| image_id | string | Drive file ID |
+| message_text | string | Max 1000 chars |
+| uploaded_at | ISO date | GAS server time |
+| published_at | ISO date | Set on publish |
+| url | string | Full voice.html URL |
+
+**GAS Endpoints (voice)**:
+
+| Method | Action | Description |
+|--------|--------|-------------|
+| POST | `finishUpload` | Save audio + image + text, write row (status=pending) |
+| GET | `listVoice&status=X` | Return rows filtered by status |
+| POST | `publishVoice` | Set status=published, generate slug + URL |
+| GET | `getVoice&id=SLUG` | Return row data for recipient page |
+| POST | `archiveVoice` | Toggle status between archived and pending |
+| GET | `audioProxy&id=FILE_ID` | Proxy Drive audio as base64 (CORP bypass) |
+
+**Future Work (Phase 6)**:
+- Migrate audio storage from Drive to Cloudflare R2 to remove the audioProxy bottleneck and GAS execution time limits.
+
+### 7. Staff Homepage
 
 **File**: `index.html` (90 LOC)
 

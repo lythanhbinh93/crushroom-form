@@ -580,3 +580,4 @@ function ensureFormDataColumns_(sheet) {
 // ===== CHANGELOG v3 =====
 // ✅ listProducts trả thêm type + material để form lọc dropdown
 // ✅ Thêm cột Type và Material vào sheet products (optional — để trống sẽ vào nhóm "Khác")
+//

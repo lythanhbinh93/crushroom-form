@@ -58,7 +58,39 @@ Tính toán ngày sản xuất xong và ngày khách nhận hàng theo tỉnh th
   - Grab HCM: +1 ngày
   - Khác: +3 ngày (mặc định)
 
-### 5. Staff Homepage
+### 5. Voice Gift QR
+
+Hệ thống cho phép khách hàng gửi lời nhắn âm thanh + ảnh + text → staff duyệt và phát hành trang quà tặng có QR code.
+
+**Links**:
+- Upload form (gửi cho khách): `https://crushroom-form.vercel.app/voice-upload.html?phone=X&order=Y`
+- Admin Voice tab: `https://crushroom-form.vercel.app/admin.html#voice`
+- Public gift page: `https://crushroom-form.vercel.app/voice.html?id=SLUG`
+
+**GAS Backend** (riêng biệt với GAS chính):
+```
+https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec
+```
+
+**Luồng**:
+1. **Khách** → nhận link từ shop (có `?phone=&order=`) → upload MP3/M4A + ảnh (crop 1:1) + lời nhắn
+2. **Staff** → admin #voice tab → preview audio + ảnh → Publish → nhận QR code + URL
+3. **Người nhận** → quét QR → `voice.html?id=SLUG` → WaveSurfer player + ảnh + text
+
+**Giới hạn file**:
+- Audio: tối đa 35MB (base64 ~47MB, trong ngưỡng GAS 50MB). File >20MB sẽ hiển thị cảnh báo.
+- Ảnh: crop 400×400 JPEG, giới hạn thực tế ~5MB trước crop.
+- Lời nhắn: tối đa 1000 ký tự.
+
+**Audio proxy**: Drive trả về `CORP: same-site` blocking browser audio từ origins khác. GAS `audioProxy` endpoint đọc file bằng DriveApp (script-owner) và trả base64 → browser decode → Blob URL → WaveSurfer.
+
+**Files**:
+- `google-apps-script-voice.js` — GAS script riêng (6 endpoints: finishUpload, listVoice, publishVoice, getVoice, archiveVoice, audioProxy)
+- `voice-upload.html` + `assets/voice-upload.{js,css}` — customer form
+- `voice.html` + `assets/voice-page.{js,css}` — public gift page
+- `assets/admin-voice-tab.js` — admin voice tab controller
+
+### 6. Staff Homepage
 
 Trang điều khiển nội bộ — liên kết đến các công cụ.
 
@@ -341,6 +373,24 @@ Xem thư mục `docs/` để hiểu rõ hơn:
 **Lỗi: "Upload timeout"**
 - LockService timeout 10s có thể quá ngắn
 - Increase timeout hoặc optimize upload flow
+
+### Voice Gift
+
+**Lỗi: "Link không hợp lệ" khi mở voice-upload.html**
+- URL thiếu `?phone=X&order=Y` params — staff phải gửi link đúng format cho khách
+
+**Upload âm thanh không gửi được / timeout**
+- File > 35MB: yêu cầu khách nén lại (MP3 128kbps ~1MB/min)
+- GAS có thể timeout với file > 25MB trên kết nối chậm — khuyên dùng WiFi
+- Check Drive quota tại https://one.google.com/storage
+
+**Audio không phát trên voice.html**
+- Kiểm tra GAS `audioProxy` endpoint hoạt động: `curl "GAS_URL?action=audioProxy&id=DRIVE_FILE_ID"`
+- Drive Advanced Service (`Drive API v2`) phải được bật trong GAS project
+
+**QR không hiển thị trong admin**
+- Kiểm tra CDN `qr-code-styling` đã load (Network tab)
+- Chỉ hoạt động sau khi row được Publish (không phải Pending)
 
 ## 📖 Hướng Dẫn Chi Tiết (Photo Naming Helper)
 

@@ -1,0 +1,176 @@
+/* ── Reset & base ────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Force [hidden] to always hide. Author styles like `display: flex` on state
+   containers would otherwise beat the browser's [hidden] { display: none }. */
+[hidden] { display: none !important; }
+
+html, body {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #000;
+  color: #fff;
+  min-height: 100vh;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* ── State screens (loading / 404) ───────────────────────────────────────── */
+.state-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  max-width: 420px;
+}
+
+.state-icon { font-size: 48px; margin-bottom: 16px; }
+.state-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+.state-hint { font-size: 14px; color: #9ca3af; line-height: 1.5; }
+
+.home-link {
+  margin-top: 24px;
+  display: inline-block;
+  padding: 10px 20px;
+  background: #7c3aed;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.home-link:hover { background: #6d28d9; }
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.spinner-sm {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+  margin: 0;
+  vertical-align: middle;
+}
+
+.audio-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 0;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+/* ── Gift card ───────────────────────────────────────────────────────────── */
+.gift-card {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Audio player (matches Shopify template aesthetic: black bg, white text) */
+.audio-player {
+  background-color: #000;
+  color: #fff;
+  padding: 10px;
+}
+
+.audio-image {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.audio-image img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.gift-text-wrap {
+  margin-bottom: 14px;
+  font-size: 16px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.player-container {
+  display: flex;
+  align-items: center;
+}
+
+/* Waveform width is capped in JS to match cover-image width. */
+#waveform {
+  flex-grow: 1;
+  height: 80px;
+  background-color: #000;
+  margin: 0 10px;
+}
+
+#timeDisplay {
+  font-size: 16px;
+  min-width: 50px;
+  text-align: right;
+  font-weight: 600;
+}
+
+#playPauseButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 40px;
+  height: 60px;
+  width: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+#playPauseButton:hover { color: #fff; }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.gift-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-top: 20px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.gift-date { font-style: italic; }
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body { padding: 8px; }
+  .audio-player { padding: 5px; }
+  #playPauseButton { font-size: 35px; height: 50px; width: 50px; }
+  #waveform { height: 80px; }
+  .gift-text-wrap { font-size: 15px; }
+}

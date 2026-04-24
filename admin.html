@@ -13,6 +13,17 @@
       <p class="subtitle">Kiểm tra ảnh khách hàng đã upload</p>
     </div>
 
+    <!-- Tab navigation -->
+    <div class="admin-tabs">
+      <button class="admin-tab-btn active" data-tab="photos">Ảnh khách hàng</button>
+      <button class="admin-tab-btn" data-tab="voice">Voice pages</button>
+    </div>
+
+    <!-- ============================== -->
+    <!-- TAB: Ảnh khách hàng (default) -->
+    <!-- ============================== -->
+    <div id="tab-photos" class="admin-tab-panel active">
+
     <div class="search-section">
       <div class="search-box">
         <input
@@ -109,11 +120,63 @@
       </div>
       <div id="list-day-sections"></div>
     </div>
+
+    </div><!-- end #tab-photos -->
+
+    <!-- ============================== -->
+    <!-- TAB: Voice pages               -->
+    <!-- ============================== -->
+    <div id="tab-voice" class="admin-tab-panel">
+
+      <div class="voice-toolbar">
+        <div class="voice-filter-bar" id="voice-filter-bar">
+          <button class="voice-filter-btn active" data-status="pending">Pending</button>
+          <button class="voice-filter-btn" data-status="published">Published</button>
+          <button class="voice-filter-btn" data-status="archived">Archived</button>
+          <button class="voice-filter-btn" data-status="all">Tất cả</button>
+        </div>
+        <button class="btn-voice-refresh" id="voice-refresh-btn">↺ Refresh</button>
+      </div>
+
+      <div id="voice-loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Đang tải...</p>
+      </div>
+
+      <div id="voice-error" class="voice-inline-error" style="display: none;"></div>
+
+      <div id="voice-list" class="voice-list"></div>
+
+      <div id="voice-empty" class="voice-empty-state" style="display: none;">
+        <div class="empty-icon">🎙️</div>
+        <p>Không có voice page nào trong mục này.</p>
+      </div>
+
+    </div><!-- end #tab-voice -->
+
+  </div><!-- end .admin-container -->
+
+  <!-- QR Modal -->
+  <div id="voice-qr-modal" class="voice-modal-overlay" style="display: none;" role="dialog" aria-modal="true">
+    <div class="voice-modal-box">
+      <h3 class="voice-modal-title">QR Code</h3>
+      <div id="voice-qr-container" class="voice-qr-frame"></div>
+      <p class="voice-modal-slug" id="voice-modal-slug"></p>
+      <p class="voice-modal-url" id="voice-modal-url"></p>
+
+      <div class="voice-modal-actions">
+        <button class="btn-voice-action btn-voice-download-qr" id="voice-copy-qr-btn">Copy QR</button>
+        <button class="btn-voice-action btn-voice-secondary" id="voice-close-qr-btn">Đóng</button>
+      </div>
+    </div>
   </div>
 
   <!-- Toast for clipboard copy feedback -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <!-- qr-code-styling: branded Mini-QR-style renderer (rounded dots, colors, PNG/SVG export) -->
+  <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.9.2/lib/qr-code-styling.js"></script>
   <script src="./assets/admin.js"></script>
+  <script src="./assets/admin-voice-tab.js"></script>
 </body>
 </html>

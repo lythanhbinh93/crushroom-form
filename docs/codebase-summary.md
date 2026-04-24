@@ -10,9 +10,12 @@
 crushroom-form/
 ├── app.py                                    (419 LOC) Streamlit Photo Naming Helper
 ├── google-apps-script-complete.js            (393 LOC) GAS backend: upload, search, list, imageProxy
+├── google-apps-script-voice.js               (531 LOC) GAS backend: Voice Gift (separate project)
 ├── index.html                                (90 LOC)  Staff homepage (B&W minimalist)
 ├── admin.html                                (116 LOC) Admin image viewer + date-range browse
 ├── couplepix.html                            (194 LOC) Customer upload + crop form
+├── voice-upload.html                         (TBD)    Voice gift customer upload form
+├── voice.html                                (TBD)    Voice gift public recipient page (WaveSurfer)
 ├── check-date.html                           (509 LOC) Delivery date calculator (inline CSS/JS)
 ├── vercel.json                               (20 LOC)  Static route config
 ├── templates/
@@ -20,9 +23,14 @@ crushroom-form/
 ├── assets/
 │   ├── home.css                              (100 LOC) Index page styling (B&W)
 │   ├── admin.css                             (818 LOC) Admin panel styling + copy-button spinner
-│   ├── admin.js                              (775 LOC) Admin search + paired-montage clipboard copy (NEW)
+│   ├── admin.js                              (775 LOC) Admin search + paired-montage clipboard copy
+│   ├── admin-voice-tab.js                    (TBD)    Voice tab controller (QR, publish, archive)
 │   ├── couple-pix.css                        (530 LOC) Upload form styling
 │   ├── couple-pix.js                         (461 LOC) Upload form logic (Croppie integration)
+│   ├── voice-upload.css                      (TBD)    Voice upload form styling
+│   ├── voice-upload.js                       (TBD)    Voice upload form logic + file validation
+│   ├── voice-page.css                        (TBD)    Voice recipient page styling (dark theme)
+│   ├── voice-page.js                         (TBD)    Voice recipient page logic (WaveSurfer integration)
 │   ├── croppie.css                           (CDN)    Unused locally; loaded from CDN
 │   └── croppie.min.js                        (CDN)    Unused locally; loaded from CDN
 ├── .claude/                                  Project orchestration (agent configs, rules)
@@ -39,10 +47,10 @@ crushroom-form/
 | Category | Count | Notes |
 |----------|-------|-------|
 | Python | 1 | app.py only |
-| JavaScript (client) | 3 | admin.js, couple-pix.js, check-date.html (inline) |
-| Google Apps Script | 1 | google-apps-script-complete.js |
-| HTML | 4 | index, admin, couplepix, check-date |
-| CSS | 4 | home.css, admin.css, couple-pix.css, check-date.html (inline) |
+| JavaScript (client) | 7 | admin.js, couple-pix.js, admin-voice-tab.js, voice-upload.js, voice-page.js, check-date.html (inline) |
+| Google Apps Script | 2 | google-apps-script-complete.js, google-apps-script-voice.js (separate project) |
+| HTML | 6 | index, admin, couplepix, voice-upload, voice, check-date |
+| CSS | 6 | home.css, admin.css, couple-pix.css, voice-upload.css, voice-page.css, check-date.html (inline) |
 | Markdown (docs) | 7 | project-overview-pdr, codebase-summary, code-standards, system-architecture, project-roadmap, deployment-guide, design-guidelines |
 | Config | 3 | vercel.json, requirements.txt, CLAUDE.md |
 
@@ -179,7 +187,46 @@ crushroom-form/
 - `calculateDeliveryDate()` — Parse input, apply 17:00 cutoff, find next batch, apply offset
 - Special holiday handling (e.g., Lunar New Year)
 
-### 7. Shopify Liquid Template (`templates/couplepix.liquid`)
+### 7. Voice Gift System (GAS + HTML/JS/CSS)
+
+**Purpose**: Customers upload voice message + image + text → staff publishes → QR-linkable public page  
+**Platform**: Standalone GAS project (separate from main backend) + Vercel static pages  
+**Deployment**: Manual GAS deploy; Vercel auto-deploys HTML/JS/CSS
+
+**Backend** (`google-apps-script-voice.js`):
+- **Endpoints** (6 total):
+  - `finishUpload` (POST) — Save base64 audio + image to Drive, append row (status=pending)
+  - `listVoice` (GET) — Filter voice_pages sheet by status (pending/published/archived)
+  - `publishVoice` (POST) — Generate 8-char slug, set status=published, return URL
+  - `getVoice` (GET) — Public lookup by slug, return data for recipient page
+  - `archiveVoice` (POST) — Toggle status between archived ↔ pending
+  - `audioProxy` (GET) — Proxy Drive audio as base64 JSON (CORP bypass)
+- **Data Model**:
+  - Sheet `voice_pages`: phone | order_id | status | slug | audio_id | image_id | message_text | uploaded_at | published_at | url
+  - Drive folders: VOICE_AUDIO_FOLDER_ID, VOICE_IMAGE_FOLDER_ID
+
+**Customer Upload** (`voice-upload.html` + `assets/voice-upload.{js,css}`):
+- Phone + order_id (optional prefills from URL params)
+- File input: MP3/M4A/AAC (validation, 35 MB client-side cap)
+- Image upload: auto-crop to 400×400 JPEG
+- Text message: max 1000 chars
+- Single POST base64 to GAS finishUpload
+
+**Public Recipient Page** (`voice.html` + `assets/voice-page.{js,css}`):
+- URL: `https://crushroom-form.vercel.app/voice.html?id=SLUG`
+- Renders: customer image + message text + WaveSurfer audio player (dark theme)
+- Audio playback via GAS audioProxy (Drive CORP policy workaround)
+
+**Admin Voice Tab** (`assets/admin-voice-tab.js`):
+- List pending voice submissions
+- Preview audio (player) + image + text
+- Publish button → generate slug + QR (via qr-code-styling lib)
+- Copy QR to clipboard (ClipboardItem with image/png)
+- Archive button → toggle status
+
+**Security**: Allow-list folder IDs (VOICE_AUDIO_FOLDER_ID, VOICE_IMAGE_FOLDER_ID) in audioProxy; GAS "Execute as Me" for DriveApp access.
+
+### 8. Shopify Liquid Template (`templates/couplepix.liquid`)
 
 **Purpose**: Shopify theme-embedded version of couplepix.html  
 **Differences**: Uses Liquid asset URLs (`asset_url | stylesheet_tag`)  
@@ -190,12 +237,15 @@ crushroom-form/
 | Surface | URL | File | Tech |
 |---------|-----|------|------|
 | **Customer (Shopify)** | `https://store.myshopify.com/pages/couplepix` | couplepix.liquid | Liquid (Shopify) |
-| **Customer (Standalone)** | `https://crushroom-form.vercel.app/couplepix.html` | couplepix.html | HTML5 + JS |
+| **Customer (Photo Upload)** | `https://crushroom-form.vercel.app/couplepix.html` | couplepix.html | HTML5 + JS |
+| **Customer (Voice Upload)** | `https://crushroom-form.vercel.app/voice-upload.html?phone=X&order=Y` | voice-upload.html | HTML5 + JS |
+| **Recipient (Voice Page)** | `https://crushroom-form.vercel.app/voice.html?id=SLUG` | voice.html | HTML5 + JS + WaveSurfer |
 | **Staff (Homepage)** | `https://crushroom-form.vercel.app/` | index.html | HTML5 + CSS |
-| **Staff (Admin)** | `https://crushroom-form.vercel.app/admin.html` | admin.html | HTML5 + JS |
+| **Staff (Admin)** | `https://crushroom-form.vercel.app/admin.html` (+ #voice tab) | admin.html + admin-voice-tab.js | HTML5 + JS |
 | **Staff (Photo Helper)** | `https://crushroomapp.streamlit.app/` | app.py | Streamlit |
 | **Staff (Date Calc)** | `https://crushroom-form.vercel.app/check-date.html` | check-date.html | HTML5 + JS |
-| **Backend** | `https://script.google.com/macros/s/.../exec` | google-apps-script-complete.js | GAS |
+| **Backend (Main)** | `https://script.google.com/macros/s/.../exec` | google-apps-script-complete.js | GAS |
+| **Backend (Voice)** | `https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6.../exec` | google-apps-script-voice.js | GAS |
 
 ## Data Structures
 

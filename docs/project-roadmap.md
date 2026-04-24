@@ -69,12 +69,40 @@ CouplePix is an internal staff toolkit for Vietnamese e-commerce photo personali
 - E2E tests cover happy path + error scenarios
 - README includes FAQ section
 
+### Phase Voice Gift QR (COMPLETE — P1–P4, P5 IN PROGRESS)
+
+**Status**: ✅ P1–P4 Complete | P5 In Progress (docs + polish) | P6 Deferred
+
+**Deliverables (P1–P4)**:
+- `google-apps-script-voice.js` — standalone GAS with 6 endpoints (finishUpload, listVoice, publishVoice, getVoice, archiveVoice, audioProxy)
+- `voice-upload.html` + `assets/voice-upload.{js,css}` — customer upload form (base64 single POST, 35 MB max)
+- `voice.html` + `assets/voice-page.{js,css}` — public gift page (WaveSurfer dark theme, GAS audio proxy)
+- `assets/admin-voice-tab.js` — admin Voice tab (QR code, Copy QR, Publish, Archive)
+- GAS deployed: `https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec`
+
+**P5 Tasks (this phase)**:
+- [x] Homepage card updated (voice-upload.html + admin#voice)
+- [x] README Voice section added
+- [x] system-architecture.md voice section added
+- [x] project-roadmap.md updated
+- [x] deployment-guide.md Voice GAS setup added
+- [x] validation edge case: missing URL params shows error panel
+
+**Deferred to P6**:
+- [ ] R2 migration (replace Drive audio storage + audioProxy bottleneck)
+- [ ] Mobile E2E smoke test (iOS + Android)
+- [ ] Monthly orphan Drive file cleanup script
+- [ ] Admin analytics / view counts
+- [ ] In-browser audio recording (replace file upload)
+
+**index.html Decision**: Staff cards for voice-upload + admin#voice added (internal dashboard — not publicly indexed).
+
 ### Phase 4: Optional Enhancements (BACKLOG)
 
 **Status**: 💡 Future | **Priority**: Low
 
 **Items**:
-- [ ] QR Recording upload tool (card exists, disabled)
+- [x] QR Recording / Voice Gift upload tool — shipped (see Phase Voice Gift QR above)
 - [ ] Love Counter configuration tool (card exists, disabled)
 - [ ] Bulk image tagging/metadata in admin panel
 - [ ] Export admin search results as CSV

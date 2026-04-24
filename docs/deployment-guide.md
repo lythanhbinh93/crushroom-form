@@ -267,6 +267,69 @@ const spreadsheetId = scriptProp.getProperty('key');
 const sheetName = 'form data';  // Hardcoded (OK for small project)
 ```
 
+## 4. Voice Gift GAS Deploy
+
+The Voice Gift feature uses a **separate** GAS project from the main backend. This isolates voice storage quotas and endpoints.
+
+### Setup (One-Time)
+
+1. Go to https://script.google.com — create a **new** project (do NOT reuse the main GAS project)
+2. Paste contents of `google-apps-script-voice.js` into the editor
+3. **Enable Drive API v2 Advanced Service**:
+   - Editor → Services (+ icon) → "Google Drive API" → Version v2 → Add
+   - This is required for `Drive.Files.insert()` used by `finishUpload`. Without it, uploads fail silently.
+4. Create two Drive folders (can be in "My Drive"):
+   - "CouplePix Voice Audio" — for MP3/M4A uploads
+   - "CouplePix Voice Images" — for customer photos
+   - Copy both folder IDs from Drive URL (`/folders/FOLDER_ID`)
+5. In GAS Editor → Project Settings → Script Properties → Add:
+   - `VOICE_AUDIO_FOLDER_ID` = `<audio folder ID>`
+   - `VOICE_IMAGE_FOLDER_ID` = `<image folder ID>`
+6. Run `intialSetup()` function once (authorizes Spreadsheet access, creates `voice_pages` sheet)
+7. Run `authorizeUrlFetch()` function once (grants `external_request` UrlFetchApp scope — required for audioProxy)
+8. Deploy → "New deployment" → Type: **Web app**
+   - Execute as: **Me** (script-owner; required for DriveApp)
+   - Who has access: **Anyone**
+9. Copy the deployment URL
+
+### Update Hardcoded URLs
+
+After deploying, update `VOICE_GAS_URL` constant in 3 files:
+
+| File | Constant |
+|------|----------|
+| `assets/voice-upload.js` | `var VOICE_GAS_URL` (line ~19) |
+| `assets/voice-page.js` | `var VOICE_GAS_URL` (line ~16) |
+| `assets/admin-voice-tab.js` | `const VOICE_GAS_URL` (line ~19) |
+
+### Verify Deployment
+
+```bash
+# Test listVoice (should return { ok: true, rows: [] } on fresh deploy)
+curl "https://script.google.com/macros/s/YOUR_ID/exec?action=listVoice&status=pending"
+
+# Test getVoice with nonexistent slug (should return { ok: false, error: "not found" })
+curl "https://script.google.com/macros/s/YOUR_ID/exec?action=getVoice&id=test"
+```
+
+### Voice Gift Routing (Vercel)
+
+The new static pages (`voice-upload.html`, `voice.html`) are served by Vercel automatically. No changes to `vercel.json` required — Vercel serves all `.html` files in the root by default.
+
+### Monitoring
+
+**Checks after deploy**:
+- [ ] Customer upload form loads with valid `?phone=&order=` params
+- [ ] Upload with small test audio (<1MB) succeeds
+- [ ] Admin #voice tab shows the pending row
+- [ ] Publish → QR appears → Copy QR works
+- [ ] Open `voice.html?id=SLUG` → audio loads and plays
+- [ ] Email notification arrives at crush@crushroom.vn
+
+**Drive Folders**:
+- Audio folder: monitor size quarterly (50 MB MP3 uploads add up)
+- Image folder: 400×400 JPEG, ~80 KB each — negligible
+
 ## Monitoring & Alerts
 
 ### Google Drive Quota
