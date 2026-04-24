@@ -1,0 +1,487 @@
+/*
+ * voice-upload.css — Mobile-first styles for the Voice Gift QR customer upload form.
+ * Reuses couple-pix.css palette and class conventions where possible.
+ * Purple gradient accent matches the "gift" aesthetic.
+ */
+
+/* ===== Base layout (inherited patterns from couple-pix.css) ===== */
+.container-layout {
+  max-width: 600px;
+  padding: 30px;
+  position: relative;
+  border-radius: 2px;
+  box-shadow: 0 2px 2px 0 rgba(0,0,0,0.14),
+              0 3px 1px -2px rgba(0,0,0,0.12),
+              0 1px 5px 0 rgba(0,0,0,0.2);
+  margin: 40px auto;
+}
+
+/* ===== Header ===== */
+.header .title-heading {
+  font-size: 24px;
+  text-align: center;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  line-height: 1.4;
+  /* Purple gradient to signal "gift" context */
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header .description p {
+  color: #6c757d;
+  font-size: 15px;
+  text-align: center;
+  font-weight: 500;
+  line-height: 1.7;
+  margin: 0 0 1rem;
+}
+
+/* ===== Form controls (mirrors couple-pix.css) ===== */
+.form-control {
+  margin-bottom: 1.5rem;
+  font-size: 14px;
+  position: relative;
+  padding: 0 5px;
+  width: 100%;
+}
+
+.form-control label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.text-danger { color: #dc3545; }
+.text-smaller { font-size: 12px; }
+
+/* Text inputs */
+.voice-text-input {
+  display: block;
+  height: 41px;
+  padding: 10px 12px;
+  color: #000;
+  background-color: #f1f1f1;
+  border-radius: 2px;
+  font-size: 14px;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(50,50,93,0.15), 0 1px 0 rgba(0,0,0,0.02);
+  outline: none;
+  border: none;
+  box-sizing: border-box;
+}
+
+.voice-text-input[readonly] {
+  background-color: #e9ecef;
+  color: #495057;
+  cursor: not-allowed;
+}
+
+.voice-textarea {
+  display: block;
+  padding: 10px 12px;
+  color: #000;
+  background-color: #f1f1f1;
+  border-radius: 2px;
+  font-size: 14px;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(50,50,93,0.15), 0 1px 0 rgba(0,0,0,0.02);
+  outline: none;
+  border: none;
+  resize: vertical;
+  min-height: 100px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.char-counter {
+  text-align: right;
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 4px;
+}
+
+/* ===== Phone input (inherits couple-pix.css .form-phone styles) ===== */
+.form-phone {
+  display: flex;
+}
+.globo-form-icon {
+  width: 41px;
+  padding: 0 5px;
+  background: #f1f1f1;
+  border-radius: 2px 0 0 2px;
+  box-shadow: 0 1px 3px rgba(50,50,93,0.15), 0 1px 0 rgba(0,0,0,0.02);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.globo-form-icon svg { width: 20px; height: 20px; opacity: 0.5; }
+
+.form-phone .iti { display: block !important; width: 100% !important; }
+.form-phone input {
+  display: block;
+  height: 41px;
+  padding: 10px 12px;
+  color: #000;
+  background-color: #f1f1f1;
+  border-radius: 2px;
+  font-size: 14px;
+  flex: 1 1 auto;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(50,50,93,0.15), 0 1px 0 rgba(0,0,0,0.02);
+  outline: none;
+  border: none;
+  box-sizing: border-box;
+}
+
+/* ===== Audio file dropzone ===== */
+.audio-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 4px;
+  border: 1px dashed rgba(0,0,0,0.3);
+  background-color: #f1f1f1;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.audio-dropzone.is-dragover {
+  border-color: #7c3aed;
+  background: #f5f0ff;
+}
+
+.audio-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.audio-icon { font-size: 28px; line-height: 1; }
+.audio-placeholder-title { font-weight: 600; font-size: 14px; }
+.audio-placeholder-desc { font-size: 12px; color: #6c757d; }
+
+.audio-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.audio-filename {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+  word-break: break-all;
+  color: #222;
+}
+.audio-remove-btn {
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+}
+.audio-remove-btn:hover { background: #f5f5f5; }
+
+/* ===== Size warning banner ===== */
+.warning-banner {
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ===== Image dropzone (reuses couple-pix.css .dropzone classes) ===== */
+.dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px dashed rgba(0,0,0,0.3);
+  background-color: #f1f1f1;
+  transition: all 0.3s;
+  box-sizing: border-box;
+}
+.dropzone.is-dragover { border-color: #7c3aed; background: #f5f0ff; }
+
+.dropzone--content { display: flex; align-items: center; }
+.dropzone--placeholder {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.dropzone--placeholder--title { font-weight: 600; font-size: 14px; }
+.dropzone--placeholder--description { font-size: 12px; color: #6c757d; }
+.dropzone--placeholder--button {
+  background: #fff;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #222;
+  font-size: 13px;
+}
+.dropzone--placeholder--button:hover { background: #f8f8f8; }
+
+.dropzone--preview--area {
+  max-width: 150px;
+  position: relative;
+}
+.dropzone--preview--area .img-preview {
+  width: 100%;
+  max-width: 150px;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.dropzone--preview--area .img-preview img {
+  width: 100%;
+  height: auto;
+  max-width: 150px;
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* Close / remove button on preview (shared with couple-pix.css) */
+.couplepix-close.t4s-drawer__close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: white;
+  width: 32px;
+  height: 32px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+}
+.t4s-iconsvg-close { width: 14px; height: 14px; }
+
+/* ===== Submit button (mirrors couple-pix.css .globo-form-app) ===== */
+.gfb__footer { margin-top: 0.5rem; }
+.globo-form-app {
+  text-transform: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  vertical-align: middle;
+  user-select: none;
+  transition: all 0.25s ease-in-out;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1;
+  border-radius: 2px;
+  padding: 12px 22px;
+  min-width: 100px;
+  /* Purple gradient for gift context */
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  cursor: pointer;
+  border: none;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 46px;
+}
+.globo-form-app:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #888;
+}
+.globo-form-app:not(:disabled):hover {
+  background: linear-gradient(135deg, #6d28d9, #9333ea);
+}
+
+/* ===== Spinner (from couple-pix.css) ===== */
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== Help / error text ===== */
+.help-text.globo-description {
+  color: #6c757d;
+  margin-top: 0.25rem;
+  font-size: 12px;
+  font-weight: 500;
+  display: block;
+}
+.messages {
+  color: #dc3545;
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 12px;
+  display: block;
+}
+.globo-form-input { display: flex; }
+
+/* ===== Progress panel ===== */
+.progress-panel {
+  padding: 24px 16px;
+  text-align: center;
+}
+.progress-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: #333;
+}
+.progress-bar-track {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.progress-bar-fill {
+  height: 100%;
+  /* Smooth fill transitions give tactile feedback on slow mobile connections */
+  transition: width 0.15s ease-out;
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
+  border-radius: 4px;
+  min-width: 4px; /* always visible */
+}
+.progress-label {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+/* ===== Success panel ===== */
+.success-panel {
+  padding: 40px 24px;
+  text-align: center;
+}
+.success-icon { font-size: 48px; margin-bottom: 12px; }
+.success-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #16a34a;
+  margin-bottom: 8px;
+}
+.success-message {
+  font-size: 15px;
+  color: #555;
+  line-height: 1.6;
+}
+
+/* ===== Error / param-missing panel ===== */
+.error-panel {
+  padding: 40px 24px;
+  text-align: center;
+}
+.error-icon { font-size: 40px; margin-bottom: 12px; }
+.error-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #dc2626;
+  margin-bottom: 8px;
+}
+.error-message { font-size: 14px; color: #555; line-height: 1.6; }
+
+/* Retry button shown after upload failure */
+.retry-btn {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 8px 20px;
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.retry-btn:hover { background: #6d28d9; }
+
+/* ===== Croppie modal (same classes used in couple-pix.css) ===== */
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  z-index: 10000;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  max-width: 95vw;
+  box-sizing: border-box;
+}
+.couplepix-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 9999;
+}
+.couplepix-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+.couplepix-modal-actions .dropzone--placeholder--button { min-width: 80px; padding: 8px 16px; }
+.couplepix-modal-ok {
+  background: #7c3aed !important;
+  color: #fff !important;
+  border-color: #7c3aed !important;
+}
+.couplepix-modal-ok:disabled { opacity: 0.6; cursor: default; }
+.couplepix-zoom-controls { display: flex; gap: 8px; justify-content: center; margin: 8px 0; }
+.couplepix-cropper .cr-boundary { background-color: #000; }
+.croppie-container .cr-boundary { background-color: #000; }
+
+/* ===== Responsive: full-width on small phones ===== */
+@media (max-width: 640px) {
+  .container-layout {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 20px 16px;
+    min-height: 100vh;
+  }
+  .header .title-heading { font-size: 20px; }
+}

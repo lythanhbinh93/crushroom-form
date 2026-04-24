@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lời nhắn gửi bạn</title>
+  <meta name="robots" content="noindex, nofollow" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.min.js" defer></script>
+
+  <link rel="stylesheet" href="./assets/voice-page.css" />
+</head>
+<body>
+  <!-- Loading state -->
+  <div id="gift-loading" class="state-screen" aria-live="polite" aria-label="Đang tải…">
+    <div class="spinner"></div>
+    <p class="state-hint">Đang tải lời nhắn…</p>
+  </div>
+
+  <!-- 404 / error state -->
+  <div id="gift-404" class="state-screen" hidden>
+    <div class="state-icon" aria-hidden="true">😔</div>
+    <h1 class="state-title">Không tìm thấy trang quà tặng này</h1>
+    <p class="state-hint">Link có thể đã bị thu hồi hoặc không tồn tại.</p>
+    <a href="./index.html" class="home-link">Về trang chủ</a>
+  </div>
+
+  <!-- Gift content -->
+  <main id="gift-root" class="gift-card" hidden aria-label="Lời nhắn quà tặng">
+    <div class="audio-player">
+      <!-- Cover image. referrerpolicy=no-referrer bypasses Google's hotlink 429. -->
+      <div class="audio-image">
+        <img id="gift-image" alt="Ảnh kèm lời nhắn" referrerpolicy="no-referrer" hidden />
+      </div>
+
+      <p class="gift-text-wrap"><strong><span id="gift-text"></span></strong></p>
+
+      <!-- Loading state while GAS proxy fetches + decodes audio -->
+      <div id="gift-audio-loading" class="audio-loading">
+        <div class="spinner spinner-sm"></div>
+        <span>Đang tải âm thanh…</span>
+      </div>
+
+      <div id="player-container" class="player-container" hidden>
+        <button id="playPauseButton" aria-label="Play/Pause Audio" type="button">
+          <i class="fa-solid fa-circle-play" id="playIcon"></i>
+        </button>
+        <div id="waveform"></div>
+        <div id="timeDisplay">0:00</div>
+      </div>
+    </div>
+
+    <footer class="gift-footer">
+      <span>Gửi từ CouplePix</span>
+      <span id="gift-date" class="gift-date"></span>
+    </footer>
+  </main>
+
+  <script src="./assets/voice-page.js"></script>
+</body>
+</html>
