@@ -1,0 +1,3 @@
+name = "voice-proxy"
+main = "cloudflare-worker-voice-proxy.js"
+compatibility_date = "2026-04-25"

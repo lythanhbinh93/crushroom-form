@@ -18,6 +18,9 @@
   /** Separate GAS deployment for Voice features. */
   const VOICE_GAS_URL = 'https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec';
 
+  /** CF Worker that re-streams Drive audio with CORS + edge cache. */
+  const VOICE_AUDIO_PROXY_URL = 'https://voice-proxy.crushroom.workers.dev';
+
   /** localStorage key for filter persistence. */
   const FILTER_KEY = 'voicePagesFilter';
 
@@ -347,6 +350,14 @@
         row.status = 'published';
         row.slug = data.slug;
         row.url = data.url;
+        // Pre-warm CF edge cache so the first recipient hits a hot cache.
+        // Fire-and-forget: any failure is non-fatal (recipient just hits cold cache).
+        if (row.audio_file_id) {
+          fetch(VOICE_AUDIO_PROXY_URL + '/' + encodeURIComponent(row.audio_file_id), {
+            method: 'GET',
+            mode: 'no-cors'
+          }).catch(function () { /* ignore */ });
+        }
         // Re-render just this card's actions + published URL
         const cardEl = listEl.querySelector('[data-row-key="' + makeRowKey(row) + '"]');
         if (cardEl) {

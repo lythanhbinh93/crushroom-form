@@ -4,16 +4,19 @@
  * Flow:
  *  1. Parse ?id=SLUG from URL.
  *  2. fetch VOICE_GAS_URL?action=getVoice&id=SLUG → {ok, text_message, audio_url, image_url, audio_file_id, image_file_id, published_at}
- *  3. Render image + text immediately; trigger audio proxy fetch.
- *  4. Audio: GAS audioProxy → base64 → Blob → object URL → WaveSurfer.load().
+ *  3. Render image + text immediately; trigger audio load.
+ *  4. Audio: <audio> / WaveSurfer streams directly from VOICE_AUDIO_PROXY_URL/<fileId>.
  *
- * WHY GAS proxy for audio: Drive's direct media URLs set
+ * WHY a Cloudflare Worker proxies audio: Drive's direct media URLs set
  * `Cross-Origin-Resource-Policy: same-site` + `Content-Disposition: attachment`,
- * which block browser audio playback from non-Google origins. Proxying through
- * GAS routes bytes through our own origin, bypassing CORP.
+ * which block browser audio playback from non-Google origins. The Worker re-streams
+ * Drive bytes with proper CORS + inline disposition + Range support, replacing the
+ * old GAS base64 proxy (3-6 s decode latency on a 6 MB file).
  */
 
 var VOICE_GAS_URL = 'https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec';
+// Streaming proxy. Update after `wrangler deploy` of cloudflare-worker-voice-proxy.js.
+var VOICE_AUDIO_PROXY_URL = 'https://voice-proxy.crushroom.workers.dev';
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
 var elLoading   = document.getElementById('gift-loading');
@@ -124,22 +127,9 @@ function renderGift(data) {
 var wavesurfer = null;
 
 function loadAudioViaProxy(fileId) {
-  var url = VOICE_GAS_URL + '?action=audioProxy&id=' + encodeURIComponent(fileId);
-  fetch(url)
-    .then(function (r) { return r.json(); })
-    .then(function (resp) {
-      if (!resp.ok || !resp.data) throw new Error(resp.error || 'audio proxy failed');
-      var byteStr = atob(resp.data);
-      var bytes = new Uint8Array(byteStr.length);
-      for (var i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
-      var blob = new Blob([bytes], { type: resp.mime || 'audio/mpeg' });
-      var blobUrl = URL.createObjectURL(blob);
-      initWaveSurfer(blobUrl);
-    })
-    .catch(function (err) {
-      console.error('audio load failed:', err);
-      elAudioLoad.textContent = 'Không tải được âm thanh';
-    });
+  // Worker streams Drive bytes with CORS + Range support; WaveSurfer fetches directly.
+  var streamUrl = VOICE_AUDIO_PROXY_URL + '/' + encodeURIComponent(fileId);
+  initWaveSurfer(streamUrl);
 }
 
 function adjustWaveformWidth() {
