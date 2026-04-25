@@ -503,9 +503,19 @@ document.addEventListener('DOMContentLoaded', function () {
       progressTitle.textContent = 'Đang đọc file âm thanh…';
       updateProgress(0, 1, '0%');
 
+      // Kick off peaks extraction in parallel with base64 read so the recipient
+      // page can render the waveform instantly without re-decoding. Failure is
+      // non-fatal — recipient just falls back to decorative bars.
+      var peaksPromise = window.extractPeaks
+        ? window.extractPeaks(state.audioFile, 200)
+        : Promise.resolve(null);
+
       var audioB64 = await readFileAsBase64(state.audioFile, function (pct) {
         updateProgress(pct, 100, Math.round(pct) + '%');
       });
+
+      progressTitle.textContent = 'Đang xử lý âm thanh…';
+      var peaksResult = await peaksPromise;
 
       progressTitle.textContent = 'Đang gửi lên shop…';
       updateProgress(100, 100, '100%');
@@ -519,7 +529,9 @@ document.addEventListener('DOMContentLoaded', function () {
         audioFilename: state.audioFile.name || (phoneNormalized + '_' + orderId),
         audioMime: state.audioFile.type || 'audio/mpeg',
         imgData: state.imageDataB64,
-        imgFilename: state.imageFilename
+        imgFilename: state.imageFilename,
+        peaks: peaksResult ? JSON.stringify(peaksResult.peaks) : '',
+        audio_duration: peaksResult ? peaksResult.duration : 0
       });
 
       if (!finishResp.ok) throw new Error(finishResp.error || 'Gửi thất bại');

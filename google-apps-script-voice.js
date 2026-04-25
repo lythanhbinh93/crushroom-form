@@ -26,7 +26,10 @@ const VOICE_SHEET_NAME = 'voice_pages';
 const VOICE_SHEET_HEADERS = [
     'timestamp', 'phone', 'order_id', 'text_message',
     'audio_file_id', 'audio_url', 'image_file_id', 'image_url',
-    'status', 'slug', 'published_at'
+    'status', 'slug', 'published_at',
+    // Pre-computed by customer's browser during upload so recipient page
+    // can render waveform instantly without re-decoding the audio.
+    'peaks', 'audio_duration'
 ];
 const VOICE_RECIPIENT_EMAIL = 'crush@crushroom.vn';
 const VOICE_PAGE_BASE_URL = 'https://crushroom-form.vercel.app/voice.html?id=';
@@ -285,6 +288,8 @@ function handleFinishUpload_(e) {
         var textMessage = String(e.parameter.text_message || '').slice(0, 1000);
         var imgData = e.parameter.imgData || '';
         var imgFilename = String(e.parameter.imgFilename || (phone + '_' + orderId + '.jpg')).trim();
+        var peaks = String(e.parameter.peaks || '');
+        var audioDuration = parseFloat(e.parameter.audio_duration || '0') || 0;
 
         if (!phone) return jsonOut({ ok: false, error: 'phone required' });
         if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
@@ -333,7 +338,8 @@ function handleFinishUpload_(e) {
         var rowValues = [
             now, "'" + phone, orderId, textMessage,
             audioFileId, audioUrl, imageFileId, imageUrl,
-            'pending', '', ''
+            'pending', '', '',
+            peaks, audioDuration
         ];
 
         var rowIdx;
@@ -452,7 +458,9 @@ function handleGetVoice_(e) {
             audio_file_id: obj.audio_file_id,
             image_url: obj.image_url,
             image_file_id: obj.image_file_id,
-            published_at: obj.published_at
+            published_at: obj.published_at,
+            peaks: obj.peaks || '',
+            audio_duration: obj.audio_duration || 0
         });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });

@@ -350,8 +350,13 @@
         row.status = 'published';
         row.slug = data.slug;
         row.url = data.url;
-        // Pre-warm CF edge cache so the first recipient hits a hot cache.
-        // Fire-and-forget: any failure is non-fatal (recipient just hits cold cache).
+        // Pre-warm CF edge caches so the first recipient hits hot caches for both
+        // metadata JSON and audio bytes. Fire-and-forget: failure is non-fatal.
+        if (data.slug) {
+          fetch(VOICE_AUDIO_PROXY_URL + '/voice/' + encodeURIComponent(data.slug), {
+            method: 'GET'
+          }).catch(function () { /* ignore */ });
+        }
         if (row.audio_file_id) {
           fetch(VOICE_AUDIO_PROXY_URL + '/' + encodeURIComponent(row.audio_file_id), {
             method: 'GET',

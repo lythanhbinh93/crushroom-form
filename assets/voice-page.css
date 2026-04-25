@@ -174,3 +174,34 @@ body {
   #waveform { height: 80px; }
   .gift-text-wrap { font-size: 15px; }
 }
+
+/* ── Decorative bars (legacy rows without precomputed peaks) ────────────── */
+.voice-bars-decorative {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 80px;
+  width: 100%;
+}
+.voice-bars-decorative .voice-bar {
+  flex: 1;
+  background: #878787;
+  border-radius: 1px;
+  min-height: 4px;
+}
+.voice-bars-decorative .voice-bar:nth-child(16n+1)  { height: 30%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+2)  { height: 65%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+3)  { height: 45%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+4)  { height: 80%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+5)  { height: 25%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+6)  { height: 72%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+7)  { height: 50%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+8)  { height: 38%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+9)  { height: 60%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+10) { height: 28%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+11) { height: 55%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+12) { height: 75%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+13) { height: 33%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+14) { height: 58%; }
+.voice-bars-decorative .voice-bar:nth-child(16n+15) { height: 42%; }
+.voice-bars-decorative .voice-bar:nth-child(16n)    { height: 67%; }
