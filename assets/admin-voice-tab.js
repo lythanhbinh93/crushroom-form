@@ -45,6 +45,7 @@
 
   const filterBar     = $('voice-filter-bar');
   const refreshBtn    = $('voice-refresh-btn');
+  const backfillBtn   = $('voice-backfill-btn');
   const listEl        = $('voice-list');
   const loadingEl     = $('voice-loading');
   const errorEl       = $('voice-error');
@@ -85,6 +86,9 @@
 
     // Refresh button
     refreshBtn.addEventListener('click', loadVoiceList);
+
+    // Backfill peaks for legacy rows
+    if (backfillBtn) backfillBtn.addEventListener('click', backfillPeaks);
 
     // QR modal close
     closeQrBtn.addEventListener('click', closeQrModal);
@@ -422,6 +426,83 @@
         btn.disabled = false;
         console.error('[voice] archiveRow error:', err);
         showError('Thao tác thất bại: ' + err.message);
+      });
+  }
+
+  // ----------------------------------------------------------------
+  // Backfill peaks — decode legacy audio in browser, post peaks back to GAS
+  // ----------------------------------------------------------------
+
+  /**
+   * Process every row in the current list that:
+   *   - is published (has slug)
+   *   - has an audio_file_id
+   *   - has no peaks yet
+   * For each: stream audio via Worker proxy, decode via extractPeaks, POST updatePeaks.
+   * Sequential to avoid hammering GAS / Worker. Cache stays stale up to 60 min;
+   * recipients catch up on next CF cache miss.
+   */
+  function backfillPeaks() {
+    if (typeof window.extractPeaks !== 'function') {
+      showError('voice-peaks-extractor.js không load được');
+      return;
+    }
+    var todo = rows.filter(function (r) {
+      return r && r.slug && r.audio_file_id && !(r.peaks && String(r.peaks).length > 2);
+    });
+    if (!todo.length) {
+      showToast('Không có row nào cần backfill (filter hiện tại)');
+      return;
+    }
+    if (!confirm('Backfill ' + todo.length + ' row? Browser sẽ tải + decode từng file (có thể tốn vài MB / row).')) return;
+
+    backfillBtn.disabled = true;
+    var origLabel = backfillBtn.textContent;
+    var done = 0, failed = 0;
+
+    function next(i) {
+      if (i >= todo.length) {
+        backfillBtn.disabled = false;
+        backfillBtn.textContent = origLabel;
+        showToast('Backfill xong: ' + done + ' OK, ' + failed + ' lỗi');
+        loadVoiceList();
+        return;
+      }
+      backfillBtn.textContent = 'Backfill ' + (i + 1) + '/' + todo.length;
+      processOne(todo[i])
+        .then(function () { done++; })
+        .catch(function (err) {
+          failed++;
+          console.warn('[backfill]', todo[i].slug, err);
+        })
+        .then(function () { next(i + 1); });
+    }
+    next(0);
+  }
+
+  function processOne(row) {
+    var streamUrl = VOICE_AUDIO_PROXY_URL + '/' + encodeURIComponent(row.audio_file_id);
+    return fetch(streamUrl)
+      .then(function (r) {
+        if (!r.ok) throw new Error('audio fetch HTTP ' + r.status);
+        return r.blob();
+      })
+      .then(function (blob) { return window.extractPeaks(blob, 200); })
+      .then(function (result) {
+        if (!result || !result.peaks || !result.duration) throw new Error('decode returned null');
+        var body = new URLSearchParams({
+          action: 'updatePeaks',
+          slug: row.slug,
+          peaks: JSON.stringify(result.peaks),
+          audio_duration: String(result.duration)
+        });
+        return fetch(VOICE_GAS_URL, { method: 'POST', body: body }).then(function (r) {
+          if (!r.ok) throw new Error('updatePeaks HTTP ' + r.status);
+          return r.json();
+        });
+      })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'updatePeaks failed');
       });
   }
 

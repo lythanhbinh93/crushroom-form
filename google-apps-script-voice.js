@@ -84,6 +84,7 @@ function doPost(e) {
         if (action === 'finishUpload') return handleFinishUpload_(e);
         if (action === 'publishVoice') return handlePublishVoice_(e);
         if (action === 'archiveVoice') return handleArchiveVoice_(e);
+        if (action === 'updatePeaks') return handleUpdatePeaks_(e);
         return jsonOut({ ok: false, error: 'Invalid action' });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
@@ -427,6 +428,38 @@ function handlePublishVoice_(e) {
         sheet.getRange(found.rowIdx, iPublishedAt + 1).setValue(now);
 
         return jsonOut({ ok: true, slug: slug, url: VOICE_PAGE_BASE_URL + slug });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
+    }
+}
+
+/**
+ * POST action=updatePeaks slug=SLUG peaks=JSON audio_duration=NUM
+ * Backfill helper: writes peaks + audio_duration onto an existing row.
+ * Used by admin "Backfill peaks" tool to upgrade legacy rows to the fast path.
+ * CF Worker /voice/<slug> cache stays stale up to TTL — recipients catch up
+ * as cache expires (or via re-publish prefetch).
+ */
+function handleUpdatePeaks_(e) {
+    try {
+        var slug = String(e.parameter.slug || '').trim();
+        if (!slug) return jsonOut({ ok: false, error: 'slug required' });
+
+        var peaks = String(e.parameter.peaks || '').trim();
+        var audioDuration = parseFloat(e.parameter.audio_duration || '0') || 0;
+        if (!peaks) return jsonOut({ ok: false, error: 'peaks required' });
+        if (audioDuration <= 0) return jsonOut({ ok: false, error: 'audio_duration required' });
+
+        var sheet = ensureVoiceSheet_();
+        var found = voiceFindRowBySlug_(slug);
+        if (!found) return jsonOut({ ok: false, error: 'row_not_found' });
+
+        var iPeaks = VOICE_SHEET_HEADERS.indexOf('peaks');
+        var iDur = VOICE_SHEET_HEADERS.indexOf('audio_duration');
+        sheet.getRange(found.rowIdx, iPeaks + 1).setValue(peaks);
+        sheet.getRange(found.rowIdx, iDur + 1).setValue(audioDuration);
+
+        return jsonOut({ ok: true, slug: slug });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
     }
