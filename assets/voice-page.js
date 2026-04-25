@@ -227,15 +227,20 @@ function renderDecorativeBarsWithPlayer(streamUrl) {
   document.body.appendChild(audio); // keep in DOM so it streams reliably
   audio.style.display = 'none';
 
+  // Show player immediately so the legacy decorative path matches the fast
+  // path's perceived speed. Duration shows '--:--' until <audio> metadata arrives.
+  elTime.textContent = '--:--';
+  elAudioLoad.hidden = true;
+  elPlayer.hidden = false;
+  adjustWaveformWidth();
+
   audio.addEventListener('loadedmetadata', function () {
     elTime.textContent = formatTime(audio.duration);
-    elAudioLoad.hidden = true;
-    elPlayer.hidden = false;
-    adjustWaveformWidth();
   });
   audio.addEventListener('error', function () {
     elAudioLoad.hidden = false;
     elAudioLoad.textContent = 'Không tải được âm thanh';
+    elPlayer.hidden = true;
   });
 
   elPlayBtn.addEventListener('click', function () {
