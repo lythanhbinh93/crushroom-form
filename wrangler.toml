@@ -1,3 +1,16 @@
 name = "voice-proxy"
 main = "cloudflare-worker-voice-proxy.js"
 compatibility_date = "2026-04-25"
+
+# ─── Secrets (Phase 2.1 upload proxy) ────────────────────────────────────────
+# The following secrets must be set before deploying the upload route.
+# Run: wrangler secret put DRIVE_SA_JSON
+#      wrangler secret put VOICE_FOLDER_ID
+#
+# DRIVE_SA_JSON    — full GCP service account JSON key (stringified).
+#                    Scope: https://www.googleapis.com/auth/drive.file
+# VOICE_FOLDER_ID  — Google Drive folder ID where uploaded audio is placed.
+#                    The service account must have Editor access to this folder.
+#
+# These are Cloudflare-encrypted secrets; never commit their values to git.
+# See docs/voice-worker-upload-proxy-setup.md for step-by-step setup.
