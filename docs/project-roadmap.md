@@ -69,9 +69,9 @@ CouplePix is an internal staff toolkit for Vietnamese e-commerce photo personali
 - E2E tests cover happy path + error scenarios
 - README includes FAQ section
 
-### Phase Voice Gift QR (COMPLETE — P1–P4, P5 IN PROGRESS)
+### Phase Voice Gift QR (COMPLETE — P1–P4, COMPLETE — P5, CODE-COMPLETE — P2.1, P6 Deferred)
 
-**Status**: ✅ P1–P4 Complete | P5 In Progress (docs + polish) | P6 Deferred
+**Status**: ✅ P1–P4 Complete | ✅ P5 Complete | ✅ P2.1 Code-Complete (deploy pending) | P6 Deferred
 
 **Deliverables (P1–P4)**:
 - `google-apps-script-voice.js` — standalone GAS with 6 endpoints (finishUpload, listVoice, publishVoice, getVoice, archiveVoice, audioProxy)
@@ -80,7 +80,7 @@ CouplePix is an internal staff toolkit for Vietnamese e-commerce photo personali
 - `assets/admin-voice-tab.js` — admin Voice tab (QR code, Copy QR, Publish, Archive)
 - GAS deployed: `https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec`
 
-**P5 Tasks (this phase)**:
+**P5 Tasks (COMPLETE)**:
 - [x] Homepage card updated (voice-upload.html + admin#voice)
 - [x] README Voice section added
 - [x] system-architecture.md voice section added
@@ -88,8 +88,19 @@ CouplePix is an internal staff toolkit for Vietnamese e-commerce photo personali
 - [x] deployment-guide.md Voice GAS setup added
 - [x] validation edge case: missing URL params shows error panel
 
+**P2.1 Tasks (CODE-COMPLETE — deploy pending)**:
+- [x] cloudflare-worker-voice-proxy.js (603 → 699 LOC): added POST /upload-voice-audio route with service-account JWT auth
+- [x] voice-compressor.js (209 LOC): client-side API window.compressAudio(blob, {onProgress})
+- [x] voice-compressor.worker.js (138 LOC): Web Worker for MP3 encoding via lamejs
+- [x] lame.min.js (156 KB): vendored MP3 library
+- [x] voice-upload.html line 181: added <script src="./assets/voice-compressor.js">
+- [x] docs/voice-worker-upload-proxy-setup.md (212 LOC): runbook for Cloudflare Worker setup (GCP service account, secrets, deploy, smoke test)
+- [x] docs/codebase-summary.md: updated to reflect new modules
+- [x] docs/system-architecture.md: documented Worker upload route + metadata cache
+- [ ] DEPLOY: wrangler deploy cloudflare-worker-voice-proxy.js with GCP service account secrets
+
 **Deferred to P6**:
-- [ ] R2 migration (replace Drive audio storage + audioProxy bottleneck)
+- [ ] R2 migration (optional: replace Drive audio storage + audioProxy bottleneck)
 - [ ] Mobile E2E smoke test (iOS + Android)
 - [ ] Monthly orphan Drive file cleanup script
 - [ ] Admin analytics / view counts
@@ -119,6 +130,9 @@ CouplePix is an internal staff toolkit for Vietnamese e-commerce photo personali
 | Phase | Overall | Documentation | Code | Testing | Deployment |
 |-------|---------|---|---|----|---|
 | Phase 1 | ✅ 100% | ✅ Done | ✅ Done | ⚠️ None | ✅ Done |
+| Voice P1–P4 | ✅ 100% | ✅ Done | ✅ Done | ⚠️ None | ✅ Done |
+| Voice P5 | ✅ 100% | ✅ Done | ✅ Done | ⚠️ None | ✅ Done |
+| Voice P2.1 | 🟡 95% | ✅ Done | ✅ Code-Complete | ⚠️ None | 🚧 Pending |
 | Phase 2 | 🚧 0% | ⚠️ Planned | 🚧 In progress | ⚠️ Planned | ⚠️ TBD |
 | Phase 3 | 💡 0% | 💡 Planned | 💡 Planned | 💡 Planned | 💡 Planned |
 | Phase 4 | 💡 0% | 💡 Future | 💡 Future | 💡 Future | 💡 Future |

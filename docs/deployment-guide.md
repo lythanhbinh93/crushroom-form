@@ -316,15 +316,21 @@ curl "https://script.google.com/macros/s/YOUR_ID/exec?action=getVoice&id=test"
 
 The new static pages (`voice-upload.html`, `voice.html`) are served by Vercel automatically. No changes to `vercel.json` required — Vercel serves all `.html` files in the root by default.
 
-### Voice Proxy Worker (Cloudflare)
+### Voice Proxy Worker (Cloudflare — Phase 2.1)
 
-Recipient audio playback and metadata go through a Cloudflare Worker that proxies Drive (CORS/CORP workaround) and edge-caches GAS getVoice (50× faster than direct GAS hits). Source: `cloudflare-worker-voice-proxy.js` + `wrangler.toml`.
+Recipient audio playback, metadata caching, and upload go through a Cloudflare Worker. Source: `cloudflare-worker-voice-proxy.js` + `wrangler.toml`.
 
 **Routes**:
 - `GET /voice/<slug>` → cached JSON proxy of GAS `getVoice` (1 h edge TTL, 10 min browser TTL)
 - `GET /<driveFileId>` → streaming Drive audio with CORS + Range support (24 h immutable cache)
+- `POST /upload-voice-audio` → service-account authenticated upload to Drive via resumable session (90 MB) — **NEW Phase 2.1**
+- `OPTIONS /upload-voice-audio` → CORS preflight
 
 **Setup (one-time)**:
+1. **For audio proxy only** (existing): See below
+2. **For upload route (NEW Phase 2.1)**: Create GCP service account + Drive API enable + share folder. See **`docs/voice-worker-upload-proxy-setup.md`** (212 LOC runbook with exact steps, secrets, smoke test)
+
+**Audio Proxy Setup (Existing)**:
 1. `npm i -g wrangler` (global install, no project package.json needed)
 2. `wrangler login` → CF OAuth in browser
 3. From repo root: `wrangler deploy` → outputs URL like `https://voice-proxy.<sub>.workers.dev`

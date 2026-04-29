@@ -313,8 +313,23 @@ Google Drive sets `Cross-Origin-Resource-Policy: same-site` and `Content-Disposi
 | POST | `archiveVoice` | Toggle status between archived and pending |
 | GET | `audioProxy&id=FILE_ID` | Proxy Drive audio as base64 (CORP bypass) |
 
+**Cloudflare Worker Endpoints (voice — Phase 2.1, code-complete)**:
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/upload-voice-audio` | Service-account authenticated upload to Drive via resumable session (90 MB) |
+| OPTIONS | `/upload-voice-audio` | CORS preflight for upload route |
+| GET | `/voice/<slug>` | Cached metadata proxy of GAS getVoice (1h edge, 10m browser TTL) |
+| GET | `/<driveFileId>` | Streaming Drive audio with CORS + Range support |
+
+**Why Worker Upload Route**:
+- GAS doPost base64 limit: 35 MB (base64 expansion + GAS limit)
+- Worker resumable session: 90 MB direct binary upload via JWT service account auth
+- No browser-exposed credentials; all auth server-side via Cloudflare secrets
+- Deploy: `wrangler deploy` (see `docs/voice-worker-upload-proxy-setup.md`)
+
 **Future Work (Phase 6)**:
-- Migrate audio storage from Drive to Cloudflare R2 to remove the audioProxy bottleneck and GAS execution time limits.
+- Optional: Migrate audio storage from Drive to Cloudflare R2 to eliminate Drive dependency and further increase upload ceiling.
 
 ### 7. Staff Homepage
 

@@ -47,11 +47,12 @@ crushroom-form/
 | Category | Count | Notes |
 |----------|-------|-------|
 | Python | 1 | app.py only |
-| JavaScript (client) | 7 | admin.js, couple-pix.js, admin-voice-tab.js, voice-upload.js, voice-page.js, check-date.html (inline) |
+| JavaScript (client) | 10 | admin.js, couple-pix.js, admin-voice-tab.js, voice-upload.js, voice-page.js, voice-compressor.js, voice-compressor.worker.js, voice-peaks-extractor.js, check-date.html (inline) |
+| JavaScript (Cloudflare Worker) | 1 | cloudflare-worker-voice-proxy.js (Voice upload proxy, streaming, metadata cache) |
 | Google Apps Script | 2 | google-apps-script-complete.js, google-apps-script-voice.js (separate project) |
 | HTML | 6 | index, admin, couplepix, voice-upload, voice, check-date |
 | CSS | 6 | home.css, admin.css, couple-pix.css, voice-upload.css, voice-page.css, check-date.html (inline) |
-| Markdown (docs) | 7 | project-overview-pdr, codebase-summary, code-standards, system-architecture, project-roadmap, deployment-guide, design-guidelines |
+| Markdown (docs) | 8 | project-overview-pdr, codebase-summary, code-standards, system-architecture, project-roadmap, deployment-guide, design-guidelines, voice-worker-upload-proxy-setup |
 | Config | 3 | vercel.json, requirements.txt, CLAUDE.md |
 
 ## Component Descriptions
@@ -207,10 +208,14 @@ crushroom-form/
 
 **Customer Upload** (`voice-upload.html` + `assets/voice-upload.{js,css}`):
 - Phone + order_id (optional prefills from URL params)
-- File input: MP3/M4A/AAC (validation, 35 MB client-side cap)
+- File input: MP3/M4A/AAC (validation, 50 MB client-side cap)
+- Audio compression pipeline:
+  - `voice-compressor.js` (209 LOC): client-side API `window.compressAudio(blob, {onProgress})`
+  - `voice-compressor.worker.js` (138 LOC): Web Worker for resample + MP3 encode via lamejs
+  - `lame.min.js` (156 KB vendored): MP3 encoding library
 - Image upload: auto-crop to 400×400 JPEG
 - Text message: max 1000 chars
-- Single POST base64 to GAS finishUpload
+- Optional: POST base64 to GAS finishUpload (legacy path) or via Cloudflare Worker upload proxy
 
 **Public Recipient Page** (`voice.html` + `assets/voice-page.{js,css}`):
 - URL: `https://crushroom-form.vercel.app/voice.html?id=SLUG`
@@ -224,7 +229,15 @@ crushroom-form/
 - Copy QR to clipboard (ClipboardItem with image/png)
 - Archive button → toggle status
 
-**Security**: Allow-list folder IDs (VOICE_AUDIO_FOLDER_ID, VOICE_IMAGE_FOLDER_ID) in audioProxy; GAS "Execute as Me" for DriveApp access.
+**Cloudflare Worker Proxy** (`cloudflare-worker-voice-proxy.js` — Phase 2.1, code-complete):
+- New `POST /upload-voice-audio` route: service-account authenticated (JWT) upload to Drive via resumable sessions
+- GCS upload → 50+ MB from browser (vs 35 MB GAS limit)
+- `GET /voice/<slug>` → cached metadata proxy of GAS getVoice (1h edge, 10m browser TTL)
+- `GET /<driveFileId>` → streaming Drive audio with CORS + Range support
+- Requires `DRIVE_SA_JSON` (GCP service account) + `VOICE_FOLDER_ID` secrets (wrangler)
+- Runbook: `docs/voice-worker-upload-proxy-setup.md` (212 LOC)
+
+**Security**: Allow-list folder IDs (VOICE_AUDIO_FOLDER_ID, VOICE_IMAGE_FOLDER_ID) in audioProxy; GAS "Execute as Me" for DriveApp access. Cloudflare Worker uses service-account JWT (credentials never exposed to browser).
 
 ### 8. Shopify Liquid Template (`templates/couplepix.liquid`)
 
