@@ -37,7 +37,7 @@ Self-hosted "true profit" dashboard stitching **Shopify + Meta Ads + Printify** 
 | 03 | [phase-03-schema-and-daily-etl.md](phase-03-schema-and-daily-etl.md) | completed (code-complete, smoke pending) | 10-12h |
 | 04 | [phase-04-backfill-90-day.md](phase-04-backfill-90-day.md) | completed (data quality fixes + GHA backfill) | 6-8h |
 | 05 | [phase-05-dashboard-ui.md](phase-05-dashboard-ui.md) | completed (UI shipped, smoke + review pass) | 12-15h |
-| 06 | [phase-06-manual-refresh.md](phase-06-manual-refresh.md) | pending | 3-4h |
+| 06 | [phase-06-manual-refresh.md](phase-06-manual-refresh.md) | completed (refresh action shipped, fail-closed preview guard, 46 tests pass) | 3-4h |
 | 07 | [phase-07-polish-and-ship.md](phase-07-polish-and-ship.md) | pending | 6-8h |
 
 ## Definition of Done (Ship Gate)
