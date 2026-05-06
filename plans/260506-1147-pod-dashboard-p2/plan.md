@@ -35,6 +35,7 @@ P2 uses sequential migrations to track schema changes per phase. Avoids collisio
 - **Phase 02:** 0008 (workspace RPC), 0009 (drop meta raw + index), 0010 (table sizes RPC)
 - **Phase 03:** 0011 (members management: RPC `add_workspace_member_by_email` + last-owner trigger + view)
 - **Phase 04:** 0012 (shopify_product_variants + ETL tracking), 0013 (printify_variant_costs.sku)
+- **Phase 05:** 0014 (product_pl matview, ad_product_map stub, RLS view, refresh RPC)
 
 ## Phases
 | # | File | Status | Est. |
@@ -43,7 +44,7 @@ P2 uses sequential migrations to track schema changes per phase. Avoids collisio
 | 02 | [phase-02-storage-budget-and-12mo-backfill.md](phase-02-storage-budget-and-12mo-backfill.md) | completed (code shipped; operational measurement deferred to user) | 5-7h |
 | 03 | [phase-03-members-and-permissions-ui.md](phase-03-members-and-permissions-ui.md) | completed (members UI shipped; smoke test user-owned) | 4-6h |
 | 04 | [phase-04-product-catalog-pull.md](phase-04-product-catalog-pull.md) | completed (catalog + SKU-match shipped; smoke tests user-owned) | 6-8h |
-| 05 | [phase-05-product-pl-view.md](phase-05-product-pl-view.md) | pending | 6-8h |
+| 05 | [phase-05-product-pl-view.md](phase-05-product-pl-view.md) | completed (product P&L view shipped; smoke test user-owned) | 6-8h |
 | 06 | [phase-06-ad-to-product-attribution.md](phase-06-ad-to-product-attribution.md) | pending | 5-7h |
 | 07 | [phase-07-soak-and-ship.md](phase-07-soak-and-ship.md) | pending | 3-4h |
 

@@ -82,6 +82,7 @@ End-to-end smoke matrix across both real brands + a temporary 3rd test brand. 1-
 - All 12 smoke matrix items pass.
 - 30-day P&L reconcile within ±1% on both real brands.
 - Per-product P&L within ±5% on Brand A.
+- **[NEW — Phase 05 H1+H2 verification]** Sum(product_pl.revenue) + refunds over date range = daily_pl gross + refunds (within 1% rounding) — verifies refund-date keying (H1) and FROM-anchor keys union (H2) fixes hold under real data.
 - 1-week soak: zero error rows in `etl_runs`.
 - Prune cron (`prune-snapshots.yml`) runs successfully for 2 consecutive weeks before ship-gate.
 - DB size <400 MB at end of soak.

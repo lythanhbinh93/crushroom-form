@@ -10,6 +10,10 @@
 ## Overview
 Map each Meta ad to a Shopify product so phase-05's `product_pl.ad_spend` column has real numbers. Two complementary signals: (1) UTM `utm_content` = `ad_id` from the order, (2) Meta ad's destination URL parsed for `/products/<handle>`. Whichever resolves wins; both is best.
 
+**Phase 05 hand-off notes:**
+- Migration 0014 created `ad_product_map` empty stub (workspace_id, ad_id, product_id PK). This phase fills via UTM stitching + destination URL parsing.
+- **M2 carry-forward:** `ad_product_map` currently has no temporal validity columns. If adding `valid_from`/`valid_to` for retroactive attribution windows (avoid mapping product to historical ads before mapping was discovered), design and implement in this phase. Today it's a point-in-time map; Phase 07 smoke may reveal if temporal support is needed before ship.
+
 ## Key Insights
 - **No clean Meta API field** maps creative → product. We have to derive it.
 - **UTM signal:** if user templates Meta ads with `utm_source=facebook&utm_medium=cpc&utm_campaign={{campaign.id}}&utm_content={{ad.id}}`, then `shopify_orders.utm_content = meta_ad_insights_daily.ad_id`. Highly reliable when present.

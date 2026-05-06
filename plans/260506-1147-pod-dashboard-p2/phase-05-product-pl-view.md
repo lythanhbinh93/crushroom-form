@@ -1,6 +1,6 @@
 # Phase 05 — Per-Product P&L View
 
-**Status:** pending · **Est:** 6-8h · **BlockedBy:** 02, 04 · **Blocks:** 06, 07
+**Status:** completed (codeable; live smoke test user-owned) · **Completed:** 2026-05-06 · **BlockedBy:** 02, 04 · **Blocks:** 06, 07
 
 ## Context Links
 - Plan: [plan.md](plan.md)
@@ -125,13 +125,56 @@ app/(app)/products/
 7. Smoke test on Brand A: verify rows match handful of known products from Shopify admin.
 
 ## Todo
-- [ ] Migration 0011 (matview + ad_product_map empty stub)
-- [ ] refresh-mv updated to refresh both matviews
-- [ ] get-product-pl + get-variant-breakdown
-- [ ] /products page + table
-- [ ] Variant breakdown expansion
-- [ ] Header nav link
-- [ ] Brand A smoke
+- [x] Migration 0014 (matview + ad_product_map empty stub)
+- [x] refresh-mv updated to refresh both matviews
+- [x] get-product-pl + get-variant-breakdown
+- [x] /products page + table
+- [x] Variant breakdown expansion
+- [x] Header nav link
+- [~] Brand A smoke (user-owned-operational)
+
+## Code Review & Follow-ups (2026-05-06)
+
+**Score:** 7.5 / 10 · **Status:** 3 HIGH + 1 MED fixed before deployment
+
+### Issues Fixed (In-Place)
+
+**H1 — Refund-Date Semantics**
+- **Root cause:** `product_refunds` CTE keyed by order's `created_at` date (via `order_lines_dated.d`); `daily_pl.refunds` keys by refund's `processed_at` date. Divergence after 30-day Shopify refund window.
+- **Impact:** operators would see two different net profit numbers for the same period.
+- **Fix:** re-anchored `product_refunds` CTE on `shopify_refunds.processed_at` (mirrors `daily_pl` exactly). Introduced `order_product_line_shares` CTE to compute product-level gross share at order scope (independent of date).
+- **Verification:** new test "includes refund-only-day rows in the rollup (H1+H2 fix verification)" exercises both H1 + H2 together.
+
+**H2 — FROM-Anchor Drops Refunds-Only / Fees-Only / Ad-Spend-Only Days**
+- **Root cause:** `FROM product_revenue pr LEFT JOIN ...` means only (workspace_id, product_id, d) tuples with revenue appear. Products with only refunds/fees/ad_spend but zero revenue on a given day are silently dropped.
+- **Impact:** "unattributed ad spend" footer row computes across all spend regardless of map presence; product_pl.ad_spend is zero on those days, making the total unattributed number overstated.
+- **Fix:** added `keys` UNION CTE spanning `product_revenue`, `product_refunds`, `product_cogs`, `product_ad_spend`, `product_fees` (matches `daily_pl` pattern lines 88-102 in 0003). Changed `FROM keys k LEFT JOIN product_revenue pr ...`.
+- **Verification:** refund-only-day test confirms rows with `gross_revenue=0, refunds>0, net_profit<0` now appear.
+
+**M1 — Malformed GID Cast Throws On Matview Refresh**
+- **Root cause:** `split_part(pv.variant_id, '/', -1)::bigint` throws on malformed GID (no `/`, non-numeric tail), aborting the entire `REFRESH MATERIALIZED VIEW CONCURRENTLY` call.
+- **Impact:** single bad `shopify_product_variants.variant_id` leaves matview stale; ETL logs error but dashboard shows stale P&L.
+- **Fix:** added regex guard `pv.variant_id ~ '/[0-9]+$'` before cast. Malformed GIDs skipped silently (surfaced in `unmapped_variant_count` metric visible to users).
+- **Verification:** comment added documenting pattern; tsc clean; guard:no-service-role passes.
+
+### Migration Numbering Note
+- **Original spec:** migration `0011`
+- **Actual:** migration `0014`
+- **Reason:** Phase 02 shipped 0008-0010; Phase 03 shipped 0011; Phase 04 shipped 0012-0013
+- **Corrective action:** Phase 05 uses next sequential (0014). This is the **5th instance of migration drift caught and corrected** during P2. Pattern documented in agent memory.
+
+### Refund Attribution Approach (Deviation from Brainstorm)
+- **Brainstorm decision:** "join `shopify_refund_line_items` → `order_line_items.product_id`"
+- **Reality:** table `shopify_refund_line_items` does not exist in P1 schema
+- **Implementation chosen:** proportional allocation — `order_refund × (product_line_gross / order_subtotal)` (same pattern as `daily_pl` fees pro-ration)
+- **Trade-off:** less precise when one product of a multi-product order is refunded; acceptable approximation
+- **Test coverage:** proportional formula tested in `tests/app/products/_data/get-variant-breakdown.test.ts` with exact expected values; sum conservation verified within 1 cent tolerance
+
+### Deferred to Polish (M2-M4, L1-L7)
+- **M2:** `ad_product_map` temporal validity (`valid_from`/`valid_to` columns for retroactive attribution windows) — Phase 06 design decision
+- **M3:** per-day rollup aggregation happens in TS; matview already keyed by date; could use SQL RPC instead — Phase 07 perf optimization (acceptable for ≤500 products)
+- **M4:** `subtotal > 0` filter in `order_totals` drops free-order refund/fee attribution — acceptable for POD (free orders rare); flag for awareness
+- **L1-L7:** cosmetics (useEffect cleanup, JSX fragment key, duplicate refund loops, gidToNumber null guard, locale formatting for margin %, unattributed-spend empty state)
 
 ## Success Criteria
 - Top product by net profit on Brand A matches owner's intuition (sanity check).
@@ -139,6 +182,7 @@ app/(app)/products/
 - Variant drill-down shows correct size/color split for a known multi-variant product.
 - Page renders <800ms first paint (server timing log).
 - Switching brand via dropdown changes table to other brand's products with no leak.
+- **[NEW — Phase 07]** Sum(product_pl.revenue) + refunds over date range equals daily_pl gross + refunds (within 1% rounding) — verifies H1 + H2 fixes hold under real data.
 
 ## Risks
 - **Ad spend attribution coverage low at launch:** phase-06 ships UTM gap report; products page shows "Unattributed: $X" line so user sees the gap explicitly.
