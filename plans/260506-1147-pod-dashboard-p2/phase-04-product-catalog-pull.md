@@ -1,6 +1,6 @@
 # Phase 04 — Product Catalog Pull (Shopify products + variants)
 
-**Status:** pending · **Est:** 6-8h · **BlockedBy:** 02 · **Blocks:** 05, 06
+**Status:** completed (catalog + SKU-match shipped; smoke tests user-owned) · **Est:** 6-8h · **BlockedBy:** 02 · **Blocks:** 05, 06 · **Completed:** 2026-05-06
 
 ## Context Links
 - Plan: [plan.md](plan.md)
@@ -82,13 +82,13 @@ GraphQL query (start bulk):
 7. Re-run 12-month backfill (only the bulk products step, since orders are stable) — measure delta.
 
 ## Todo
-- [ ] Migration 0010 variants table + RLS
-- [ ] products-bulk.ts (start, poll, download, parse)
-- [ ] pull-shopify.ts integration
-- [ ] etl_cursors usage updated
-- [ ] JSONL parser unit test
-- [ ] Brand A smoke
-- [ ] Brand B smoke
+- [x] Migration 0012 variants table + RLS (replaces 0010)
+- [x] products-bulk.ts (start, poll, download, parse) — modularized into 3 files
+- [x] pull-shopify.ts integration
+- [x] etl_cursors usage updated
+- [x] JSONL parser unit test (12 tests, all pass)
+- [~] Brand A smoke — user-owned-operational
+- [~] Brand B smoke — user-owned-operational
 
 ## Success Criteria
 - After one daily ETL run on Brand A: `shopify_product_variants` has rows for every active product variant.
@@ -106,6 +106,21 @@ GraphQL query (start bulk):
 ## Security
 - RLS on new table: same workspace_id filter pattern as siblings.
 - Bulk op JSONL URL is short-lived signed Shopify URL; do not log full URL.
+
+## Code Review & Follow-ups
+
+**Score: 7.8/10** — Caught 3 fixes:
+- **H1 (REST upsert clobbering bulk's printify_product_id):** Fixed via `Omit<>` pattern in pull-shopify.ts REST path. REST row type omits `printify_product_id` so ON CONFLICT DO UPDATE never touches it.
+- **H2 (metafield false-positive when referenced variant absent):** Fixed via catalog index lookup + SKU fallback + warning. Bad metafield now falls through to SKU match instead of returning silent false-positive.
+- **M3 (stamp-source mismatch — effectively critical):** Fixed by moving stamping to `pullPrintify`. `last_etl_run_id` now stamped with Printify run ID at row level, removing `stampEtlRunId` from Shopify bulk pull entirely. Without this, on second prune cycle after Printify run, ALL `printify_variant_costs` rows would be deleted as stale (Shopify run IDs ≠ Printify run IDs).
+
+**Migration drift corrected:** Plan said 0010; actual is 0012 (variants table + last_etl_run_id) + 0013 (sku column on printify_variant_costs). The migration numbering error was caught and corrected by the contributor.
+
+**SKU-match activation:** Was DOA on first impl (read all-null SKUs from printify_variant_costs because column didn't exist). Migration 0013 added the column; 2-line fix in pull-printify.ts + pull-shopify-products-bulk.ts activated end-to-end mapping.
+
+**Test results:** 54 phase tests pass; 261/269 total (8 pre-existing Printify failures, unrelated).
+
+**Deferred to polish phase:** M1 (extractNumericId malformed GID), M2 (op-id mismatch log spam), M4 (parser unbounded buffer — OOM risk at 50k+ products), M5/M6 (polling sleep order, cursor JSONB merge), L1-L4 (precision, case sensitivity, majority-vote clarity, metafield limit).
 
 ## Next Steps
 Phase 05 builds the per-product P&L view that joins these variants to orders + COGS + Meta spend.

@@ -91,6 +91,7 @@ End-to-end smoke matrix across both real brands + a temporary 3rd test brand. 1-
 - **5-brand simulation breaks free tier:** if temp brand C pushes DB > 500 MB, abort and revisit phase-02 prune logic. Worst case: defer 5-brand support to P3.
 - **Product reconcile fails ±5% widely:** likely cause is missing variant cost map; iterate on missing-cogs surfacing rather than blocking ship.
 - **Member invite finds bug in RLS:** treat as P0; do not ship.
+- **Catalog pull bulk operation stability:** must succeed at least 3 consecutive days on each brand before ship-gate. Validates GraphQL bulk lifecycle stability (Shopify API changes, timeout recovery).
 
 ## Security
 - Final RLS audit: `psql` query enumerates every table, asserts RLS enabled + policies present.

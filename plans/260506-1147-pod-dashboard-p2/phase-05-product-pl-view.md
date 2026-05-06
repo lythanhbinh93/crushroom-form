@@ -24,6 +24,7 @@ P1 ships date-range P&L. P2 adds a sortable product table: per-product revenue, 
 - Filters: date range (reuses date-range-picker), only-with-orders toggle.
 - Row click → expands to variant breakdown (size/color × revenue/units/cogs).
 - "Unattributed ad spend" row at bottom: total Meta spend not mapped to a product.
+- **Variants without `printify_variant_id` (unmapped) must be surfaced in missing-cogs alert; do not silently exclude from product list.**
 
 ### Non-functional
 - Page first paint <800ms for 500-product brand at 30-day range.
