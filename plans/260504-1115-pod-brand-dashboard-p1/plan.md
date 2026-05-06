@@ -2,7 +2,7 @@
 name: POD Brand Dashboard — P1 MVP
 slug: pod-brand-dashboard-p1
 date: 2026-05-04
-status: pending
+status: code-complete
 mode: auto
 priority: high
 estimated: 5-6 weeks part-time (~50-60h)
@@ -32,13 +32,13 @@ Self-hosted "true profit" dashboard stitching **Shopify + Meta Ads + Printify** 
 ## Phases
 | # | File | Status | Est. |
 |---|------|--------|------|
-| 01 | [phase-01-foundation.md](phase-01-foundation.md) | completed — implementation moved to https://github.com/lythanhbinh93/pod-dashboard | 6-8h |
-| 02 | [phase-02-source-connectors.md](phase-02-source-connectors.md) | completed (code-complete, smoke deferred) | 10-12h |
-| 03 | [phase-03-schema-and-daily-etl.md](phase-03-schema-and-daily-etl.md) | completed (code-complete, smoke pending) | 10-12h |
-| 04 | [phase-04-backfill-90-day.md](phase-04-backfill-90-day.md) | completed (data quality fixes + GHA backfill) | 6-8h |
-| 05 | [phase-05-dashboard-ui.md](phase-05-dashboard-ui.md) | completed (UI shipped, smoke + review pass) | 12-15h |
-| 06 | [phase-06-manual-refresh.md](phase-06-manual-refresh.md) | completed (refresh action shipped, fail-closed preview guard, 46 tests pass) | 3-4h |
-| 07 | [phase-07-polish-and-ship.md](phase-07-polish-and-ship.md) | pending | 6-8h |
+| 01 | [phase-01-foundation.md](phase-01-foundation.md) | completed — implementation in https://github.com/lythanhbinh93/pod-dashboard | 6-8h |
+| 02 | [phase-02-source-connectors.md](phase-02-source-connectors.md) | completed (code-complete, live smoke deferred) | 10-12h |
+| 03 | [phase-03-schema-and-daily-etl.md](phase-03-schema-and-daily-etl.md) | completed (code-complete, user smoke pending) | 10-12h |
+| 04 | [phase-04-backfill-90-day.md](phase-04-backfill-90-day.md) | completed (90-day backfill + data quality pass) | 6-8h |
+| 05 | [phase-05-dashboard-ui.md](phase-05-dashboard-ui.md) | completed (all UI shipped, review pass) | 12-15h |
+| 06 | [phase-06-manual-refresh.md](phase-06-manual-refresh.md) | completed (manual refresh action, 46 tests pass) | 3-4h |
+| 07 | [phase-07-polish-and-ship.md](phase-07-polish-and-ship.md) | code-complete (soak, reconcile, v0.1.0 tag user-owned) | 6-8h |
 
 ## Definition of Done (Ship Gate)
 - Yesterday's net profit visible by 8am local with auto-refresh
