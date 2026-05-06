@@ -61,6 +61,8 @@ repomix-output.xml
 plans/**/*
 !plans/templates/*
 !plans/*/
+!plans/*/plan.md
+!plans/*/phase-*.md
 !plans/reports/
 !plans/reports/**
 !plans/*/reports/
