@@ -29,12 +29,18 @@ Lift P1 from single-brand 90d to **2-5 brands × 12-month** with per-product/var
 - **Storage budget:** 5 brands × 365d realistic load = ~250 MB Postgres (math in phase-02). Stays on Supabase free tier; Pro upgrade only if breached.
 - **Out of P2:** team chat / comments, mobile-first design, MCP, automated alerts, anomaly detection, BigCommerce/WooCommerce.
 
+## Migration registry
+P2 uses sequential migrations to track schema changes per phase. Avoids collision with future phases:
+- **Phase 01:** 0001-0007 (workspace foundation, RLS, initial RPC)
+- **Phase 02:** 0008 (workspace RPC), 0009 (drop meta raw + index), 0010 (table sizes RPC)
+- **Phase 03:** 0011 (members management: RPC `add_workspace_member_by_email` + last-owner trigger + view)
+
 ## Phases
 | # | File | Status | Est. |
 |---|------|--------|------|
 | 01 | [phase-01-multi-brand-foundation.md](phase-01-multi-brand-foundation.md) | completed (Phase 01 shipped — multi-brand switcher + cookie + RPC) | 6-8h |
 | 02 | [phase-02-storage-budget-and-12mo-backfill.md](phase-02-storage-budget-and-12mo-backfill.md) | completed (code shipped; operational measurement deferred to user) | 5-7h |
-| 03 | [phase-03-members-and-permissions-ui.md](phase-03-members-and-permissions-ui.md) | pending | 4-6h |
+| 03 | [phase-03-members-and-permissions-ui.md](phase-03-members-and-permissions-ui.md) | completed (members UI shipped; smoke test user-owned) | 4-6h |
 | 04 | [phase-04-product-catalog-pull.md](phase-04-product-catalog-pull.md) | pending | 6-8h |
 | 05 | [phase-05-product-pl-view.md](phase-05-product-pl-view.md) | pending | 6-8h |
 | 06 | [phase-06-ad-to-product-attribution.md](phase-06-ad-to-product-attribution.md) | pending | 5-7h |

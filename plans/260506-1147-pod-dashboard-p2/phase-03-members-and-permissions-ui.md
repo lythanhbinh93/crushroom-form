@@ -1,6 +1,6 @@
 # Phase 03 — Members + Permissions UI
 
-**Status:** pending · **Est:** 4-6h · **BlockedBy:** 01 · **Blocks:** 07
+**Status:** completed (codeable; 2-user smoke test user-owned) · **Completed:** 2026-05-06 · **Est:** 4-6h · **BlockedBy:** 01 · **Blocks:** 07
 
 ## Context Links
 - Plan: [plan.md](plan.md)
@@ -71,12 +71,12 @@ DB:
 7. Manual test: 2 users, owner adds member, member can see brand in switcher, member tries to access /settings/credentials → 403.
 
 ## Todo
-- [ ] Migration 0009 (RPC + trigger + view)
-- [ ] Server actions
-- [ ] Members page server component
-- [ ] Members table + add form clients
-- [ ] Settings nav update
-- [ ] 2-user manual smoke test
+- [x] Migration 0011 (RPC + trigger + view; migration number corrected from plan estimate of 0009)
+- [x] Server actions
+- [x] Members page server component
+- [x] Members table + add form clients
+- [x] Settings nav update
+- [~] 2-user manual smoke test (user-owned operational)
 
 ## Success Criteria
 - Owner adds another user by email → that user logs in → sees the brand in switcher.
@@ -94,5 +94,27 @@ DB:
 - RPC `security definer` strictly bounded: input workspace_id checked against `is_workspace_owner(auth.uid())`.
 - Trigger fail-closed on last owner.
 
+## Code Review & Follow-ups
+
+**Date:** 2026-05-06 15:25–15:29  
+**Reviewer score:** 8.6/10  
+**Critical findings:** 0  
+**High:** 1 (timing side-channel in RPC — mitigated with uniform SQL execution)  
+**Medium:** 3 (explicit owner checks M1 + isolation race M2 + test gap M3 — all fixed)  
+**Low:** 4 (polish deferred)
+
+**Fixes applied:**
+- **H1:** Timing uniformity — RPC now executes both auth.users lookup AND workspace_members EXISTS check on all paths, eliminating measurable latency gap between "email found" vs "email not found" paths.
+- **M1:** Explicit owner checks added to `removeMember` and `setMemberRole` (pattern from `addMember`). Belt-and-suspenders defense against RLS policy drift.
+- **M2:** `FOR UPDATE` lock added to `_remaining_owners` count query in `check_last_owner` trigger. Serializes concurrent demotion attempts.
+
+**Test results after fixes:** 18/18 PASS (16 orig + 2 new guard tests)  
+**TypeScript:** clean (tsc)  
+**All guards:** pass (no service-role in app/)
+
+**Notes:**
+- Migration numbered `0011_members_management.sql` (plan estimated 0009, which was already used by Phase 02). Collision avoided; sequence: P1 (0001-0007), P2 Phase 02 (0008 workspace RPC, 0009 drop meta + index, 0010 table sizes RPC), Phase 03 (0011 members).
+- Deferred L1-L4: member table LOC borderline, browser confirm() dialog (not toast), redundant role-change check (client-guarded), getActiveWorkspace double-call (minor).
+
 ## Next Steps
-Phase 07 ships the smoke matrix that includes owner+member flows across 2 brands.
+Phase 07 ships the smoke matrix that includes owner+member flows across 2 brands. Manual 2-user smoke test (owner adds/removes member, member verifies brand visibility) is user-owned operational.
