@@ -60,6 +60,11 @@ repomix-output.xml
 .serena/cache
 plans/**/*
 !plans/templates/*
+!plans/*/
+!plans/reports/
+!plans/reports/**
+!plans/*/reports/
+!plans/*/reports/**
 screenshots/*
 docs/screenshots/*
 logs.txt
