@@ -33,7 +33,7 @@ Lift P1 from single-brand 90d to **2-5 brands × 12-month** with per-product/var
 | # | File | Status | Est. |
 |---|------|--------|------|
 | 01 | [phase-01-multi-brand-foundation.md](phase-01-multi-brand-foundation.md) | completed (Phase 01 shipped — multi-brand switcher + cookie + RPC) | 6-8h |
-| 02 | [phase-02-storage-budget-and-12mo-backfill.md](phase-02-storage-budget-and-12mo-backfill.md) | pending | 5-7h |
+| 02 | [phase-02-storage-budget-and-12mo-backfill.md](phase-02-storage-budget-and-12mo-backfill.md) | completed (code shipped; operational measurement deferred to user) | 5-7h |
 | 03 | [phase-03-members-and-permissions-ui.md](phase-03-members-and-permissions-ui.md) | pending | 4-6h |
 | 04 | [phase-04-product-catalog-pull.md](phase-04-product-catalog-pull.md) | pending | 6-8h |
 | 05 | [phase-05-product-pl-view.md](phase-05-product-pl-view.md) | pending | 6-8h |

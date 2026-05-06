@@ -1,6 +1,6 @@
 # Phase 02 — Storage Budget + 12-Month Backfill
 
-**Status:** pending · **Est:** 5-7h · **BlockedBy:** 01 · **Blocks:** 05, 07
+**Status:** completed (code shipped; operational measurement deferred to user) · **Completed:** 2026-05-06 · **Est:** 5-7h · **BlockedBy:** 01 · **Blocks:** 05, 07
 
 ## Context Links
 - Plan: [plan.md](plan.md)
@@ -96,13 +96,13 @@ etl/prune-old-snapshots.ts
 7. Wire `prune-snapshots.yml` cron weekly Sunday 04:00 UTC.
 
 ## Todo
-- [ ] Migration 0008 drop meta raw
-- [ ] backfill.ts `--days` flag + validation
-- [ ] Brand A 12mo backfill measured
-- [ ] DB size script + baseline
-- [ ] prune-old-snapshots.ts
-- [ ] Brand B 12mo backfill measured under 400 MB
-- [ ] prune-snapshots.yml cron
+- [x] Migration 0009 drop meta raw + index workspace_members
+- [x] backfill.ts `--days` flag + validation
+- [~] Brand A 12mo backfill measured (user-owned-operational)
+- [x] DB size script (measure-db-size.ts) + RPC migration 0010
+- [x] prune-old-snapshots.ts
+- [~] Brand B 12mo backfill measured under 400 MB (user-owned-operational)
+- [x] prune-snapshots.yml cron
 
 ## Success Criteria
 - Brand A + Brand B each have 365 daily_pl rows post-backfill.
@@ -119,6 +119,23 @@ etl/prune-old-snapshots.ts
 ## Security
 - Service-role only (existing convention).
 - Prune script logs every DELETE with row counts; no silent destruction.
+
+## Code Review & Follow-ups
+
+**Score:** 8.5/10. Recommendation: SHIP with M1 fix before first scheduled cron run.
+
+**Fixed (M1):**
+- `.github/workflows/prune-snapshots.yml` line 49: boolean coercion footgun. Changed `inputs.dry_run == false` → `inputs.dry_run == 'false'` (string literal). All three trigger paths (cron schedule, manual dispatch true/false) now produce correct `DRY_RUN` value. ✓
+
+**Migration 0010 added:**
+- `supabase/migrations/0010_get_table_sizes_rpc.sql` creates `get_table_sizes()` RPC (24 LOC). Returns `(table_name text, size_bytes bigint)` matching `measure-db-size.ts` destructure contract. All 11 RPC tests pass.
+
+**Deferred to Phase 04 (non-blocking):**
+- M2: `stripShopifyRaw` apply-mode return value indirection (`-1` sentinel) — simplify to drop sentinel.
+- L1: `parseInt` hex/unicode quirks — use `Number.isFinite()` or strict integer parsing.
+- L4: `backfill.ts` exit code on partial errors — exit non-zero so GHA surfaces failures.
+- L5: `runVacuum` warning swallows actual error message — add `.message` to log.
+- **Carried forward to Phase 04:** Orphan `printify_variant_costs` prune is documented no-op pending staging-table design (see `prune-old-snapshots.ts` `pruneOrphanVariantCosts()` — called out in impl report as requiring Phase 04's design).
 
 ## Next Steps
 Phase 04 builds the product-catalog pull (uses Shopify GraphQL bulk for variants); phase-02 ensures storage headroom for that data.

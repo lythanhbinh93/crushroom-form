@@ -101,6 +101,7 @@ GraphQL query (start bulk):
 - **Metafield namespace varies per store:** make namespace configurable per workspace via `workspace_credentials.config.printify_metafield_namespace` (default `pod_dashboard`).
 - **JSONL row order: parent before children, but interleaved across products:** parser must group by `__parentId`. Unit test covers this.
 - **Inventory data large + volatile:** stripped to `inventoryQuantity` integer only; no historical snapshots.
+- **Carried from Phase 02:** design orphan-detection predicate for `printify_variant_costs` prune (currently no-op; see prune-old-snapshots.ts `pruneOrphanVariantCosts()`). Requires staging-table approach to compare current ETL run's variant set against live table.
 
 ## Security
 - RLS on new table: same workspace_id filter pattern as siblings.

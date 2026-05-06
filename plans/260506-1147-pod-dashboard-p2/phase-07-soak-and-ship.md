@@ -83,6 +83,7 @@ End-to-end smoke matrix across both real brands + a temporary 3rd test brand. 1-
 - 30-day P&L reconcile within ±1% on both real brands.
 - Per-product P&L within ±5% on Brand A.
 - 1-week soak: zero error rows in `etl_runs`.
+- Prune cron (`prune-snapshots.yml`) runs successfully for 2 consecutive weeks before ship-gate.
 - DB size <400 MB at end of soak.
 - v0.2.0 tagged.
 
