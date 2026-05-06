@@ -1,6 +1,6 @@
 # Phase 06 — Ad → Product Attribution
 
-**Status:** pending · **Est:** 5-7h · **BlockedBy:** 04, 05 · **Blocks:** 07
+**Status:** completed (codeable; live coverage measurement user-owned) · **Completed:** 2026-05-06 · **Est:** 5-7h · **BlockedBy:** 04, 05 · **Blocks:** 07
 
 ## Context Links
 - Plan: [plan.md](plan.md)
@@ -85,14 +85,14 @@ Mapping pipeline (runs after daily ETL):
 9. Smoke: Brand A: count mapped vs total ad_ids, target ≥30% on first run (UTM dependent), 100% achievable manually.
 
 ## Todo
-- [ ] Migration 0012 (ad_product_map full schema)
-- [ ] creative-link.ts connector
-- [ ] pull-meta.ts integration
-- [ ] derive-utm-mappings.ts
-- [ ] run-daily.ts orchestration
-- [ ] get-ad-coverage data fn + banner
-- [ ] Manual override UI on /products/[id]
-- [ ] Brand A smoke + coverage measurement
+- [x] Migration 0016 (ad_product_map PK collapse + creative cache)
+- [x] creative-link.ts connector
+- [x] pull-meta.ts integration
+- [x] derive-utm-mappings.ts
+- [x] run-daily.ts orchestration
+- [x] get-ad-coverage data fn + banner
+- [x] Manual override UI on /products/[id]
+- [~] Brand A smoke + coverage measurement (user-owned; operational phase 07)
 
 ## Success Criteria
 - After one daily ETL on Brand A: `ad_product_map` has rows for ≥30% of ads with spend (URL-based + UTM-based combined).
@@ -110,5 +110,40 @@ Mapping pipeline (runs after daily ETL):
 - Manual mapping UI owner-gated.
 - No PII in `ad_product_map`.
 
+## Code Review & Follow-ups
+
+**Score:** 6/10 (CRITICAL + HIGH + LOW findings fixed; see details below)
+
+**Summary:** Phase 06 shipped all deliverables — migration 0016, creative-link connector, UTM derivation ETL, run-daily wiring, coverage banner on /products, product detail ad-mapping UI with owner-gated server action. 45 new tests pass, tsc clean, service-role guard clean. Code review identified 4 critical/high bugs (C-1, H-1, H-3, L-6) that were fixed post-review + 18 additional tests added. Deferred: M-1 through M-6, L-1 through L-5, L-7.
+
+**CRITICAL-1 (FIXED):** `shopify_orders.utm_content` column missing
+- Root cause: `derive-utm-mappings.ts` queried nonexistent column; `pull-shopify.ts` never extracted utm_content from `landing_site` URL.
+- Fix: migration `0017_shopify_orders_utm_columns.sql` adds `utm_content text`. New helper `extractUtmFromLandingSite()` in `pull-shopify.ts` parses landing_site first, note_attributes fallback. Tests added + verified.
+- **Operational note:** Historical orders stay NULL until next Shopify pull. Manual mapping flow is load-bearing fallback for existing data.
+
+**HIGH-1 (FIXED):** `orderAdMap` cross-workspace order_id collision
+- Root cause: map keyed by order_id only; shopify_orders.PK is (workspace_id, order_id).
+- Fix: required workspaceId arg (removed "all workspaces" path); composite map key `${workspace_id}::${order_id}`. Tests added + isolation verified.
+
+**HIGH-3 (FIXED):** String ISO comparison on timestamptz TTL
+- Root cause: `+00:00` vs `Z` mismatch broke 7-day cache (string compare returned false when should be true).
+- Fix: `Number(new Date(...)) >= Number(staleCutoff)` — format-independent comparison. Tests added for +00:00 form.
+
+**LOW-6 (FIXED):** Dead SQL injection vector deleted
+- Root cause: Dead `workspaceFilter` variable interpolating workspaceId into SQL fragment (never used in code path).
+- Fix: Deleted lines entirely. Combined with H-1 fix in same pass.
+
+**Deferred (not blocking ship):**
+- **M-1:** `utm_source` predicate mismatch between legacy matview and Phase 06 — standardization deferred to P3.
+- **M-2:** Non-atomic SELECT-aggregate-UPSERT + race window — self-correcting on next run; acceptable at Brand A volumes.
+- **M-3:** Unchanged upserts churn updated_at — YAGNI fix while single tenant.
+- **M-4:** Cache-write failure swallowed silently — logging exists; Phase 07 reconciliation territory.
+- **M-5:** Cache lacks created_at/updated_at separation — YAGNI; Phase 07 if needed.
+- **M-6:** Manual override audit trail missing — Phase 03 raised same lesson; Phase 07 candidate.
+- **L-1 to L-5:** UI polish + optional RPC warning — acceptable for Phase 06.
+- **L-7:** Duplicate index in migration — redundant but harmless; cleanup candidate.
+
+**Recurring pattern flagged for memory:** "Feature against missing data" struck Phase 04 (SKU column), Phase 06 (utm_content column). **Planning checklist item added:** Before any phase ships, dev MUST grep that referenced columns/tables exist OR include the migration to add them in the same phase. Tests mock-permissiveness hides correctness bugs — integration test against real migrations mandatory for P3+.
+
 ## Next Steps
-Phase 07 ships everything together with reconciliation + smoke matrix.
+Phase 07 ships everything together with reconciliation + smoke matrix. C-1 fix (0017) is live; historical orders will populate utm_content on next Shopify pull.

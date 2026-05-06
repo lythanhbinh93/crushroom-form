@@ -36,6 +36,7 @@ P2 uses sequential migrations to track schema changes per phase. Avoids collisio
 - **Phase 03:** 0011 (members management: RPC `add_workspace_member_by_email` + last-owner trigger + view)
 - **Phase 04:** 0012 (shopify_product_variants + ETL tracking), 0013 (printify_variant_costs.sku)
 - **Phase 05:** 0014 (product_pl matview, ad_product_map stub, RLS view, refresh RPC)
+- **Phase 06:** 0016 (ad_product_map PK collapse + creative cache), 0017 (shopify_orders utm columns + landing_site extraction)
 
 ## Phases
 | # | File | Status | Est. |
@@ -45,7 +46,7 @@ P2 uses sequential migrations to track schema changes per phase. Avoids collisio
 | 03 | [phase-03-members-and-permissions-ui.md](phase-03-members-and-permissions-ui.md) | completed (members UI shipped; smoke test user-owned) | 4-6h |
 | 04 | [phase-04-product-catalog-pull.md](phase-04-product-catalog-pull.md) | completed (catalog + SKU-match shipped; smoke tests user-owned) | 6-8h |
 | 05 | [phase-05-product-pl-view.md](phase-05-product-pl-view.md) | completed (product P&L view shipped; smoke test user-owned) | 6-8h |
-| 06 | [phase-06-ad-to-product-attribution.md](phase-06-ad-to-product-attribution.md) | pending | 5-7h |
+| 06 | [phase-06-ad-to-product-attribution.md](phase-06-ad-to-product-attribution.md) | completed (ad attribution shipped; UTM coverage will be ~0% week 1, builds 30-90d) | 5-7h |
 | 07 | [phase-07-soak-and-ship.md](phase-07-soak-and-ship.md) | pending | 3-4h |
 
 ## Definition of Done (Ship Gate)

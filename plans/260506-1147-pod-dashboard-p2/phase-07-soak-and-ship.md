@@ -83,12 +83,16 @@ End-to-end smoke matrix across both real brands + a temporary 3rd test brand. 1-
 - 30-day P&L reconcile within ±1% on both real brands.
 - Per-product P&L within ±5% on Brand A.
 - **[NEW — Phase 05 H1+H2 verification]** Sum(product_pl.revenue) + refunds over date range = daily_pl gross + refunds (within 1% rounding) — verifies refund-date keying (H1) and FROM-anchor keys union (H2) fixes hold under real data.
+- **[Phase 06 coverage gate]** Coverage banner displays a sane number (not zero, not divide-by-zero) on Brand A within 24h of merge — verifies that pull-shopify writes UTM data AND derive-utm-mappings runs successfully.
+- Pre-existing 8 Printify connector test failures resolved before Phase 07 CI gate.
 - 1-week soak: zero error rows in `etl_runs`.
 - Prune cron (`prune-snapshots.yml`) runs successfully for 2 consecutive weeks before ship-gate.
 - DB size <400 MB at end of soak.
 - v0.2.0 tagged.
 
 ## Risks
+- **Phase 06 utm_content column shipped via 0017 means historical orders are NULL until the next pull-shopify touches them. Manual mapping flow is the load-bearing fallback for ad attribution on existing data.** UTM derivation will produce zero rows initially; expect coverage ~0% week 1, building 30-90d as new tagged ads drive orders.
+- **Pre-existing Printify test regression (8 failures):** must be resolved before Phase 07 CI gate. Phase 06 report flagged as blocking.
 - **5-brand simulation breaks free tier:** if temp brand C pushes DB > 500 MB, abort and revisit phase-02 prune logic. Worst case: defer 5-brand support to P3.
 - **Product reconcile fails ±5% widely:** likely cause is missing variant cost map; iterate on missing-cogs surfacing rather than blocking ship.
 - **Member invite finds bug in RLS:** treat as P0; do not ship.
