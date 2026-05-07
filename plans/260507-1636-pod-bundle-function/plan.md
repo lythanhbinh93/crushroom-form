@@ -1,9 +1,9 @@
 ---
 title: "POD Bundle Function (Dopamiles)"
 description: "Quantity-tier bundle discount via Shopify Function + custom Polaris admin + theme integration + 3-pack picker."
-status: pending
+status: in_progress
 priority: P1
-effort: 12-18d
+effort: 12-18d (P01 shipped 2026-05-07)
 branch: TBD (new app repo + feat/bundle-function in pod-tee-theme)
 blockedBy: []
 blocks: []
@@ -28,8 +28,8 @@ Bundle mechanic to raise AOV on Dopamiles POD-tee store. Quantity tiers (2→15%
 
 | # | Phase | Status | Effort | Owns |
 |---|-------|--------|--------|------|
-| 01 | [Shopify app + Product Discount Function + metafields](phase-01-shopify-app-and-discount-function.md) | pending | 3-5d | new app repo (`extensions/bundle-discount/`, root scaffold) |
-| 02 | [Custom Polaris admin page](phase-02-admin-polaris-page.md) | pending | 2-3d | new app repo (`app/routes/app.bundle-config.tsx`) |
+| 01 | [Shopify app + Product Discount Function + metafields](phase-01-shopify-app-and-discount-function.md) | **shipped 2026-05-07** | 3-5d | dopamiles-bundle-app repo (commit `a418411`) |
+| 02 | [Custom Polaris admin page](phase-02-admin-polaris-page.md) | deferred (YAGNI) | 2-3d | new app repo (`app/routes/app.bundle-config.tsx`) |
 | 03 | [Theme integration — PDP banner + cart drawer + free-ship bar](phase-03-theme-integration-banner-and-cart.md) | pending | 2-3d | `pod-tee-theme` (snippets/sections that read metafield + cart) |
 | 04 | [3-pack picker page + cart bundle grouping](phase-04-3pack-picker-and-cart-grouping.md) | pending | 5-7d | `pod-tee-theme` (`/pages/3-pack` section + cart-drawer Liquid grouping) |
 
