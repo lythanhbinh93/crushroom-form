@@ -1,0 +1,37 @@
+{%- comment -%}
+  bundle-cart-discount-line.liquid
+  Renders a single "Bundle saving · -$X" row under the cart subtotal.
+  Only renders if a cart-level discount whose title contains "bundle" is
+  present (matches Shopify Function output format).
+
+  Styles in assets/dopamiles-bundle.css (.dop-bundle-saving-line).
+  No params — reads global cart object.
+{%- endcomment -%}
+
+{%- liquid
+  assign bundle_discount_found = false
+  assign bundle_discount_app = nil
+
+  for app in cart.cart_level_discount_applications
+    assign title_lower = app.title | downcase
+    if title_lower contains 'bundle'
+      assign bundle_discount_found = true
+      assign bundle_discount_app = app
+      break
+    endif
+  endfor
+-%}
+
+{%- if bundle_discount_found -%}
+  <div class="dop-bundle-saving-line" role="status" aria-live="polite">
+    <span class="dop-bundle-saving-line__label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+      </svg>
+      Bundle saving
+    </span>
+    <span class="dop-bundle-saving-line__amount">
+      &minus;{{ bundle_discount_app.total_allocated_amount | money }}
+    </span>
+  </div>
+{%- endif -%}

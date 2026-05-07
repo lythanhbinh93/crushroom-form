@@ -1,0 +1,49 @@
+{%- comment -%}
+  bundle-banner.liquid
+  PDP + collection-page upsell strip. Reads shop.metafields.bundles.tiers (JSON)
+  and renders tier messaging + CTA. Gracefully hidden if metafield absent.
+
+  Styles live in assets/dopamiles-bundle.css (loaded via layout/theme.liquid).
+  No required params — reads global shop metafield directly.
+{%- endcomment -%}
+
+{%- liquid
+  assign tiers_raw = shop.metafields.bundles.tiers.value
+  assign tier_2_pct = nil
+  assign tier_3_pct = nil
+
+  if tiers_raw != blank
+    for tier in tiers_raw
+      if tier.min == 2
+        assign tier_2_pct = tier.pct
+      endif
+      if tier.min == 3
+        assign tier_3_pct = tier.pct
+      endif
+    endfor
+  endif
+
+  assign banner_visible = false
+  if tier_2_pct != nil and tier_3_pct != nil
+    assign banner_visible = true
+  endif
+-%}
+
+{%- if banner_visible -%}
+  <aside class="dop-bundle-banner" aria-label="Bundle discount offer">
+    <div class="dop-bundle-banner__body">
+      <div class="dop-bundle-banner__tiers">
+        <span class="dop-bundle-banner__tier">
+          Add a 2nd tee &mdash; save <strong>{{ tier_2_pct }}%</strong>
+        </span>
+        <span class="dop-bundle-banner__sep" aria-hidden="true">&middot;</span>
+        <span class="dop-bundle-banner__tier">
+          Make it a 3-pack &mdash; save <strong>{{ tier_3_pct }}%</strong>
+        </span>
+      </div>
+      <a href="/pages/3-pack" class="dop-bundle-banner__cta">
+        Build a 3-pack &rarr;
+      </a>
+    </div>
+  </aside>
+{%- endif -%}

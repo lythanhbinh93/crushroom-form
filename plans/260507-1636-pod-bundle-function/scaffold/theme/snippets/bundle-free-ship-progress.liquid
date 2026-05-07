@@ -1,0 +1,64 @@
+{%- comment -%}
+  bundle-free-ship-progress.liquid
+  Replaces the existing dop-cart-ship-bar in dopamiles-cart-drawer.liquid.
+
+  Key change from original: numerator is cart.total_price (post-discount)
+  so 2-pack at $57.80 net stays below $75 threshold while 3-pack at $76.50
+  net clears it. Original used cart.items_subtotal_price (pre-discount).
+
+  Threshold: $75 = 7500 cents (v1 literal; future: section setting).
+
+  State machine driven by eligible-item quantity count:
+    eligible_count 0-1  → "Add a 2nd — save 15%"
+    eligible_count 2    → "Add a 3rd — save 25% AND get free shipping" (joint)
+    eligible_count 3+   → success confirmation (bundle discount applied)
+
+  No params — reads global cart object.
+{%- endcomment -%}
+
+{%- liquid
+  assign ship_threshold = 7500
+  assign cart_total     = cart.total_price
+  assign ship_remaining = ship_threshold | minus: cart_total
+  assign ship_pct       = cart_total | times: 100 | divided_by: ship_threshold
+  if ship_pct > 100
+    assign ship_pct = 100
+  endif
+
+  assign eligible_count = 0
+  for item in cart.items
+    if item.product.tags contains 'bundle-eligible'
+      assign eligible_count = eligible_count | plus: item.quantity
+    endif
+  endfor
+-%}
+
+<div class="dop-cart-ship-bar{% if ship_remaining <= 0 %} met{% endif %}" id="dop-ship-bar">
+  <div class="top">
+    {%- if ship_remaining <= 0 -%}
+      <span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:-2px" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+        <b>Free shipping unlocked.</b>
+      </span>
+    {%- elsif eligible_count >= 2 -%}
+      {%- assign remaining_money = ship_remaining | money_without_trailing_zeros -%}
+      <span>Add <b>{{ remaining_money }}</b> more &mdash; or go for a 3-pack to unlock free shipping + 25% off</span>
+    {%- elsif eligible_count == 1 -%}
+      {%- assign remaining_money = ship_remaining | money_without_trailing_zeros -%}
+      <span>Add <b>{{ remaining_money }}</b> more for free shipping</span>
+    {%- else -%}
+      {%- assign remaining_money = ship_remaining | money_without_trailing_zeros -%}
+      <span><b>{{ remaining_money }}</b> from free shipping</span>
+    {%- endif -%}
+    <span class="dop-ship-pct">
+      {%- if ship_remaining <= 0 -%}
+        {{ cart_total | money_without_trailing_zeros }}
+      {%- else -%}
+        {{ cart_total | money_without_trailing_zeros }} / {{ ship_threshold | money_without_trailing_zeros }}
+      {%- endif -%}
+    </span>
+  </div>
+  <div class="dop-ship-track">
+    <div class="dop-ship-fill{% if ship_remaining <= 0 %} good{% endif %}" style="width:{{ ship_pct }}%"></div>
+  </div>
+</div>

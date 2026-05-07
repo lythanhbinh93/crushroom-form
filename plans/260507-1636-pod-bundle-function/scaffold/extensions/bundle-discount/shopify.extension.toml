@@ -1,0 +1,29 @@
+api_version = "2025-01"
+
+[[extensions]]
+name = "bundle-discount"
+handle = "bundle-discount"
+type = "function"
+
+  [[extensions.targeting]]
+  target = "purchase.product-discount.run"
+  input_query = "input.graphql"
+  export = "run"
+
+  [extensions.build]
+  command = "cargo build --target=wasm32-wasip1 --release"
+  path = "target/wasm32-wasip1/release/bundle_discount.wasm"
+
+  [extensions.ui.paths]
+  create = "/"
+  details = "/"
+
+  [extensions.metafields]
+  # No function-instance metafields. Tier + eligibility live on shop scope.
+
+# Discount class — non-combinable with codes / order discounts.
+# Combines with shipping discounts only (free-shipping bar can still fire).
+[extensions.combines_with]
+  product_discounts = false
+  order_discounts = false
+  shipping_discounts = true

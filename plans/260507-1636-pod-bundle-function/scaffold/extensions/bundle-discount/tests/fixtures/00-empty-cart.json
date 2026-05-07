@@ -1,0 +1,11 @@
+{
+  "cart": {
+    "lines": []
+  },
+  "shop": {
+    "tiersMetafield": {
+      "jsonValue": [{"min": 2, "pct": 15}, {"min": 3, "pct": 25}]
+    }
+  },
+  "presentmentCurrencyRate": "1.0"
+}

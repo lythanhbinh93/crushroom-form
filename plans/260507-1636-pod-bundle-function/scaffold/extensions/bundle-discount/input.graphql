@@ -1,0 +1,26 @@
+query Input {
+  cart {
+    lines {
+      quantity
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+          product {
+            id
+            hasTags(tags: ["bundle-eligible"]) {
+              tag
+              hasTag
+            }
+          }
+        }
+      }
+    }
+  }
+  shop {
+    tiersMetafield: metafield(namespace: "bundles", key: "tiers") {
+      jsonValue
+    }
+  }
+  presentmentCurrencyRate
+}

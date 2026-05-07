@@ -1,0 +1,56 @@
+{%- comment -%}
+  bundle-tease-banner.liquid
+  Thin section wrapper so the theme editor can place/reorder the bundle
+  banner on collection pages and any other template. Renders the
+  bundle-banner snippet inside a constrained container.
+
+  Settings:
+    top_spacing    — px above the section (default 0)
+    bottom_spacing — px below the section (default 24)
+{%- endcomment -%}
+
+{%- liquid
+  assign sec_pt = section.settings.top_spacing    | default: 0
+  assign sec_pb = section.settings.bottom_spacing | default: 24
+-%}
+
+<div
+  class="dop-container dop-bundle-tease-section"
+  style="padding-top:{{ sec_pt }}px;padding-bottom:{{ sec_pb }}px"
+  {{ section.shopify_attributes }}
+>
+  {%- render 'bundle-banner' -%}
+</div>
+
+{% schema %}
+{
+  "name": "Bundle tease banner",
+  "tag": "section",
+  "class": "dop-section-bundle-tease",
+  "settings": [
+    {
+      "type": "range",
+      "id": "top_spacing",
+      "label": "Top spacing (px)",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "bottom_spacing",
+      "label": "Bottom spacing (px)",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "default": 24
+    }
+  ],
+  "presets": [
+    {
+      "name": "Bundle tease banner"
+    }
+  ]
+}
+{% endschema %}

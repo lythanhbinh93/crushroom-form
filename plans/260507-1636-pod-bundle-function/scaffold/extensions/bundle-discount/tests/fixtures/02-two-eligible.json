@@ -1,0 +1,34 @@
+{
+  "cart": {
+    "lines": [
+      {
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/1001",
+          "product": {
+            "id": "gid://shopify/Product/2001",
+            "hasTags": [{"tag": "bundle-eligible", "hasTag": true}]
+          }
+        }
+      },
+      {
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/1002",
+          "product": {
+            "id": "gid://shopify/Product/2002",
+            "hasTags": [{"tag": "bundle-eligible", "hasTag": true}]
+          }
+        }
+      }
+    ]
+  },
+  "shop": {
+    "tiersMetafield": {
+      "jsonValue": [{"min": 2, "pct": 15}, {"min": 3, "pct": 25}]
+    }
+  },
+  "presentmentCurrencyRate": "1.0"
+}

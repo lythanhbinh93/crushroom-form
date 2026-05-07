@@ -67,6 +67,8 @@ plans/**/*
 !plans/reports/**
 !plans/*/reports/
 !plans/*/reports/**
+!plans/*/scaffold/
+!plans/*/scaffold/**
 screenshots/*
 docs/screenshots/*
 logs.txt
