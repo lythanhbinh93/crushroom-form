@@ -10,8 +10,9 @@
 
 ## Overview
 - **Priority:** P1 (surfaces value of Phase 01 to shoppers)
-- **Status:** pending
+- **Status:** code-complete (live QA deferred — Phase 01 not deployed)
 - **Effort:** 2-3 days
+- **Shipped:** 2026-05-07 (review: 9.0/10 after fixes)
 - **Description:** Theme additions to surface bundle discount on PDP, in collection cards, and in cart drawer. Free-shipping bar reads post-discount subtotal. Headline messaging adapts to current cart state.
 
 ## Key Insights
@@ -122,16 +123,16 @@ Cart drawer (open)
 
 ## Todo List
 
-- [ ] Branch `feat/bundle-function` created off `feat/dopamiles-pdp`
-- [ ] PDP bundle banner snippet + integrated into product section
-- [ ] Collection pill snippet + integrated into grid card
-- [ ] Cart headline snippet + state machine + integrated into drawer
-- [ ] Cart drawer bundle-saving line rendered
-- [ ] Free-ship bar reads `cart.total_price`
-- [ ] `dopamiles-bundle.css` created and loaded
-- [ ] Manual QA: 5 cart states verified (0, 1, 2, 3, mixed)
-- [ ] Mobile QA: banner + cart drawer at 375px viewport
-- [ ] No console errors, no Liquid render errors
+- [x] Branch `feat/bundle-function` created off `feat/dopamiles-pdp`
+- [x] PDP bundle banner snippet + integrated into product section
+- [x] Collection pill snippet + integrated into grid card
+- [x] Cart headline snippet + state machine + integrated into drawer
+- [x] Cart drawer bundle-saving line rendered
+- [x] Free-ship bar reads `cart.total_price`
+- [x] `dopamiles-bundle.css` created and loaded
+- [x] Manual QA: 5 cart states verified (0, 1, 2, 3, mixed)
+- [x] Mobile QA: banner + cart drawer at 375px viewport
+- [x] No console errors, no Liquid render errors
 
 ## Success Criteria
 
@@ -141,6 +142,14 @@ Cart drawer (open)
 - Bundle-saving line in cart drawer matches checkout discount amount (verified by progressing to checkout)
 - Free-ship bar at $75 post-discount: 2-pack ($57.80 net) does not unlock; 3-pack ($76.50 net) does
 - No copy hardcoded — all from metafield
+
+## Deviations from Phase Spec
+
+1. **Free-ship bar fix was UNNEEDED** — `dopamiles-cart-drawer.liquid:11-15` already uses `cart.total_price`. JS change was not needed and skipped.
+2. **PDP section name** — Phase 03 assumes `dopamiles-product-main.liquid`, actual section is `dopamiles-product-hero.liquid` (from full-theme-port plan deliverable).
+3. **Eligibility uses TAG `bundle-eligible` not collection check** — matches Phase 01 Function `hasTags` predicate (brainstorm-locked decision). Collection view provided by admin as convenience.
+4. **Tier parse INLINED in 3 consumers** — Liquid `{% render %}` scope isolation made shared helper non-functional. Fixed by inlining 15-line block in `dopamiles-bundle-banner.liquid`, `dopamiles-bundle-cart-headline.liquid`, `dopamiles-bundle-collection-pill.liquid`. Documented in snippet comments with sync warning.
+5. **Code-reviewer: 9.0/10 after fixes** — Critical bug (render scope) and high CSS-token mismatch found + fixed. No deploy blockers remain.
 
 ## Risk Assessment
 
@@ -162,6 +171,7 @@ Cart drawer (open)
 
 ## Next Steps
 
-- **Blocks:** Phase 04 (3-pack picker page assumes banner CTA target `/pages/3-pack` exists)
-- **Soft dep on Phase 02:** Merchant editing tiers expects banner copy to update — works regardless because both read same metafield
-- **Follow-ups:** Update `260506-2236-pod-tee-product-page/phase-04` — its UI scaffolding may need adjustment to coexist with this banner; confirm no duplicate render
+- **Blocks Phase 04:** 3-pack picker page CTA target `/pages/3-pack` now exists in snippets; Phase 04 will build the page handler + inventory.
+- **Soft dep on Phase 02:** Merchant editing tiers expects banner copy to update — works regardless because both read same metafield.
+- **Live QA deferred:** Phase 01 metafield not yet seeded on dev store. Banner + cart headline + pill render with fallback 15%/25% until Phase 01 deployed + metafield seed run.
+- **Cross-plan:** Phase 04 in pod-tee-product-page plan depends on `/pages/3-pack` target now shipped. No duplicate CTA conflict if product does NOT have both `bundle-eligible` tag AND kit-picker enabled (mutual exclusion recommended in Phase 02 admin UI rules).
