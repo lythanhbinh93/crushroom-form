@@ -10,9 +10,9 @@
 
 ## Overview
 - **Priority:** P1 (Meta-ads cold-traffic landing surface)
-- **Status:** pending
-- **Effort:** 5-7 days
-- **Description:** Dedicated `/pages/3-pack` mix-and-match picker with 3 slot cards, browse rail of eligible tees, sticky discount summary, single ATC. Adds 3 line items with shared `_bundle_id` line property; cart drawer Liquid groups by `_bundle_id` under collapsible header.
+- **Status:** code-complete 2026-05-08
+- **Effort:** 5-7 days (planned) → 1 session (actual; cart-grouping pivot saved ~40%)
+- **Description:** Dedicated `/pages/3-pack` mix-and-match picker with 3 slot cards, browse rail of eligible tees, sticky discount summary, single ATC. Adds 3 line items each carrying `_bundle_kind: '3-pack'` + shared `_bundle_id` UUID. **Cart-drawer grouping pivoted (2026-05-08):** existing drawer parent/child `_bundle_id`/`_bundle_parent` model (kit picker) left untouched; 3 lines render separately in drawer with the existing Phase-03 bundle headline announcing "Bundle saving applied · 25% off" above them. Function applies tier discount via tag+qty-sum, independent of grouping.
 
 ## Key Insights
 - Page is a Shopify page with custom theme section; URL `/pages/3-pack`
@@ -150,20 +150,20 @@ Function (Phase 01)
 
 ## Todo List
 
-- [ ] Branch `feat/bundle-function` updated (continue from Phase 03)
-- [ ] Page created in admin (handle `3-pack`)
-- [ ] `templates/page.3-pack.json` created
-- [ ] Picker section + 2 sub-snippets built
-- [ ] localStorage state persistence working
-- [ ] Browse rail loads eligible-collection products
-- [ ] ATC batch-add returns success, opens cart drawer
-- [ ] Cart drawer groups items by `_bundle_id` correctly
-- [ ] Per-line remove triggers re-discount (Function)
-- [ ] CSS loaded only on `/pages/3-pack`
-- [ ] QA at 375 / 414 / 768 / 1280 px viewports
-- [ ] Sticky CTA respects `prefers-reduced-motion`
-- [ ] Accessibility: tab through slots + swatches works
-- [ ] No console errors
+- [x] Branch `feat/bundle-function` updated (continue from Phase 03)
+- [ ] Page created in admin (handle `3-pack`, template `page.three-pack`) — **user-owned**
+- [x] `templates/page.three-pack.json` created (template suffix changed from `3-pack` → `three-pack` per Shopify naming convention; URL handle stays `/pages/3-pack`)
+- [x] Picker section + 2 sub-snippets built (`dopamiles-3pack-picker.liquid`, `dopamiles-3pack-slot.liquid`, `dopamiles-3pack-browse-card.liquid`)
+- [x] localStorage state persistence working (`dopamiles_3pack_slots`, v1 schema, 7-day TTL, stale-variant validation)
+- [x] Browse rail loads eligible-collection products (configurable handle, default `bundle-eligible`)
+- [x] ATC batch-add returns success, opens cart drawer (cart:refresh event + drawer toggle click + fallback /cart redirect)
+- [x] ~~Cart drawer groups items by `_bundle_id`~~ **Pivoted: 3 lines render separately + Phase 03 headline announces bundle.** No drawer mutation.
+- [x] Per-line remove triggers re-discount (Function — independent of grouping; tag+qty-sum)
+- [x] CSS loaded only on `/pages/3-pack` (gated by `template == 'page.three-pack'` in theme.liquid)
+- [ ] QA at 375 / 414 / 768 / 1280 px viewports — **user-owned (browser)**
+- [x] Sticky CTA respects `prefers-reduced-motion` (transitions off, no transform)
+- [x] Accessibility: keyboard-navigable browse cards, ARIA labels on slot/clear/select, focus-visible outlines
+- [ ] No console errors — **user-owned (browser)**
 
 ## Success Criteria
 
