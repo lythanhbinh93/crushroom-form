@@ -1,7 +1,7 @@
 ---
 title: "Bundle Admin Remix Rebuild — OAuth Unblock + Fly.io Hosted"
 description: "Scaffold-replace dopamiles-bundle-app from @shopify/shopify-app-react-router@1.1.0 to @shopify/shopify-app-remix; deploy to Fly.io free tier; preserve client_id + Function v6 + biz code."
-status: in-progress (Phases 01-02 shipped; 03-04 pending)
+status: in-progress (Phases 01-03 shipped; 04 pending)
 priority: P1
 effort: 3-4.5h planned; ~3.5h actual on Phases 01-02
 repo: D:\github local\dopamiles-bundle-app
@@ -51,7 +51,7 @@ Two failed smoke sessions on `feat/admin-ui` branch — OAuth callback never wri
 |---|-------|--------|--------|------|
 | 01 | [Auth scaffold replace + local OAuth verification](phase-01-auth-scaffold-replace.md) | **shipped 2026-05-09** (commits 8232189, cd9474b, 4248e4c, f56364f) | 60-90min planned → ~3h actual | ✅ Session row written + dashboard renders + afterAuth fires |
 | 02 | [Business route adaptation](phase-02-business-route-adaptation.md) | **mostly shipped 2026-05-09** (commits de04795, 4a642de) — 4 biz routes import-swapped + metrics GraphQL field fixed | 60-90min planned → ~30min actual | ✅ All 5 admin routes functional locally |
-| 03 | [Postgres migration + Fly.io deploy](phase-03-postgres-and-fly-deploy.md) | **code-complete 2026-05-09** (file prep done; Fly CLI deploy pending — see [runbook](phase-03-fly-runbook.md)) | 60-90min planned → ~45min prep | Fly.io app reachable at production URL |
+| 03 | [Postgres migration + Fly.io deploy](phase-03-postgres-and-fly-deploy.md) | **shipped 2026-05-09** (commits 37ff19c, aaad790, abb869a) — Fly app `dopamiles-bundles-admin` live in `sin`, Neon Postgres `ap-southeast-1`, Partner version `dopamiles-bundle-app-7` | 60-90min planned → ~2h actual | ✅ Fly URL serves Shopify auth; ✅ `client_id` + Function ID preserved |
 | 04 | [Production smoke + Dopamiles re-auth](phase-04-production-smoke-and-reauth.md) | pending | 30min | All 5 admin features verified on production; Function regression check passes |
 
 **Total:** 3-4.5h planned → Phases 01-02 ~3.5h actual (debugging surfaced 5 bug layers)

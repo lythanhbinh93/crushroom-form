@@ -10,9 +10,9 @@
 ## Overview
 
 - **Priority:** P1
-- **Status:** **code-complete 2026-05-09** (file prep done; Fly CLI deploy steps pending user execution per [phase-03-fly-runbook.md](phase-03-fly-runbook.md))
-- **Effort:** 60-90min planned → ~45min actual prep
-- **Gate:** Fly.io app reachable at production URL; `shopify app deploy` updates `application_url` to Fly URL successfully
+- **Status:** **SHIPPED 2026-05-09** (commits dopamiles-bundle-app: 37ff19c, aaad790, abb869a; crushroom-form: fc4e736, 3875de0)
+- **Effort:** 60-90min planned → ~2h actual (Fly Postgres pivot to Neon mid-deploy + 3 build iterations)
+- **Gate:** ✅ Fly.io app live at `https://dopamiles-bundles-admin.fly.dev`; ✅ `shopify app deploy` registered URL with Partner (new app version `dopamiles-bundle-app-7`); ✅ `client_id` + bundle-discount Function ID preserved
 
 Migrate Prisma from SQLite to Postgres and deploy the admin app to Fly.io free tier so the production URL is stable. Tunnel becomes optional (active dev only).
 
@@ -146,18 +146,18 @@ Production (new):
 - [x] Update `package.json` setup script (drop `migrate deploy`; release_command handles it)
 - [x] Code review (1 H1 fix applied: dockerignore Rust target dirs) — see [reports/code-reviewer-260509-1414-phase-03-fly-deploy.md](../reports/code-reviewer-260509-1414-phase-03-fly-deploy.md)
 
-### User-side execution (pending — see [phase-03-fly-runbook.md](phase-03-fly-runbook.md))
-- [ ] Install flyctl + `flyctl auth login`
-- [ ] Sign up neon.tech + create `dopamiles-bundle` project in `ap-southeast-1`
-- [ ] Copy Neon **pooled** + **direct** connection strings
-- [ ] `flyctl apps create dopamiles-bundle-app` (or unique name; update fly.toml if so)
-- [ ] Set Fly secrets (SHOPIFY_API_KEY, SECRET, SCOPES, APP_URL, DATABASE_URL=Neon pooled, DIRECT_URL=Neon direct)
-- [ ] First `flyctl deploy` succeeds (release_command runs `prisma migrate deploy` against Neon)
-- [ ] App reachable at `https://<app>.fly.dev`
-- [ ] Update `shopify.app.toml` `application_url` + `redirect_urls`
-- [ ] `shopify app deploy` to register Fly URL with Partner
-- [ ] Verify `client_id` UNCHANGED throughout
-- [ ] Commit `shopify.app.toml` URL changes
+### User-side execution (DONE — see [phase-03-fly-runbook.md](phase-03-fly-runbook.md))
+- [x] Install flyctl + `flyctl auth login`
+- [x] Sign up neon.tech + create `dopamiles-bundle` project in `ap-southeast-1`
+- [x] Copy Neon **pooled** + **direct** connection strings
+- [x] `flyctl apps create dopamiles-bundles-admin` (original `dopamiles-bundle-app` was taken — fly.toml + SHOPIFY_APP_URL updated to match)
+- [x] Set 6 Fly secrets (single-quoted to handle `&`/`?` in Neon URLs; PowerShell)
+- [x] `flyctl deploy` — 3 iterations: (1) DB error before Node bump, (2) DIRECT_URL missing, (3) success
+- [x] App reachable at `https://dopamiles-bundles-admin.fly.dev`
+- [x] Updated `shopify.app.toml` `application_url` + `redirect_urls`
+- [x] `shopify app deploy` registered URL with Partner — new app version `dopamiles-bundle-app-7`
+- [x] `client_id` UNCHANGED throughout (`0a0674917de5e3c26cf2a3e14be07a7f`)
+- [x] Final commit (commit abb869a in dopamiles-bundle-app)
 
 ## Success Criteria
 
