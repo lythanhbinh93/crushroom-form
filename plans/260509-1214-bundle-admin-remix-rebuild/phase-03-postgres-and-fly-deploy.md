@@ -16,6 +16,8 @@
 
 Migrate Prisma from SQLite to Postgres and deploy the admin app to Fly.io free tier so the production URL is stable. Tunnel becomes optional (active dev only).
 
+> **Revised 2026-05-09:** Fly Postgres pivoted to **Neon Postgres** (free, external). Reason: Fly Unmanaged Postgres deprecated/unsupported; Fly Managed Postgres minimum $38/mo. Neon free tier (3GB, autoscale-to-zero, ap-southeast-1 co-located with Fly sin) is a better fit for monthly-cadence admin. App still deploys to Fly; only DB host changes. See [phase-03-fly-runbook.md](phase-03-fly-runbook.md).
+
 ## Key Insights
 
 - **No production data exists yet** — smoke was deferred, so the SQLite `Session` table is empty/sparse. Migration is essentially a fresh schema apply, not a data dump+restore.
@@ -144,18 +146,18 @@ Production (new):
 - [x] Update `package.json` setup script (drop `migrate deploy`; release_command handles it)
 - [x] Code review (1 H1 fix applied: dockerignore Rust target dirs) — see [reports/code-reviewer-260509-1414-phase-03-fly-deploy.md](../reports/code-reviewer-260509-1414-phase-03-fly-deploy.md)
 
-### User-side Fly CLI execution (pending — see [phase-03-fly-runbook.md](phase-03-fly-runbook.md))
+### User-side execution (pending — see [phase-03-fly-runbook.md](phase-03-fly-runbook.md))
 - [ ] Install flyctl + `flyctl auth login`
+- [ ] Sign up neon.tech + create `dopamiles-bundle` project in `ap-southeast-1`
+- [ ] Copy Neon **pooled** + **direct** connection strings
 - [ ] `flyctl apps create dopamiles-bundle-app` (or unique name; update fly.toml if so)
-- [ ] `flyctl postgres create --name dopamiles-bundle-db --region sin --vm-size shared-cpu-1x --volume-size 1`
-- [ ] `flyctl postgres attach dopamiles-bundle-db --app dopamiles-bundle-app`
-- [ ] Set Fly secrets (SHOPIFY_API_KEY, SECRET, SCOPES, APP_URL)
-- [ ] First `flyctl deploy` succeeds
+- [ ] Set Fly secrets (SHOPIFY_API_KEY, SECRET, SCOPES, APP_URL, DATABASE_URL=Neon pooled, DIRECT_URL=Neon direct)
+- [ ] First `flyctl deploy` succeeds (release_command runs `prisma migrate deploy` against Neon)
 - [ ] App reachable at `https://<app>.fly.dev`
 - [ ] Update `shopify.app.toml` `application_url` + `redirect_urls`
 - [ ] `shopify app deploy` to register Fly URL with Partner
 - [ ] Verify `client_id` UNCHANGED throughout
-- [ ] Commit deploy artifacts
+- [ ] Commit `shopify.app.toml` URL changes
 
 ## Success Criteria
 
@@ -198,3 +200,4 @@ Production (new):
 4. Custom domain on Fly? — OUT OF SCOPE; default `<app>.fly.dev` is fine
 5. (New) `extensions/bundle-discount/` source baked into Fly image — needed at runtime? Currently ~155MB Rust target excluded via dockerignore; source itself still copied. Acceptable but flag if image still bloats.
 6. (New) Fly app name `dopamiles-bundle-app` — globally unique on Fly? If taken, user picks alternate during `flyctl apps create` and updates fly.toml + secrets accordingly.
+7. ~~Fly Postgres host~~ → **Resolved 2026-05-09 (mid-deploy pivot):** **Neon Postgres free tier** in `ap-southeast-1` (co-located with Fly `sin`). Reason: Fly Unmanaged PG deprecated/unsupported per Fly CLI warning; Fly Managed PG min $38/mo. Neon free tier (3GB, autoscale-to-zero) suits monthly-cadence admin. Schema updated with `directUrl` for migrations (Neon pooler can't handle `prisma migrate`).

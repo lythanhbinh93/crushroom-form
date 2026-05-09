@@ -1,6 +1,11 @@
-# Phase 03 Fly Deploy Runbook
+# Phase 03 Fly Deploy Runbook (Neon Postgres)
 
-Step-by-step commands for **you to run** in the `dopamiles-bundle-app` repo. All file prep is done (Dockerfile, fly.toml, prisma-postgres/, .dockerignore, .env.example, package.json setup script). Branch: `feat/admin-ui-remix`.
+Step-by-step commands for **you to run** in the `dopamiles-bundle-app` repo. All file prep is done. Branch: `feat/admin-ui-remix`.
+
+**Architecture:** Fly.io VM (sin) + Neon Postgres (free tier, external).
+**Why not Fly Postgres?** Unmanaged version is deprecated/unsupported; Managed starts at $38/mo. Neon's free tier (3GB, autoscale-to-zero) fits monthly-cadence admin perfectly.
+
+> **PowerShell note:** all multi-flag commands below are written single-line. If you want line breaks, use backtick `` ` `` (NOT backslash). Bash users on WSL/git-bash can use `\`.
 
 ## 0. Install flyctl
 
@@ -9,96 +14,105 @@ Step-by-step commands for **you to run** in the `dopamiles-bundle-app` repo. All
 iwr https://fly.io/install.ps1 -useb | iex
 ```
 
-Then close + reopen terminal. Verify:
-```bash
+Close + reopen terminal. Verify:
+```powershell
 flyctl version
 ```
 
 ## 1. Login
 
-```bash
+```powershell
 flyctl auth login
 ```
 
-(Opens browser; sign in / sign up.)
-
-```bash
-flyctl auth whoami    # confirm
+(Opens browser; sign in / sign up.) Verify:
+```powershell
+flyctl auth whoami
 ```
 
-## 2. Create app + Postgres
+## 2. Create Neon Postgres project
 
-App name `dopamiles-bundle-app` may be taken globally — Fly will prompt for an alternate. Pick a unique one and update `fly.toml` `app = ` to match.
+1. Browser → https://neon.tech → sign up (GitHub/Google works)
+2. Create project:
+   - Project name: `dopamiles-bundle`
+   - Postgres version: 16 (default OK)
+   - Region: **AWS Asia Pacific (Singapore)** `ap-southeast-1` — co-locate with Fly `sin`
+3. From the dashboard, click **Connection Details** (top-right) and copy **TWO** URLs:
+   - **Pooled** (default shown) — looks like: `postgresql://user:pass@ep-xxx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require`
+   - **Direct/unpooled** — toggle "Pooled connection" OFF; URL drops `-pooler`: `postgresql://user:pass@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require`
 
-```bash
+Save both somewhere safe (password manager). Pooled = runtime; Direct = migrations.
+
+## 3. Create Fly app
+
+App name `dopamiles-bundle-app` may be globally taken. If so, `flyctl` errors and you pick another — then update `fly.toml` `app =` and `SHOPIFY_APP_URL` accordingly.
+
+```powershell
 cd "d:/github local/dopamiles-bundle-app"
-
-# Create app (does NOT deploy — just registers name + reads fly.toml)
 flyctl apps create dopamiles-bundle-app
-
-# Create Postgres cluster (Hobby tier, free)
-flyctl postgres create \
-  --name dopamiles-bundle-db \
-  --region sin \
-  --vm-size shared-cpu-1x \
-  --volume-size 1 \
-  --initial-cluster-size 1
-# Save the printed connection string in your password manager.
-
-# Attach Postgres to app — auto-injects DATABASE_URL secret
-flyctl postgres attach dopamiles-bundle-db --app dopamiles-bundle-app
 ```
 
-## 3. Set Shopify secrets
+## 4. Set Fly secrets (one command, single line)
 
-Pull values from `.env`:
+Paste both Neon URLs from step 2 in place of the placeholders below. Pull `SHOPIFY_API_SECRET` from `.env`. Run as **one line** (PowerShell):
 
-```bash
-flyctl secrets set \
-  SHOPIFY_API_KEY="0a0674917de5e3c26cf2a3e14be07a7f" \
-  SHOPIFY_API_SECRET="<from .env SHOPIFY_API_SECRET>" \
-  SCOPES="read_discounts,write_discounts,write_metaobject_definitions,write_metaobjects,write_products,read_orders,write_content" \
-  SHOPIFY_APP_URL="https://dopamiles-bundle-app.fly.dev" \
+```powershell
+flyctl secrets set SHOPIFY_API_KEY="0a0674917de5e3c26cf2a3e14be07a7f" SHOPIFY_API_SECRET="<paste from .env>" SCOPES="read_discounts,write_discounts,write_metaobject_definitions,write_metaobjects,write_products,read_orders,write_content" SHOPIFY_APP_URL="https://dopamiles-bundle-app.fly.dev" DATABASE_URL="<paste Neon POOLED URL>" DIRECT_URL="<paste Neon DIRECT URL>" --app dopamiles-bundle-app
+```
+
+If you prefer line-continuation, use backtick:
+```powershell
+flyctl secrets set `
+  SHOPIFY_API_KEY="0a0674917de5e3c26cf2a3e14be07a7f" `
+  SHOPIFY_API_SECRET="<from .env>" `
+  SCOPES="read_discounts,write_discounts,write_metaobject_definitions,write_metaobjects,write_products,read_orders,write_content" `
+  SHOPIFY_APP_URL="https://dopamiles-bundle-app.fly.dev" `
+  DATABASE_URL="<Neon POOLED URL>" `
+  DIRECT_URL="<Neon DIRECT URL>" `
   --app dopamiles-bundle-app
-
-flyctl secrets list --app dopamiles-bundle-app
-# Expected: SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SCOPES, SHOPIFY_APP_URL, DATABASE_URL
 ```
 
-If your Fly app name differs from `dopamiles-bundle-app`, update SHOPIFY_APP_URL accordingly (and remember to update `shopify.app.toml` in step 6).
+Verify:
+```powershell
+flyctl secrets list --app dopamiles-bundle-app
+```
 
-## 4. First deploy
+Expected names: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SCOPES`, `SHOPIFY_APP_URL`, `DATABASE_URL`, `DIRECT_URL`.
 
-```bash
+## 5. First deploy
+
+```powershell
 flyctl deploy
 ```
 
-What happens:
-- Docker build (multi-stage) — swaps `prisma/` for `prisma-postgres/` schema
-- Image push to Fly registry
-- **Release step**: `npx prisma migrate deploy` runs against attached Postgres → creates `Session` table
-- VM rollout in `sin` region
+Build phases (watch for):
+1. Docker build (multi-stage; swaps `prisma/` → `prisma-postgres/`)
+2. Image push to Fly registry
+3. **Release step:** `npx prisma migrate deploy` runs in a fresh container against Neon Postgres — creates `Session` table (uses `DIRECT_URL`)
+4. App VMs start in `sin`
 
 Tail logs:
-```bash
+```powershell
 flyctl logs --app dopamiles-bundle-app
 ```
 
-## 5. Smoke check production URL
+**Expected log signals:**
+- `Running release_command... Applying migration 20260509141500_init` → migrate ran
+- `[remix-serve] http://[::]:3000` → app booted
 
-```bash
-curl -I https://dopamiles-bundle-app.fly.dev/
-# Expect: HTTP/2 302 (Shopify auth redirect) or 200 — not 5xx
+## 6. Smoke check production URL
+
+```powershell
+curl.exe -I https://dopamiles-bundle-app.fly.dev/
 ```
 
-Open in browser:
-```
-https://dopamiles-bundle-app.fly.dev/auth/login
-```
+(Use `curl.exe` on PowerShell — the bare `curl` alias is `Invoke-WebRequest` which behaves differently.)
 
-Should render Shopify login form. Don't install on Dopamiles store yet — that's Phase 04.
+Expect HTTP 302 (Shopify auth redirect) or 200 — not 5xx.
 
-## 6. Update shopify.app.toml + register URL
+Open in browser: `https://dopamiles-bundle-app.fly.dev/auth/login` — should render Shopify login form. **Don't install on Dopamiles store yet — that's Phase 04.**
+
+## 7. Update shopify.app.toml + register URL
 
 Edit `shopify.app.toml`:
 
@@ -116,51 +130,57 @@ redirect_urls = [
 **Verify `client_id = "0a0674917de5e3c26cf2a3e14be07a7f"` UNCHANGED.**
 
 Push to Partner dashboard:
-```bash
+```powershell
 shopify app deploy
 ```
 
-CLI prompts will show what's changing — confirm only `application_url` + `redirect_urls` change. **Function v6 + `DiscountAutomaticNode/1396914946300` should NOT appear in the diff.**
+CLI prompts will show what's changing — confirm only `application_url` + `redirect_urls` change. **`extensions/bundle-discount/` (Function v6) should NOT appear in the diff.**
 
-## 7. Verify Partner dashboard
+## 8. Verify Partner dashboard
 
-- Open Shopify Partner dashboard → app `dopamiles-bundle-app`
-- App URLs section should show `https://dopamiles-bundle-app.fly.dev`
-- Discount Functions should still list bundle-discount v6
+- Shopify Partner → app `dopamiles-bundle-app`
+- App URLs section shows `https://dopamiles-bundle-app.fly.dev`
+- Discount Functions still lists `bundle-discount v6` under same `client_id`
 
-## 8. Commit
+## 9. Commit deploy artifacts
 
-```bash
+```powershell
 git add Dockerfile .dockerignore .env.example fly.toml prisma-postgres/ package.json shopify.app.toml
-git status   # confirm no unintended files
-git commit -m "feat(deploy): postgres schema split + fly.io sin deploy + shopify URL update"
+git status
+git commit -m "feat(deploy): postgres schema split + fly.io deploy + neon DB + shopify URL update"
 ```
+
+(File prep was already committed earlier — this commit covers `shopify.app.toml` URL changes only.)
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `flyctl deploy` build fails on `prisma generate` | Native binary download blocked | Add `RUN apk add --no-cache openssl libc6-compat` (already in Dockerfile) |
-| Release command fails on `migrate deploy` | DATABASE_URL secret not set | `flyctl secrets list` — confirm DATABASE_URL present; if not, re-run `postgres attach` |
-| 502 on Fly URL after deploy | App crashed at boot | `flyctl logs` — common cause: missing SHOPIFY_API_KEY/SECRET secret |
-| App auto-suspends | Free tier auto-stop | Acceptable for monthly admin use; set `min_machines_running = 1` in fly.toml if needed |
+| `flyctl deploy` build fails on `prisma generate` | Missing native deps | Already covered: `apk add openssl build-base python3` in Dockerfile |
+| Release fails: `prisma migrate deploy` errors `prepared statement already exists` | Pooled URL used for migration | Confirm `DIRECT_URL` set as Neon's **un-pooled** URL (no `-pooler`) |
+| Release fails: connection timeout | Neon project paused (autoscale-to-zero) | First connection wakes it (~5s); just retry deploy |
+| 502 on Fly URL | App crashed at boot | `flyctl logs` — usually missing `SHOPIFY_API_KEY/SECRET` secret |
+| App auto-suspends | Fly free hobby tier auto-stop | Acceptable for monthly admin; set `min_machines_running = 1` in fly.toml if pain |
 | `shopify app deploy` rejects | client_id mismatch | Confirm `shopify.app.toml` `client_id` matches Partner; never edit |
-| App name taken globally | Fly app names are global | Pick unique name, update `fly.toml` `app = `, secrets `SHOPIFY_APP_URL`, `shopify.app.toml` URLs |
+| Fly app name taken globally | Fly app names global | Pick unique, update `fly.toml` `app = `, `SHOPIFY_APP_URL` secret, `shopify.app.toml` URLs |
+| Neon connection string shows `?channel_binding=require` | Newer Neon URL format | Works fine with Prisma; keep as-is |
 
 ## Rollback
 
-```bash
+```powershell
 flyctl releases --app dopamiles-bundle-app
 flyctl releases rollback <version> --app dopamiles-bundle-app
 ```
 
+Neon: dashboard → branch history → restore (point-in-time recovery on free tier covers ~24h).
+
 ## Tear-down (if abandoning)
 
-```bash
+```powershell
 flyctl apps destroy dopamiles-bundle-app
-flyctl postgres destroy dopamiles-bundle-db
+# Neon: dashboard → project settings → delete
 ```
 
 ---
 
-**After this runbook completes successfully, Phase 03 gate is met:** Fly app reachable + `shopify app deploy` updates application_url. Proceed to Phase 04 (Dopamiles store re-auth + production smoke).
+**Gate:** when production URL serves the Shopify auth page + `shopify app deploy` registers the new URL → Phase 03 done. Proceed to Phase 04 (Dopamiles store re-auth + production smoke).
