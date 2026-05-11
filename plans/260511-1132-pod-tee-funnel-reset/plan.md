@@ -58,8 +58,8 @@ User intent (locked 2026-05-11 12:20): build pod-tee-theme right via wide audit 
 | # | Phase | Status | Effort |
 |---|---|---|---|
 | 01 | [Wide audit — every file, ranked backlog](phase-01-audit.md) | completed | 60-90 min |
-| 02 | [Round-3c rejection cleanup](phase-02-round-3c-cleanup.md) | code-complete (smoke-deferred) | M (3-4h) |
-| 03 | [Bug C fix — collection card image](phase-03-bug-c-card-image.md) | code-complete (smoke-deferred) | S (1h) |
+| 02 | [Round-3c rejection cleanup](phase-02-round-3c-cleanup.md) | completed (iPhone verified 2026-05-11) | M (3-4h) |
+| 03 | [Bug C fix — collection card image](phase-03-bug-c-card-image.md) | completed (iPhone verified 2026-05-11) | S (1h) |
 | 04 | [Bug B fix — Globo CLS + double-render](phase-04-bug-b-globo-cls.md) | pending | L (3-5h) |
 | 05 | [dopamiles-cart.js strangler split](phase-05-cart-js-strangler.md) | pending | L (4-6h) |
 | 06 | [product-hero JS extraction + collection filter drawer](phase-06-product-hero-extraction.md) | pending | L (4-6h) |

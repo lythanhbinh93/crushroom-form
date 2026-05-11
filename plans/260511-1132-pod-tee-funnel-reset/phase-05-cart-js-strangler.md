@@ -6,7 +6,7 @@
 **Depends on:** Phase 02 (dead code removed first)
 
 ## Goal
-Strangle `dopamiles-cart.js` (754 LOC → ~410 LOC main + 2 sibling files). Add dedupe guards, surface refresh failures, surface 422 inventory errors. No behavior change; pure structural refactor + 3 small bug fixes.
+Strangle `dopamiles-cart.js` (754 LOC → ~410 LOC main + 2 sibling files). Add dedupe guards, surface refresh failures, surface 422 inventory errors. **Switch ATC loading pattern to Dawn-default** (drawer-after-fetch / cart-notification surface), per user feedback 2026-05-11 14:49 — current "open drawer immediately + setLoading dim" feels custom/janky; user prefers Dawn's honest "fetch finishes, then drawer appears with real content" pattern.
 
 ## Backlog items addressed
 | # | Sev | File:Line | Issue | Fix shape |
@@ -16,6 +16,7 @@ Strangle `dopamiles-cart.js` (754 LOC → ~410 LOC main + 2 sibling files). Add 
 | 28 | P1 | assets/dopamiles-cart.js:316-342 | `refreshDrawer` swallows fetch errors silently | Surface via existing `#dop-cart-err-banner` element |
 | 50 | P2 | assets/dopamiles-cart.js:32-40 | `DOMParser.parseFromString` called twice per response (lines 496 + 512) | Parse once per response, pass parsed doc to helper |
 | 65 | P2 | assets/dopamiles-cart.js:262-274 | `changeCartItem` 422 (over-stock) only logged | Surface via `#dop-cart-err-banner` |
+| NEW | P1 | assets/dopamiles-cart.js `bindAddToCartInterceptor` (~lines 660-700) | "Drawer opens immediately + setLoading dim" feels custom/janky on real iPhone — user feedback 2026-05-11 14:49 | Switch to Dawn-default pattern: button-spinner → fetch → applyCartMutation → openDrawer. Drawer-after-fetch. SLC reference (`plans/reports/researcher-260509-1814-slc-cart-pattern-vs-pod-tee.md`). No optimistic UI — that's the rejected round-3c strategy. |
 
 ## Files
 | Path | Change |
@@ -37,8 +38,8 @@ Strangle `dopamiles-cart.js` (754 LOC → ~410 LOC main + 2 sibling files). Add 
 9. Bump build-tag.
 
 ## Gate (real iPhone verification)
-- ATC works (drawer opens with real line, bubble +1).
-- Qty +/− works.
+- ATC: button shows spinner during fetch; drawer opens AFTER `/cart/add.js` returns with the real line + bubble +1. **No "immediate drawer + dim" pattern.**
+- Qty +/− works; button-spinner during fetch, no other UI motion.
 - Qty stepper +1 past stock → red error banner appears with Shopify's "out of stock" message.
 - Remove works.
 - Upsell add works.
