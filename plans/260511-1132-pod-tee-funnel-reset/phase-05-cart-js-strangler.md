@@ -1,6 +1,6 @@
 # Phase 05 — dopamiles-cart.js Strangler Split
 
-**Status:** pending
+**Status:** code-complete (smoke-deferred 2026-05-11)
 **Owner:** code
 **Effort:** L (4-6h)
 **Depends on:** Phase 02 (dead code removed first)
@@ -61,3 +61,24 @@ Single-commit revert restores 754-LOC monolith.
 | 422 body shape varies (Shopify Plus + apps inject) | Defensive parse with fallback message: try `body.message \|\| body.description \|\| 'Unable to update cart'` |
 | Bundled section parsing edge case missed during extraction | Re-test all 3 mutation paths (ATC, qty, remove) before merging |
 | `parseSectionDoc` now shared — bug propagates to both callers | Acceptable; one place to fix vs two |
+
+## Shipped
+
+**Diff Summary:** 4 files (1 edited, 2 created, 1 new registration). Net 418 insertions / 328 deletions in pod-tee-theme.
+
+**File sizes:**
+- `dopamiles-cart.js`: 754 → 434 LOC
+- `dopamiles-cart-helpers.js`: 98 LOC (new)
+- `dopamiles-cart-mutations.js`: 146 LOC (new)
+
+**Backlog items addressed:**
+- #8 (strangler): monolith split into 3 focused modules; no file >450 LOC
+- #27 (dataset.bound dedupe, 16 sites): added `if (btn.dataset.bound) return; btn.dataset.bound = '1';` guards
+- #28 (refreshDrawer error surface): errors now render to `#dop-cart-err-banner`
+- #50 (parseSectionDoc helper): DOMParser.parseFromString now centralized, called once per response
+- #65 (422 error banner): Shopify inventory errors surface with defensive message parsing
+- NEW: ATC pattern switched to Dawn-default (button-spinner → fetch → drawer-after-fetch, no optimistic UI)
+
+**Code-review results:** 1 critical (banner SVG clobber → fixed inline) + 2 major (refreshPageTotals summary swap → fixed; bindDrawerSurface scope footgun → documented as invariant). Single allowed iteration per halt rule's fix-first lane. Report: `plans/reports/code-reviewer-260511-1503-phase-05-cart-strangler.md`.
+
+**Gate remaining:** Real-iPhone smoke — ATC button-spinner → drawer arrives with real line; qty +/− works; qty past stock shows red banner with Shopify's message; remove + upsell + discount work; drawer open+close 3× → listener count stable.

@@ -8,7 +8,7 @@ repo: D:\github local\pod-tee-theme
 branch: feat/bug-fix-sprint
 blockedBy: []
 blocks: []
-progress: "Phases 02 + 03 + 04 completed (iPhone verified); Phases 05-10 pending."
+progress: "Phases 02 + 03 + 04 completed; Phase 05 code-complete (smoke-deferred); Phases 06-10 pending."
 last_updated: 2026-05-11
 related:
   - brainstorm: C:\Users\BINH LY\.claude\plans\the-current-bug-lexical-locket.md
@@ -61,7 +61,7 @@ User intent (locked 2026-05-11 12:20): build pod-tee-theme right via wide audit 
 | 02 | [Round-3c rejection cleanup](phase-02-round-3c-cleanup.md) | completed (iPhone verified 2026-05-11) | M (3-4h) |
 | 03 | [Bug C fix — collection card image](phase-03-bug-c-card-image.md) | completed (iPhone verified 2026-05-11) | S (1h) |
 | 04 | [Bug B fix — Globo CLS + double-render](phase-04-bug-b-globo-cls.md) | completed (iPhone verified 2026-05-11) | L (3-5h) |
-| 05 | [dopamiles-cart.js strangler split](phase-05-cart-js-strangler.md) | pending | L (4-6h) |
+| 05 | [dopamiles-cart.js strangler split](phase-05-cart-js-strangler.md) | code-complete (smoke-deferred) | L (4-6h) |
 | 06 | [product-hero JS extraction + collection filter drawer](phase-06-product-hero-extraction.md) | pending | L (4-6h) |
 | 07 | [Card consistency + a11y](phase-07-card-consistency-a11y.md) | pending | M (2-3h) |
 | 08 | [Perf pass — conditional CSS, font swap, 3pack gating](phase-08-perf-pass.md) | pending | L (4-6h) |
