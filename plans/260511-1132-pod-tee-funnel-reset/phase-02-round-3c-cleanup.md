@@ -1,6 +1,6 @@
 # Phase 02 — Round-3c Rejection Cleanup
 
-**Status:** pending
+**Status:** code-complete (smoke-deferred 2026-05-11)
 **Owner:** code
 **Effort:** M (3-4h with verification)
 **Depends on:** none (pre-requisite for all downstream phases)
@@ -55,3 +55,40 @@ Single-commit revert restores pre-phase baseline (all deletions land in one comm
 | `rollback` plumbing has subtle catch-block dependency | Run qty +/- 422-error path (over-stock) and verify error banner appears |
 | Hidden listener on `#dop-product-data` JSON island in third-party app | Grep `dop-product-data` across all assets; confirm theme-internal only |
 | Cart drawer fails to refresh after ATC because of removed rollback branch | Confirm `applyCartMutation` happy path still runs unchanged |
+
+---
+
+## Shipped
+
+**Date:** 2026-05-11
+
+### Diff Summary
+- **Total deletions:** 237 lines across 3 files (1 insertion for build-tag bump)
+- **assets/dopamiles-cart.js:** 754 → 591 LOC (-163)
+- **assets/dopamiles-cart.css:** 742 → 708 LOC (-34)
+- **sections/dopamiles-product-hero.liquid:** 741 → 702 LOC (-40)
+
+### Code-Review Verdict
+- **Score:** 10/10 ship-ready
+- **Report:** `plans/reports/code-reviewer-260511-1332-phase-02-cleanup.md`
+- **Findings:** 0 critical, 0 major, 0 minor, 0 nit
+- **Grep-gate:** All 8 identifiers (`injectOptimisticAtcLine`, `optimisticLineUpdate`, `showInjectError`, `dop-li-optimistic`, `dop-li-price-pending`, `dop-product-data`, `safe_product_title`, `escapeHtml` in cart.js scope) verified eliminated with zero external callers
+
+### Preservation Audit
+- `showProductFormError`, `data-dop-variants-json`, `syncVariant` IIFE, `applyCartMutation`, `bindAddToCartInterceptor` happy path, build-tag all preserved
+- Flow verification: `handleQtyChange` and `bindAddToCartInterceptor` error surfaces intact
+- CSS structure: §11 LOADING STATE closes cleanly; file ends at 708
+- Liquid structure: No orphan braces, comment chain intact
+
+### Shopify Theme Check
+- 0 new errors in edited files
+- 54 pre-existing baseline errors (out of scope; baseline noise from BuildMyPOD divergence)
+
+### Halt-Rule Gate
+- **Gate requirement:** Real-iPhone verification on preview URL
+  - PDP → ATC → drawer opens with real line item (no "optimistic" flash)
+  - Qty +/− works; no `.dop-li-price-pending` spinner (deleted)
+  - No red error banner (deleted)
+  - `console.error` count = 0 on happy-path session
+  - Build-tag visible, bumped
+- **Status:** User-side verification deferred (user owns preview access; code-complete ready for handoff)

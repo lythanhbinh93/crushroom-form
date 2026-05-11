@@ -1,14 +1,15 @@
 ---
 title: "Pod-Tee Theme Funnel Reset — Wide Audit + Backlog-Driven Improvements"
 description: "Audit every pod-tee-theme file → ranked improvement backlog → ship phases organically. No timeline pressure. Build right, then publish to replace BuildMyPOD live theme."
-status: pending
+status: in-progress
 priority: P1
 effort: ~60-90 min audit + N phases (sized after audit)
 repo: D:\github local\pod-tee-theme
 branch: feat/bug-fix-sprint
 blockedBy: []
 blocks: []
-progress: "Phase 01 audit pending. Phases 02+ TBD from audit backlog."
+progress: "Phase 02 code-complete (smoke-deferred); Phases 03-10 pending."
+last_updated: 2026-05-11
 related:
   - brainstorm: C:\Users\BINH LY\.claude\plans\the-current-bug-lexical-locket.md
   - card-loading-benchmark: plans/reports/brainstormer-260511-1203-card-loading-benchmark.md
@@ -57,7 +58,7 @@ User intent (locked 2026-05-11 12:20): build pod-tee-theme right via wide audit 
 | # | Phase | Status | Effort |
 |---|---|---|---|
 | 01 | [Wide audit — every file, ranked backlog](phase-01-audit.md) | completed | 60-90 min |
-| 02 | [Round-3c rejection cleanup](phase-02-round-3c-cleanup.md) | pending | M (3-4h) |
+| 02 | [Round-3c rejection cleanup](phase-02-round-3c-cleanup.md) | code-complete (smoke-deferred) | M (3-4h) |
 | 03 | [Bug C fix — collection card image](phase-03-bug-c-card-image.md) | pending | S (1h) |
 | 04 | [Bug B fix — Globo CLS + double-render](phase-04-bug-b-globo-cls.md) | pending | L (3-5h) |
 | 05 | [dopamiles-cart.js strangler split](phase-05-cart-js-strangler.md) | pending | L (4-6h) |
