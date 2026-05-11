@@ -1,14 +1,15 @@
 ---
 title: "pod-tee Cart Perf Round-4 — SLC Drawer-After-Fetch Reset"
 description: "Reset after round-3c halt. Revert optimistic UI, apply SLC drawer-after-fetch inversion, fix CLS via min-height, profile actual latency, real-iPhone gate."
-status: pending
+status: superseded
 priority: P0
 effort: 3-4h active + 1h user verification
 repo: D:\github local\pod-tee-theme
 branch: feat/bug-fix-sprint
 blockedBy: []
 blocks: []
-progress: "Phase 01-05 pending. Successor sprint to round-2 phase-06 (halted 2026-05-09 18:03 ICT)."
+supersededBy: plans/260511-1132-pod-tee-funnel-reset/plan.md
+progress: "SUPERSEDED 2026-05-11 by funnel-reset plan — scope widened to include Globo survival + collection card photo. Round-4's cart-perf phases absorbed into funnel-reset phase-02."
 related:
   - parent-sprint: plans/260509-1057-pod-tee-bug-fix-round-2/plan.md
   - halted-phase: plans/260509-1057-pod-tee-bug-fix-round-2/phase-06-round-3c-perception-cls.md
