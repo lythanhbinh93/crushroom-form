@@ -1,6 +1,6 @@
 # Phase 03 — Bug C Fix: Collection Card Image
 
-**Status:** pending
+**Status:** code-complete (smoke-deferred 2026-05-11)
 **Owner:** code
 **Effort:** S (1h)
 **Depends on:** Phase 02
@@ -45,3 +45,23 @@ Single-commit revert restores `variants.first.featured_media`.
 | Merchant intentionally relies on variant-first photo on some product | Open Q #1 in audit; if confirmed, scope per-product via tag — defer to round-4 |
 | `featured_image` is missing on a draft/legacy product | Liquid `{% if product.featured_image %}` guard around `<img>` (currently absent; add it) |
 | `selected_or_first_available_variant` shifts low-stock ribbon visibility | Acceptable — current state was already non-deterministic |
+
+## Shipped
+
+**Diff:** 9 insertions, 13 deletions in `sections/dopamiles-collection-grid.liquid` (720 → 716 LOC).
+
+**Backlog items resolved:**
+- #6: `variants.first.featured_media` → `product.featured_image` per merchant intent and Sloth reference pattern
+- #19: Low-stock ribbon now gates on `inventory_management == 'shopify'` AND `inventory_quantity <= 5`; uses `selected_or_first_available_variant` instead of unstable `variants.first`
+
+**Code review:** [code-reviewer-260511-1418-phase-03-card-image.md](../reports/code-reviewer-260511-1418-phase-03-card-image.md)
+- Severity: 1/10
+- Findings: 0
+- Verdict: SHIP
+
+**Liquid balance:** if/endif 35/35, comment/endcomment 23/23 ✓
+
+**Halt-rule gate:** Real-iPhone smoke verification (user-side) — pending
+- Every card on `/collections/all` displays merchant-intended hero photo
+- "Low" ribbon gates on tracked products with inventory_quantity 1-5 only
+- Build-tag bumped and visible
