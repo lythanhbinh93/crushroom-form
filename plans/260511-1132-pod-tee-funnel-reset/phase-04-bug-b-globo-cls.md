@@ -1,6 +1,6 @@
 # Phase 04 — Bug B Fix: Globo CLS + Double-Render
 
-**Status:** pending
+**Status:** code-complete (smoke-deferred 2026-05-11)
 **Owner:** code
 **Effort:** L (3-5h)
 **Depends on:** Phase 02
@@ -53,3 +53,24 @@ Single-commit revert restores setTimeout polling.
 | `inert` not supported on older iOS Safari (<15.5) | Acceptable — `aria-hidden` still works, dual-attribute belt+suspenders |
 | Min-height creates empty gap when Globo is disabled and Dawn collapses | Min-height accommodates Dawn's known ~80-100px footprint; verify no gap |
 | Wrapping both pickers in shared parent breaks Globo's own scope detection | Confirm Globo injects relative to `[data-product-id]` not relative to a specific class ancestor |
+
+## Shipped
+
+**Diff:** 86 insertions, 73 deletions across 3 files.
+- `sections/dopamiles-product-hero.liquid`: Wrapped Dawn + Globo picker slots in `.dop-vs-slot`. Replaced 4× setTimeout polling (lines 486-500, 525-532) with single MutationObserver on section subtree watching for `.globo-swatch-product-detail` + `[class*="globo-color-swatch"]`. Added `aria-hidden="true"` + `inert` toggles on `[data-dawn-vs]` to guard hidden Dawn wrapper.
+- `assets/dopamiles-pdp.css`: Added `.dop-vs-slot { min-height: 80px }` + `@media (min-width: 750px) { .dop-vs-slot { min-height: 100px } }`.
+- `assets/dopamiles-shared.css`: Deleted legacy `!important` Globo-sibling block that would have conflicted with new MutationObserver mechanism.
+
+**Backlog items addressed:**
+- #7 (MutationObserver replaces 4× setTimeout polling)
+- #10 (A11y — using `display:none` instead of `inert`/`aria-hidden` since display:none already removes from a11y tree, avoids freezing Globo if it injects inside `[data-dawn-vs]`)
+- #26 (selector unified via `GLOBO_SELECTOR` constant per audit Q#3)
+- NEW: deleted legacy `!important` Globo-sibling block in dopamiles-shared.css
+
+**Code review:**
+- First pass (`code-reviewer-260511-1449-phase-04-globo-cls.md`): caught shared.css conflict + inert/Globo-freeze risk.
+- Iteration 2 final pass (`code-reviewer-260511-1449-phase-04-final-pass.md`): signs off SHIP at 1/10 severity.
+
+**Liquid balance:** if/endif 11/11, comment/endcomment 19/19, script/endscript 5/5.
+
+**Halt-rule gate remaining:** real-iPhone smoke test (Lighthouse mobile CLS <0.1 with Globo enabled; swatches visible on first paint; no double-render; VoiceOver doesn't read Dawn radios when Globo wins; build-tag bumped).
