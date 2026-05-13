@@ -9,7 +9,8 @@
 **Items shipped (round 1):** #36, #37, #40, #41, #42, #54, #59, #66, #74
 **Items shipped (round 2 — 2026-05-13):** #69 (chrome.css delete + BRAND-ASSETS fix), #72/#73 (dopamiles-icon snippet + 13 call sites), #76 (README dawn-backup policy + 7 file relocations)
 **Items pivoted:** #48 — was REFACTOR (DRY); on inspection snippet had 0 callers and would have broken server-side bundle-child rendering. Deleted dead snippet instead — DRY achieved without bundle-path risk.
-**Round-2 commits (feat/bug-fix-sprint):** 4480727, c33b194, 89b362a, c99e14a, e68c16d. Pushed to preview theme 158279991548 — 7 stale alt-templates auto-removed during push.
+**Round-2 commits (feat/bug-fix-sprint):** 4480727, c33b194, 89b362a, c99e14a, e68c16d, 3a56d52. Pushed to preview theme 158279991548 — 7 stale alt-templates auto-removed during push.
+**Round-2 adversarial follow-up (3a56d52):** Ultrathink-grade review of section code caught whitespace regression in 9 of 13 icon call sites. `{%- render -%}` strip glued `<svg>` to adjacent inline text (e.g., "✓Free shipping unlocked." with no space). Fix: switched to non-stripping `{% render %}` for text-adjacent sites; kept `{%- -%}` for CSS-positioned chevrons and standalone-child icons (4 safe sites). Live on preview theme via `--only` push.
 **Footgun caught during review:** `templates/*.SUFFIX.json` files become live Shopify alt-templates (selectable via Admin + `?view=SUFFIX`). Backups now live under `docs/templates-dawn-backup/`. Memory saved: `shopify_dawn_backup_alt_template_footgun.md`.
 
 ## Goal
