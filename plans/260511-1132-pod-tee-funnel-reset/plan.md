@@ -8,8 +8,8 @@ repo: D:\github local\pod-tee-theme
 branch: feat/bug-fix-sprint
 blockedBy: []
 blocks: []
-progress: "Phases 02 + 03 + 04 + 05 completed (iPhone verified); Phases 06-10 pending."
-last_updated: 2026-05-11
+progress: "Phases 02 + 03 + 04 + 05 completed (iPhone verified); Phases 06 + 07 + 08 + 09 code-complete (pending iPhone verify); Phase 10 fully code-complete after 2026-05-13 deferred burndown (chrome.css delete, icon snippet for 13 call sites, README dawn-backup policy with relocation, dead cart-line-item snippet purged). Code-review round 2 caught + fixed Shopify alt-template footgun."
+last_updated: 2026-05-13
 related:
   - brainstorm: C:\Users\BINH LY\.claude\plans\the-current-bug-lexical-locket.md
   - card-loading-benchmark: plans/reports/brainstormer-260511-1203-card-loading-benchmark.md
@@ -17,9 +17,10 @@ related:
   - parent-sprint: plans/260509-1057-pod-tee-bug-fix-round-2/plan.md
   - halt-postmortem: docs/journals/260509-pod-tee-round-3c-halt-globo-broke-perception-rejected.md
   - slc-research: plans/reports/researcher-260509-1814-slc-cart-pattern-vs-pod-tee.md
+  - phase-10-burndown-review: plans/reports/code-reviewer-260513-1530-phase-10-deferred-burndown.md
 tags: [shopify, theme, pod-tee, dopamiles, funnel-reset, wide-audit, backlog-driven, pre-publish]
 created: 2026-05-11
-updated: 2026-05-11
+updated: 2026-05-13
 ---
 
 # Pod-Tee Theme Funnel Reset
@@ -62,11 +63,11 @@ User intent (locked 2026-05-11 12:20): build pod-tee-theme right via wide audit 
 | 03 | [Bug C fix — collection card image](phase-03-bug-c-card-image.md) | completed (iPhone verified 2026-05-11) | S (1h) |
 | 04 | [Bug B fix — Globo CLS + double-render](phase-04-bug-b-globo-cls.md) | completed (iPhone verified 2026-05-11) | L (3-5h) |
 | 05 | [dopamiles-cart.js strangler split](phase-05-cart-js-strangler.md) | completed (iPhone verified 2026-05-11) | L (4-6h) |
-| 06 | [product-hero JS extraction + collection filter drawer](phase-06-product-hero-extraction.md) | pending | L (4-6h) |
-| 07 | [Card consistency + a11y](phase-07-card-consistency-a11y.md) | pending | M (2-3h) |
-| 08 | [Perf pass — conditional CSS, font swap, 3pack gating](phase-08-perf-pass.md) | pending | L (4-6h) |
-| 09 | [Copy, tokens, locales](phase-09-copy-tokens-locales.md) | pending | M (2-3h) |
-| 10 | [Tail cleanup — P2 remainder + 20 P3s](phase-10-tail-cleanup.md) | pending | L (6-8h) |
+| 06 | [product-hero JS extraction + collection filter drawer](phase-06-product-hero-extraction.md) | code-complete (pending iPhone verify) | L (4-6h) |
+| 07 | [Card consistency + a11y](phase-07-card-consistency-a11y.md) | code-complete (pending iPhone verify) | M (2-3h) |
+| 08 | [Perf pass — conditional CSS, font swap, 3pack gating](phase-08-perf-pass.md) | code-complete (pending iPhone verify) | L (4-6h) |
+| 09 | [Copy, tokens, locales](phase-09-copy-tokens-locales.md) | code-complete (pending iPhone verify) | M (2-3h) |
+| 10 | [Tail cleanup — P2 remainder + 20 P3s](phase-10-tail-cleanup.md) | code-complete — all items shipped (pending iPhone verify) | L (6-8h) |
 
 ## Out of scope
 

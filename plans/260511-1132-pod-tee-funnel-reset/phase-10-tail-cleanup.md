@@ -1,9 +1,16 @@
 # Phase 10 — Tail Cleanup (P2 remainder + P3 backlog burndown)
 
-**Status:** pending
+**Status:** code-complete (all P2 + P3 items addressed; deferred-burndown shipped 2026-05-13) — pending iPhone verification
 **Owner:** code
 **Effort:** L (parallel-friendly, total ~6-8h split)
 **Depends on:** all prior phases stable
+**Code review (round 1):** `plans/reports/code-reviewer-260511-1842-phase-10-tail-sweep.md` — DONE_WITH_CONCERNS (all 9 sweep items verified clean; #37 turned out to be a real a11y fix, not a refactor — old double-replace was an identity hiding the first gallery slide from screen readers)
+**Code review (round 2 — deferred burndown):** `plans/reports/code-reviewer-260513-1530-phase-10-deferred-burndown.md` — DONE_WITH_CONCERNS (BLOCK on README dawn-backup claim resolved by 5th commit relocating files to `docs/`)
+**Items shipped (round 1):** #36, #37, #40, #41, #42, #54, #59, #66, #74
+**Items shipped (round 2 — 2026-05-13):** #69 (chrome.css delete + BRAND-ASSETS fix), #72/#73 (dopamiles-icon snippet + 13 call sites), #76 (README dawn-backup policy + 7 file relocations)
+**Items pivoted:** #48 — was REFACTOR (DRY); on inspection snippet had 0 callers and would have broken server-side bundle-child rendering. Deleted dead snippet instead — DRY achieved without bundle-path risk.
+**Round-2 commits (feat/bug-fix-sprint):** 4480727, c33b194, 89b362a, c99e14a, e68c16d. Pushed to preview theme 158279991548 — 7 stale alt-templates auto-removed during push.
+**Footgun caught during review:** `templates/*.SUFFIX.json` files become live Shopify alt-templates (selectable via Admin + `?view=SUFFIX`). Backups now live under `docs/templates-dawn-backup/`. Memory saved: `shopify_dawn_backup_alt_template_footgun.md`.
 
 ## Goal
 Burn down remaining P2 items not covered upstream + all 20 P3 nice-to-haves. Touch ≤1 file per sub-step. Many of these are XS edits; bundle into 2-3 commits at most.
