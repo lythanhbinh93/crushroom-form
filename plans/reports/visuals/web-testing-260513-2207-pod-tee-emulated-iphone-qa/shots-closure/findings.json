@@ -1,0 +1,160 @@
+{
+  "findings": [
+    {
+      "step": "p02-no-injectOptimisticAtcLine",
+      "ok": true,
+      "detail": "dead optimistic ATC code purged"
+    },
+    {
+      "step": "p02-no-optimisticLineUpdate",
+      "ok": true,
+      "detail": "dead optimistic line update purged"
+    },
+    {
+      "step": "p03-collection-cards-have-images",
+      "ok": true,
+      "detail": "5/5 cards have images"
+    },
+    {
+      "step": "p04-no-retryUntilGloboMuted",
+      "ok": true,
+      "detail": "old retry loop removed"
+    },
+    {
+      "step": "p04-has-MutationObserver",
+      "ok": true,
+      "detail": "MutationObserver pattern present"
+    },
+    {
+      "step": "p05-script-dopamiles-cart-helpers.js",
+      "ok": true,
+      "detail": "loaded"
+    },
+    {
+      "step": "p05-script-dopamiles-cart-mutations.js",
+      "ok": true,
+      "detail": "loaded"
+    },
+    {
+      "step": "p05-script-dopamiles-cart.js",
+      "ok": true,
+      "detail": "loaded"
+    },
+    {
+      "step": "p06-variant-sync-extracted",
+      "ok": true,
+      "detail": "dopamiles-pdp-variant-sync.js loaded externally"
+    },
+    {
+      "step": "p06-collection-js-extracted",
+      "ok": true,
+      "detail": "dopamiles-collection.js loaded externally"
+    },
+    {
+      "step": "p06-filter-drawer-snippet",
+      "ok": true,
+      "detail": "filter drawer markup present"
+    },
+    {
+      "step": "p07-cards-have-links",
+      "ok": true,
+      "detail": "5/5 cards have links"
+    },
+    {
+      "step": "p07-images-have-alt",
+      "ok": true,
+      "detail": "5/5 cards have alt"
+    },
+    {
+      "step": "p08-no-pdp-css-on-collection",
+      "ok": true,
+      "detail": "clean — no PDP CSS on collection page"
+    },
+    {
+      "step": "p09-free-shipping-copy-localized",
+      "ok": true,
+      "detail": "cart copy = \"Free shipping unlocked.\""
+    },
+    {
+      "step": "p10-icon-snippet-rendering",
+      "ok": true,
+      "detail": "dopamiles-icon snippet check path detected"
+    },
+    {
+      "step": "p10-dawn-backup-alt-template-removed",
+      "ok": true,
+      "detail": "?view=dawn-backup falls back to default (alt-templates removed)"
+    },
+    {
+      "step": "console-no-NEW-pageerrors",
+      "ok": true,
+      "detail": "0 non-baseline pageerrors (7 amount-not-defined are pre-existing/flagged)"
+    }
+  ],
+  "errors": [
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "warning",
+      "text": "[shop_events_listener] Error in trackViewedProductVariant: Cannot read properties of undefined (reading 'options')"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "warning",
+      "text": "[dop-cart] dopCartHelpers not loaded — cart will not function"
+    },
+    {
+      "type": "warning",
+      "text": "[dop-cart] dopCartMutations not loaded — cart mutations will not function"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    }
+  ]
+}
