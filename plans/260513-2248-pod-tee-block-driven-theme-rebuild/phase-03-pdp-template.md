@@ -4,7 +4,7 @@
 **Owner:** code
 **Effort:** 3-5h
 **Depends on:** Phase 02 (homepage validates the pattern)
-**Gate:** iPhone QA on PDP
+**Gate:** Automated mobile QA (P0) + desktop informational (P1). Run `node qa/phase-03.mjs`. See `## QA assertions` below.
 
 ## Goal
 Extend the PDP (product page) sections with `@theme` block accept so merchant can add USPs, trust badges, feature rows, etc. without code. Convert 3pack-picker (currently fully hardcoded) to block-driven. Preserve existing accordion / pillar block types.
@@ -65,8 +65,33 @@ product-hero accordion blocks remain because they have PDP-specific UX (open/clo
 | Globo PDP swatch integration breaks if blocks shift DOM | Medium | Don't change positioning of `[data-product-form]` or `[data-variant-id]` |
 | 3pack-picker conversion changes page URL behavior | Low | Same URL `/pages/3-pack`, just block-driven render |
 
+## QA assertions (Phase 03)
+
+**Script:** `qa/phase-03.mjs`
+**Viewports:** iPhone 14 Chromium (P0), iPhone 14 WebKit (P0), iPhone SE (P1), Desktop 1280 (P1)
+
+**P0 — fail → halt:**
+- PDP `/products/5k-route-t-shirt` returns 200, theme served correctly
+- Product hero renders (selectors: `.dop-hero` PDP wrapper, `.dop-buy`, variant picker, ATC button)
+- Accordion blocks render + expand/collapse works (Playwright clicks summary, asserts `[open]` attribute toggles)
+- Reasons + trust-trio sections render
+- Bundle headline renders when cart has 2+ items (use `/cart/add.js` to populate)
+- 3pack-picker block-driven default preset renders
+- ATC click → drawer opens (selector check: `#dop-cart-drawer.dop-drawer-open` or equivalent)
+- Variant change updates price (assertion: price element textContent changes after select.dispatchEvent('change'))
+- Zero new pageerrors vs Phase 02 baseline (pre-existing `amount is not defined` × 4 is the SAME baseline — anything beyond fails)
+
+**P1 — flag → ask user:**
+- Globo swatch element present if `[data-globo]` exists in DOM
+- FBT section renders product cards (if FBT metafield wired)
+- LCP < 2.5s on PDP
+
+**P2 — log only:**
+- Variant sync console messages (informational)
+- Image lazy-loading behavior
+
 ## Halt rule
-1 iteration max.
+1 iteration max. P0 fail → halt + scope next iteration.
 
 ## Next phase
 Phase 04 — Collection + cart templates.

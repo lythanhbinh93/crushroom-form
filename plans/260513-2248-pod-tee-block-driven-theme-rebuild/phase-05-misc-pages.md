@@ -4,7 +4,7 @@
 **Owner:** code
 **Effort:** 3-5h
 **Depends on:** Phase 04
-**Gate:** spot-check (no full iPhone QA — low-traffic pages)
+**Gate:** Automated mobile + desktop QA. Lower-traffic pages still get full pipeline (P0 for mobile, P1 for desktop). Run `node qa/phase-05.mjs`.
 
 ## Goal
 Convert remaining customer-facing sections that aren't homepage / PDP / collection / cart. Lower priority than prior phases but completes the "every section block-driven" mission.
@@ -54,8 +54,28 @@ Convert remaining customer-facing sections that aren't homepage / PDP / collecti
 | Page wrapper breaks legal pages (privacy, ToS) | Low | If `template contains 'policy'` then bypass blocks render entirely |
 | Promo-bar rotation introduces CLS | Low | Use opacity-based rotation with reserved height |
 
+## QA assertions (Phase 05)
+
+**Script:** `qa/phase-05.mjs`
+**Viewports:** iPhone 14 Chromium (P0), iPhone 14 WebKit (P0), Desktop 1280 (P1)
+
+**P0 — fail → halt:**
+- `/pages/about` returns 200 (assuming an "about" page exists; if not, pick a real page handle from the store)
+- `/search?q=tee` returns 200, search results section renders
+- `/blogs/news` returns 200 (or actual blog handle)
+- Contact form renders all expected fields (don't submit; just verify field count)
+- Promo bar block-driven default renders correctly
+
+**P1 — flag:**
+- Blog article page renders if at least one article exists
+- Page templates with `template contains 'policy'` bypass blocks (privacy / ToS pages)
+
+**P2 — log only:**
+- Search no-results state
+- Empty blog state
+
 ## Halt rule
-1 iteration max.
+1 iteration max. P0 fail → halt.
 
 ## Next phase
 Phase 06 — System pages (DEFERRABLE).

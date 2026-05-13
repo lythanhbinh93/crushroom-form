@@ -3,8 +3,8 @@
 **Status:** pending
 **Owner:** code
 **Effort:** 4-6h
-**Depends on:** Phase 01 (block library)
-**Gate:** iPhone QA on home page
+**Depends on:** Phase 01 (block library + QA pipeline)
+**Gate:** Automated mobile QA (iPhone 14 Chromium + WebKit, P0) + desktop informational (P1). Run `node qa/phase-02.mjs`. See `## QA assertions` below.
 
 ## Goal
 Convert 3 hardcoded homepage sections (home-hero, home-manifesto, home-newsletter) to block-driven schemas. Add `@theme` accept to the 4 already-blocked home-* sections so merchant can intersperse theme blocks. Auto-migrate existing settings to default block presets so live preview keeps current content.
@@ -120,8 +120,32 @@ This migration UX: ship the converted section, merchant sees a banner in theme e
 | home-hero conversion regresses LCP (hero is above-the-fold) | Medium | Profile with Lighthouse before/after; defer non-critical block CSS |
 | Newsletter form integration breaks on Shopify form schema | Low | Form markup unchanged; only surroundings become blocks |
 
+## QA assertions (Phase 02)
+
+**Script:** `qa/phase-02.mjs`
+**Viewports:** iPhone 14 Chromium (P0), iPhone 14 WebKit (P0), iPhone SE Chromium (P1), Desktop 1280 (P1)
+
+**P0 — fail → halt phase:**
+- Homepage `/` returns 200 with `theme;desc="158279991548"` in Server-Timing
+- Pod-tee theme served (selectors: `.dop-hero`, `.dop-logo`, `dopamiles-header`)
+- Zero new pageerrors vs Phase 01 baseline
+- All 7 home sections render (selectors: `.doh-hero`, `.dop-manifesto`, `.dop-pillars`, `.dop-marquee`, `.dop-reviews`, `.dop-shop-grid`, `.dop-newsletter`)
+- Block-rendered home-hero produces correct text in both fallback (no blocks) AND block-driven (default preset) modes — test both states by manipulating template fixture
+- WebKit-mobile run completes (no engine crash; layout reasonable)
+
+**P1 — flag → ask user:**
+- Lighthouse mobile score within 5pts of Phase 01 baseline
+- LCP < 2.5s on iPhone 14 emulation (Meta-ads goal)
+- CLS < 0.1
+- Visual diff vs Phase 01 screenshot: home regions outside block-converted sections should match ≥95%
+
+**P2 — log only:**
+- Desktop layout informational
+- Screenshot all 7 sections per viewport
+- Block "Add block" UI listing in screenshot (manual capture if automated capture too brittle)
+
 ## Halt rule
-1 iteration max. iPhone QA failure → snapshot + halt + scope next iteration in a separate phase doc.
+1 iteration max. **P0 fail** → snapshot + halt + scope next iteration in a separate phase doc. **P1 flagged** → ask user proceed/halt.
 
 ## Next phase
 Phase 03 — PDP template conversion.

@@ -1,13 +1,15 @@
-# Phase 01 — Theme-block foundation library
+# Phase 01 — Theme-block foundation library + QA pipeline foundation
 
 **Status:** pending
 **Owner:** code
-**Effort:** 4-6h
-**Depends on:** funnel-reset iPhone QA pass (cross-plan blocker)
-**Gate:** render-test in 1 sample section (home-hero) + theme editor "Add block" UI shows all 10 types
+**Effort:** 6-10h (4-6h blocks + 3-4h QA pipeline)
+**Depends on:** funnel-reset transitions to `completed` (today's funnel-reset code-complete unblocks once user confirms — automated QA from this point forward, no more user iPhone gates)
+**Gate:** Automated mobile + desktop QA (see `## QA assertions` below)
 
 ## Goal
-Create 10 reusable theme blocks under `blocks/dop-*.liquid` with Tier 2 customization (content + size + spacing + alignment + token-color). Establish color-scheme tokens in `config/settings_schema.json`. Foundation for Phases 02-05.
+Two deliverables in one phase:
+1. **Blocks:** Create 10 reusable theme blocks under `blocks/dop-*.liquid` with Tier 2 customization (content + size + spacing + alignment + token-color). Establish color-scheme tokens in `config/settings_schema.json`.
+2. **QA pipeline:** Build the automated QA infrastructure under `qa/` that runs after every subsequent phase. Mobile (iPhone 14 Chromium + WebKit) is the P0 blocker, desktop is P1.
 
 ## Context
 - Brainstorm: [`brainstorm-260513-2230-pod-tee-block-driven-theme-rebuild.md`](../reports/brainstorm-260513-2230-pod-tee-block-driven-theme-rebuild.md)
@@ -86,7 +88,7 @@ Single value per spacing setting. CSS in `blocks-base.css`:
 
 ## Related code files
 
-### Create
+### Create (theme repo: D:\github local\pod-tee-theme)
 - `blocks/dop-heading.liquid`
 - `blocks/dop-text.liquid`
 - `blocks/dop-cta.liquid`
@@ -99,6 +101,16 @@ Single value per spacing setting. CSS in `blocks-base.css`:
 - `blocks/dop-spacer.liquid`
 - `assets/dopamiles-blocks-base.css` — shared base CSS for blocks (mobile scaling, CSS-var consumption)
 
+### Create (plan dir: plans/260513-2248-pod-tee-block-driven-theme-rebuild/qa/)
+- `qa/README.md` — pipeline docs, severity tiers, how-to-run
+- `qa/package.json` — playwright + pixelmatch deps
+- `qa/.gitignore` — node_modules, package-lock.json
+- `qa/lib/preview.mjs` — browser launch, viewport configs, preview URL + cookie helpers
+- `qa/lib/assertions.mjs` — shared assertions (whitespace gap, theme integrity, console capture, network failure capture)
+- `qa/lib/viewports.mjs` — viewport definitions (iPhone 14, iPhone SE, Desktop 1280) × (Chromium, WebKit where applicable)
+- `qa/lib/report.mjs` — markdown report writer + summary printer
+- `qa/phase-01.mjs` — Phase 01 specific assertions (renders blocks, theme check baseline, color picker visible)
+
 ### Edit
 - `config/settings_schema.json` — add color_scheme_group
 - `layout/theme.liquid` — load `dopamiles-blocks-base.css`
@@ -106,17 +118,57 @@ Single value per spacing setting. CSS in `blocks-base.css`:
 
 ## Implementation steps
 
+### Part A — Block library (theme repo)
+
 1. **Block schema design pass** — draft the 10 schemas in a single Liquid spike file, validate via `shopify theme check`.
 2. **Color-scheme tokens** — add `color_scheme_group` to `config/settings_schema.json`; verify Theme Editor → Theme Settings shows scheme picker.
 3. **Create 10 block files** — one at a time, smallest first (dop-spacer, dop-text, dop-heading, then progressively richer).
 4. **Shared base CSS** — `dopamiles-blocks-base.css` with CSS-var consumption pattern + mobile scaling.
-5. **Wire conditional load** — `layout/theme.liquid` loads blocks-base.css when any block is in use (via `{% if template == 'index' or template contains 'product' %}` for now; refine in later phases).
-6. **Render-test** — drop `{"type": "@theme"}` into `dopamiles-home-hero.liquid` schema, manually add a `dop-heading` + `dop-cta` via theme editor, screenshot result.
+5. **Wire conditional load** — `layout/theme.liquid` loads blocks-base.css when any block is in use.
+6. **Render-test** — temporarily drop `{"type": "@theme"}` into `dopamiles-home-hero.liquid` schema; insert default preset blocks via fixture template; verify render.
 7. **Theme check pass** — `shopify theme check`, zero new errors.
-8. **Code-review subagent pass** on the 10 block files + base CSS.
+8. **Code-reviewer subagent pass** on the 10 block files + base CSS.
+9. **Commit + push** to preview theme 158279991548 (full push, no --only — let CLI sync deletions).
+
+### Part B — QA pipeline foundation (plan dir)
+
+10. **Scaffold `qa/`** — package.json with playwright + (optionally) pixelmatch; install via `npm install`.
+11. **Write `qa/lib/viewports.mjs`** — export iPhone-14-Chromium, iPhone-14-WebKit, iPhone-SE-Chromium, Desktop-1280-Chromium configs.
+12. **Write `qa/lib/preview.mjs`** — `launchBrowser(viewport)`, `withPreviewCookie(url)`, `getProductHandle(page)`, `getVariantId(productJsonUrl)`.
+13. **Write `qa/lib/assertions.mjs`** — port today's QA assertions: `checkWhitespaceGap(page, selector, expectedText, minGapPx)`, `verifyThemeServed(page, expectedSelectors)`, `captureConsole(page)`, `captureNetworkFailures(page)`.
+14. **Write `qa/lib/report.mjs`** — append-only markdown writer; severity tagging (P0/P1/P2); exit code derivation.
+15. **Write `qa/phase-01.mjs`** — Phase 01 specific suite (see ## QA assertions below).
+16. **Run `qa/phase-01.mjs` against current preview** — establish baseline numbers (console count, network failure count); these become the comparison points for later phases.
+17. **Write `qa/README.md`** — document viewport configs, severity tiers, how-to-run-locally, where reports land.
+
+### Part C — Integration
+
+18. Commit + push QA scaffolding to plan branch (`claude/add-photo-upload-tool-p3dI0`).
+19. Smoke-run `node qa/phase-01.mjs` end-to-end. Must exit 0 with markdown report saved.
+
+## QA assertions (Phase 01)
+
+**Viewports:** iPhone 14 Chromium (P0), iPhone 14 WebKit (P0), iPhone SE Chromium (P1), Desktop 1280 Chromium (P1)
+
+**P0 — fail → halt phase:**
+- All 10 `blocks/dop-*.liquid` files render in a test section without theme check errors
+- Theme served = pod-tee (selectors: `.dop-hero`, `.dop-logo`)
+- Zero new pageerrors vs today's 2026-05-13 baseline (`amount is not defined` × 4 IS the baseline — anything beyond fails)
+- Preview URL returns 200 with `theme;desc="158279991548"` in Server-Timing
+- WebKit-mobile run completes without crashes (proves WebKit engine works in pipeline)
+
+**P1 — flag → ask user:**
+- Color scheme picker visible in screenshot of Theme Editor → Theme Settings
+- Theme check warning count within ±5 of baseline (38)
+- Lighthouse mobile score within 5pts of phase-08 score (if recorded; if not, this phase establishes the baseline)
+
+**P2 — log only:**
+- Screenshots saved for all 4 viewports
+- Desktop layout informational notes
 
 ## Todo
 
+### Part A — Blocks (theme repo)
 - [ ] Draft 10 block schemas (spike + validate)
 - [ ] Add `color_scheme_group` to `config/settings_schema.json`
 - [ ] Create `blocks/dop-spacer.liquid` (simplest)
@@ -131,14 +183,27 @@ Single value per spacing setting. CSS in `blocks-base.css`:
 - [ ] Create `blocks/dop-feature-row.liquid` (most complex)
 - [ ] Create `assets/dopamiles-blocks-base.css`
 - [ ] Wire conditional load in `layout/theme.liquid`
-- [ ] Render-test in `dopamiles-home-hero.liquid` (temporary @theme accept)
-- [ ] Screenshot proof in theme editor
+- [ ] Render-test fixture in `dopamiles-home-hero.liquid` (temporary @theme accept)
 - [ ] `shopify theme check` pass
 - [ ] Delegate to code-reviewer subagent
 - [ ] Commit + push to preview theme
-- [ ] iPhone smoke (block renders correctly on real device)
+
+### Part B — QA pipeline (plan repo)
+- [ ] Scaffold `qa/` with package.json + .gitignore
+- [ ] Install playwright + pixelmatch (npm install)
+- [ ] Write `qa/lib/viewports.mjs`
+- [ ] Write `qa/lib/preview.mjs`
+- [ ] Write `qa/lib/assertions.mjs`
+- [ ] Write `qa/lib/report.mjs`
+- [ ] Write `qa/phase-01.mjs`
+- [ ] Write `qa/README.md`
+- [ ] Run `node qa/phase-01.mjs` end-to-end — must exit 0
+- [ ] Verify WebKit-mobile works (install via `npx playwright install webkit`)
+- [ ] Commit QA scaffolding to plan branch
 
 ## Success criteria
+
+### Part A — Blocks
 - 10 `blocks/dop-*.liquid` files created, schemas validate
 - Theme editor "Add block" UI lists all 10 block types
 - Block previews render correctly when added to test section
@@ -146,15 +211,28 @@ Single value per spacing setting. CSS in `blocks-base.css`:
 - Theme check baseline preserved (11 errors / 38 warnings, no new)
 - Code-reviewer DONE or DONE_WITH_CONCERNS
 
+### Part B — QA pipeline
+- `node qa/phase-01.mjs` exits 0 against current preview
+- Markdown report saved to `qa/reports/phase-01-{date}.md`
+- All 4 viewports produce screenshots (Chromium iPhone 14, WebKit iPhone 14, Chromium iPhone SE, Chromium Desktop 1280)
+- WebKit engine confirmed working (no install/crash errors)
+- Console + network capture works (matches today's QA findings.json schema)
+- README documents how to run, how to interpret severity tiers
+
+## Halt rule
+1 iteration max for Part A. 1 iteration for Part B. If either fails P0 → halt + scope Phase 01-bugfix iteration.
+
 ## Risk assessment
 
 | Risk | Severity | Mitigation |
 |---|---|---|
 | Shopify theme block schema spec drift between Dawn versions | Medium | Pin to Dawn 15.4.1 baseline (BASELINE.md commit 9ccdacf8); test in editor live |
-| `@theme` block accept doesn't work on Dawn 15 | High | Verify on a test section before locking — fallback plan: section blocks per Approach 1 |
+| `@theme` block accept doesn't work on Dawn 15 | **High** | Verify on a test section BEFORE locking 10 blocks — fallback: section-specific blocks per brainstorm Approach 1. Mitigate by testing this in step 6 of Part A FIRST. |
 | Block CSS payload regression (>8 KB) | Medium | Conditional load; defer loading per template |
 | Schema validation errors block push | Low | Theme check pre-commit; iterate locally |
-| Icon-card block depends on dopamiles-icon.liquid which I just added today | Low | Already exists at `snippets/dopamiles-icon.liquid` |
+| WebKit browser install fails on Windows | Medium | `npx playwright install webkit` is supported on win32 per Playwright docs. Fallback: skip WebKit-mobile, run Chromium-mobile only (P0), document residual gap. |
+| QA pipeline foundation takes longer than 4h | Medium | Strict scope: port today's QA script patterns into reusable lib. Don't over-engineer. |
+| Icon-card block depends on dopamiles-icon.liquid | Low | Already exists at `snippets/dopamiles-icon.liquid` (shipped 2026-05-13) |
 
 ## Security considerations
 - No user input processing in blocks. All settings are merchant-supplied via Admin (trusted).
