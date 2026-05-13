@@ -1,0 +1,77 @@
+{
+  "results": [
+    {
+      "step": "cart-add",
+      "ok": true,
+      "detail": "{\"status\":200,\"ok\":true,\"qty\":3,\"total\":7497}"
+    },
+    {
+      "step": "cart-drawer-shipbar-met",
+      "ok": true,
+      "detail": "{\"found\":true,\"met\":true,\"classList\":\"dop-cart-ship-bar met\",\"hasSvg\":true,\"hasB\":true,\"text\":\"Free shipping unlocked.\",\"gap\":3,\"svgRight\":426,\"bLeft\":429}"
+    },
+    {
+      "step": "cart-main-shipbar-met",
+      "ok": true,
+      "detail": "{\"found\":true,\"met\":true,\"hasSvg\":true,\"hasB\":true,\"text\":\"Free shipping unlocked.\",\"gap\":3}"
+    }
+  ],
+  "errors": [
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "warning",
+      "text": "[shop_events_listener] Error in trackViewedProductVariant: Cannot read properties of undefined (reading 'options')"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "warning",
+      "text": "[shop_events_listener] Error in trackViewedProductVariant: Cannot read properties of undefined (reading 'options')"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "warning",
+      "text": "[dop-cart] dopCartHelpers not loaded — cart will not function"
+    },
+    {
+      "type": "warning",
+      "text": "[dop-cart] dopCartMutations not loaded — cart mutations will not function"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    }
+  ]
+}

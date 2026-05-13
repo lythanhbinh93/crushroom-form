@@ -1,0 +1,263 @@
+{
+  "findings": [
+    {
+      "step": "home-status",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "step": "theme-check@home",
+      "ok": true,
+      "detail": "pod-tee theme served"
+    },
+    {
+      "step": "collection-status",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "step": "theme-check@collection",
+      "ok": true,
+      "detail": "pod-tee theme served"
+    },
+    {
+      "step": "ws@filter-btn",
+      "ok": true,
+      "detail": "text=\"Filter\" | gap=47px | html(300)= <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" width=\"13\" height=\"13\" aria-hidden=\"true\"><path d=\"M4 6h16M7 12h10M10 18h4\"></path></svg> Filter <svg"
+    },
+    {
+      "step": "pdp-status",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "step": "theme-check@pdp",
+      "ok": true,
+      "detail": "pod-tee theme served"
+    },
+    {
+      "step": "pdp-accordion-chevron",
+      "ok": true,
+      "detail": "found 10 accordion chevrons"
+    },
+    {
+      "step": "ws@cart-drawer-shipbar",
+      "ok": false,
+      "detail": "text=\"$35.01 from free shipping\" | gap=undefinedpx | html(300)=<b>$35.01</b> from free shipping"
+    },
+    {
+      "step": "cart-page-status",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "step": "theme-check@cart",
+      "ok": true,
+      "detail": "pod-tee theme served"
+    },
+    {
+      "step": "ws@cart-main-shipbar",
+      "ok": false,
+      "detail": "text=\"$35.01 from free shipping\" | gap=undefinedpx | html(300)=<b>$35.01</b> from free shipping"
+    },
+    {
+      "step": "console-errors",
+      "ok": false,
+      "detail": "8 errors, 7 warnings"
+    },
+    {
+      "step": "network-failures",
+      "ok": false,
+      "detail": "12 request failures"
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()",
+      "location": {
+        "url": "https://dopamiles.co/sf_private_access_tokens?_ab=0&_fd=0&_sc=1",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "The resource https://dopamiles.co/cdn/shop/t/3/assets/swiper.css?v=183501224039657730341770103888 was preloaded using link preload in Early Hints but not used within a few seconds from the window's load event.",
+      "location": {
+        "url": "https://dopamiles.co/?_ab=0&_fd=0&_sc=1",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "The resource https://dopamiles.co/cdn/shop/t/3/assets/base.css?v=182852741059394613711770103888 was preloaded using link preload in Early Hints but not used within a few seconds from the window's load event.",
+      "location": {
+        "url": "https://dopamiles.co/?_ab=0&_fd=0&_sc=1",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "The resource https://dopamiles.co/cdn/shop/t/3/assets/output.css?v=77757252105359780021770103888 was preloaded using link preload in Early Hints but not used within a few seconds from the window's load event.",
+      "location": {
+        "url": "https://dopamiles.co/?_ab=0&_fd=0&_sc=1",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "The resource https://dopamiles.co/cdn/shop/t/3/assets/overflow-list.css?v=168694168152117541881770103888 was preloaded using link preload in Early Hints but not used within a few seconds from the window's load event.",
+      "location": {
+        "url": "https://dopamiles.co/?_ab=0&_fd=0&_sc=1",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()",
+      "location": {
+        "url": "https://dopamiles.co/sf_private_access_tokens?_ab=0&_fd=0&_sc=1",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "warning",
+      "text": "[shop_events_listener] Error in trackViewedProductVariant: Cannot read properties of undefined (reading 'options')",
+      "location": {
+        "url": "https://dopamiles.co/cdn/shopifycloud/storefront/assets/shop_events_listener-3da45d37.js",
+        "line": 0,
+        "column": 4868,
+        "lineNumber": 0,
+        "columnNumber": 4868
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()",
+      "location": {
+        "url": "https://dopamiles.co/sf_private_access_tokens?_ab=0&_fd=0&_sc=1",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "pageerror",
+      "text": "amount is not defined"
+    },
+    {
+      "type": "warning",
+      "text": "[dop-cart] dopCartHelpers not loaded — cart will not function",
+      "location": {
+        "url": "https://dopamiles.co/cdn/shop/t/6/assets/dopamiles-cart.js?v=156364517869150476971778492708",
+        "line": 0,
+        "column": 56,
+        "lineNumber": 0,
+        "columnNumber": 56
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[dop-cart] dopCartMutations not loaded — cart mutations will not function",
+      "location": {
+        "url": "https://dopamiles.co/cdn/shop/t/6/assets/dopamiles-cart.js?v=156364517869150476971778492708",
+        "line": 0,
+        "column": 164,
+        "lineNumber": 0,
+        "columnNumber": 164
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()",
+      "location": {
+        "url": "https://dopamiles.co/sf_private_access_tokens?_ab=0&_fd=0&_sc=1",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "networkFailures": [
+    {
+      "url": "https://dopamiles.co/sf_private_access_tokens?_ab=0&_fd=0&_sc=1",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/api/collect",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/.well-known/shopify/monorail/unstable/produce_batch",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/sf_private_access_tokens?_ab=0&_fd=0&_sc=1",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/api/collect",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/.well-known/shopify/monorail/unstable/produce_batch",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/sf_private_access_tokens?_ab=0&_fd=0&_sc=1",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/api/collect",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/api/collect",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/.well-known/shopify/monorail/unstable/produce_batch",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/api/collect",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://dopamiles.co/sf_private_access_tokens?_ab=0&_fd=0&_sc=1",
+      "failure": "net::ERR_ABORTED"
+    }
+  ]
+}
