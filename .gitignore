@@ -69,6 +69,8 @@ plans/**/*
 !plans/*/reports/**
 !plans/*/scaffold/
 !plans/*/scaffold/**
+!plans/*/qa/
+!plans/*/qa/**
 screenshots/*
 docs/screenshots/*
 logs.txt

@@ -1,0 +1,12 @@
+{
+  "name": "pod-tee-block-rebuild-qa",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Automated QA pipeline for pod-tee block-driven theme rebuild phases",
+  "scripts": {
+    "phase-01": "node phase-01.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.60.0"
+  }
+}
