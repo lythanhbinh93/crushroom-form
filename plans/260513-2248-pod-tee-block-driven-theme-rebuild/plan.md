@@ -1,7 +1,8 @@
 ---
 title: "pod-tee Block-Driven Theme Rebuild — Customization + Publish"
 description: "Retrofit 24 hardcoded dopamiles-* sections into block-driven schema with Tier 2 customization (size/spacing/alignment/token-color), via 10 reusable theme blocks. Phased by template. Publish to dopamiles.co at end."
-status: pending
+status: in-progress
+progress: "Phase 01 SHIPPED 2026-05-14 (theme repo 9612985 + plan repo 0cb6db3). 30/30 QA pass on preview theme 158279991548. Phases 02-07 remain."
 priority: P1
 effort: 20-33h (across 7 phases)
 repo: D:\github local\pod-tee-theme
@@ -32,7 +33,7 @@ Convert hardcoded dopamiles-* sections to block-driven schemas so merchant can c
 
 | # | Phase | Effort | Gate |
 |---|---|---|---|
-| 01 | [Theme-block foundation library + QA pipeline foundation](phase-01-theme-block-foundation-library.md) | 6-10h | Automated mobile + desktop QA pass |
+| 01 | [Theme-block foundation library + QA pipeline foundation](phase-01-theme-block-foundation-library.md) ✅ | 6-10h (actual ~3.5h) | **PASS** — 30/30 |
 | 02 | [Homepage template (home-hero, manifesto, newsletter + accept @theme on already-blocked)](phase-02-homepage-template.md) | 4-6h | Automated QA (mobile critical) |
 | 03 | [PDP template (product-hero, reasons, trust-trio, bundle, 3pack-picker)](phase-03-pdp-template.md) | 3-5h | Automated QA (mobile critical) |
 | 04 | [Collection + cart templates](phase-04-collection-cart-templates.md) | 2-4h | Automated QA (mobile critical) |

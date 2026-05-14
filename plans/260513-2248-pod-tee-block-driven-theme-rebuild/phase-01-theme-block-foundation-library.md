@@ -1,10 +1,11 @@
 # Phase 01 — Theme-block foundation library + QA pipeline foundation
 
-**Status:** pending
+**Status:** completed (2026-05-14)
 **Owner:** code
-**Effort:** 6-10h (4-6h blocks + 3-4h QA pipeline)
+**Effort:** 6-10h (4-6h blocks + 3-4h QA pipeline) — actual: ~3.5h with parallel subagents + fixup iteration
 **Depends on:** funnel-reset transitions to `completed` (today's funnel-reset code-complete unblocks once user confirms — automated QA from this point forward, no more user iPhone gates)
-**Gate:** Automated mobile + desktop QA (see `## QA assertions` below)
+**Gate:** Automated mobile + desktop QA (see `## QA assertions` below) — **30/30 PASS** post-push (qa/reports/phase-01-20260514-1032.md)
+**Shipped commits:** theme repo `9612985` (10 blocks + base CSS + supporting edits + review fixes) · plan repo `0cb6db3` (QA pipeline + reports)
 
 ## Goal
 Two deliverables in one phase:
@@ -169,37 +170,37 @@ Single value per spacing setting. CSS in `blocks-base.css`:
 ## Todo
 
 ### Part A — Blocks (theme repo)
-- [ ] Draft 10 block schemas (spike + validate)
-- [ ] Add `color_scheme_group` to `config/settings_schema.json`
-- [ ] Create `blocks/dop-spacer.liquid` (simplest)
-- [ ] Create `blocks/dop-text.liquid`
-- [ ] Create `blocks/dop-heading.liquid`
-- [ ] Create `blocks/dop-cta.liquid`
-- [ ] Create `blocks/dop-cta-pair.liquid`
-- [ ] Create `blocks/dop-image.liquid`
-- [ ] Create `blocks/dop-stat.liquid`
-- [ ] Create `blocks/dop-badge-row.liquid`
-- [ ] Create `blocks/dop-icon-card.liquid`
-- [ ] Create `blocks/dop-feature-row.liquid` (most complex)
-- [ ] Create `assets/dopamiles-blocks-base.css`
-- [ ] Wire conditional load in `layout/theme.liquid`
-- [ ] Render-test fixture in `dopamiles-home-hero.liquid` (temporary @theme accept)
-- [ ] `shopify theme check` pass
-- [ ] Delegate to code-reviewer subagent
-- [ ] Commit + push to preview theme
+- [x] Draft 10 block schemas (spike + validate)
+- [x] Add `color_scheme_group` to `config/settings_schema.json` — Dawn rejected `color_scheme_group`; replaced with 9 flat color pickers wired via `snippets/dopamiles-tokens.liquid`
+- [x] Create `blocks/dop-spacer.liquid` (simplest)
+- [x] Create `blocks/dop-text.liquid`
+- [x] Create `blocks/dop-heading.liquid`
+- [x] Create `blocks/dop-cta.liquid`
+- [x] Create `blocks/dop-cta-pair.liquid`
+- [x] Create `blocks/dop-image.liquid`
+- [x] Create `blocks/dop-stat.liquid`
+- [x] Create `blocks/dop-badge-row.liquid`
+- [x] Create `blocks/dop-icon-card.liquid`
+- [x] Create `blocks/dop-feature-row.liquid` (most complex)
+- [x] Create `assets/dopamiles-blocks-base.css`
+- [x] Wire conditional load in `layout/theme.liquid` — unconditional load (8 KB acceptable; reconsider in Phase 08)
+- [x] Render-test fixture in `dopamiles-home-hero.liquid` (temporary @theme accept)
+- [x] `shopify theme check` pass — 11 errors / 38 warnings preserved (zero new)
+- [x] Delegate to code-reviewer subagent — 2 P0 + 9 P1 found; all cleared single iteration
+- [x] Commit + push to preview theme — theme repo `9612985`, shopify theme push 158279991548 success
 
 ### Part B — QA pipeline (plan repo)
-- [ ] Scaffold `qa/` with package.json + .gitignore
-- [ ] Install playwright + pixelmatch (npm install)
-- [ ] Write `qa/lib/viewports.mjs`
-- [ ] Write `qa/lib/preview.mjs`
-- [ ] Write `qa/lib/assertions.mjs`
-- [ ] Write `qa/lib/report.mjs`
-- [ ] Write `qa/phase-01.mjs`
-- [ ] Write `qa/README.md`
-- [ ] Run `node qa/phase-01.mjs` end-to-end — must exit 0
-- [ ] Verify WebKit-mobile works (install via `npx playwright install webkit`)
-- [ ] Commit QA scaffolding to plan branch
+- [x] Scaffold `qa/` with package.json + .gitignore
+- [x] Install playwright + pixelmatch (npm install) — playwright only; pixelmatch deferred to Phase 02 if needed
+- [x] Write `qa/lib/viewports.mjs`
+- [x] Write `qa/lib/preview.mjs`
+- [x] Write `qa/lib/assertions.mjs`
+- [x] Write `qa/lib/report.mjs`
+- [x] Write `qa/phase-01.mjs`
+- [x] Write `qa/README.md`
+- [x] Run `node qa/phase-01.mjs` end-to-end — must exit 0 — **30/30 PASS post-push**
+- [x] Verify WebKit-mobile works (install via `npx playwright install webkit`) — WebKit 26.4 on Windows 11 confirmed
+- [x] Commit QA scaffolding to plan branch — plan repo `0cb6db3`
 
 ## Success criteria
 
