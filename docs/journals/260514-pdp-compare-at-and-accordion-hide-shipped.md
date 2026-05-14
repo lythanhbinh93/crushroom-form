@@ -23,3 +23,12 @@ Manual spot-check on preview 158279991548:
 - No JS console errors during variant switches
 
 Plan complete. No follow-up phases — deferred items (story-by-collection, bundle 1/2-state UX) remain parked per brainstorm rationale.
+
+## Post-ship iteration (15:15-15:25)
+Two real bugs surfaced on first user check:
+
+**Bug 1 — Hardcoded Details accordion can't be hidden.** The Phase 02 hide toggle only applied to schema-defined accordion *blocks*. The "Details" tab at the top of the accordion stack is hardcoded Liquid (renders `product.description` directly). Merchant had no way to suppress it. Added two section-level settings to `dopamiles-product-hero`: `show_description_accordion` (checkbox, default true) and `description_heading` (text, default "Details"). Guard added around the hardcoded `<details>` block. Commit `529a586`.
+
+**Bug 2 — Compare-at price invisible on the actual sticky ATC.** The plan's "anti-cramping" CSS rule hid `.ms-compare` on viewports ≤380px. That breakpoint swallows iPhone SE/8/X-mini (375px) — the exact devices where the sticky ATC is designed to surface. User confirmed compare_at_price was set on the variant in Admin; the JS toggle was firing correctly; CSS was just nuking the element below 380px. Dropped the breakpoint to ≤340px so only Galaxy Fold and iPhone 5/SE 1st get the cramping guard. Commit `1a06f50`.
+
+**Lesson:** Plan-stage "Low risk" CSS mitigations need viewport-share sanity check. 380px isn't a "narrow" guard — it's the median mobile width. Should have been ≤320px or ≤340px from the start. Filing this under brainstorm-stage validation: when adding responsive guards, check what real device classes the breakpoint actually excludes.
