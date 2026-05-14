@@ -1,12 +1,36 @@
-# Phase 02 — Homepage template conversion
+# Phase 02 — Homepage template conversion — **REVERTED 2026-05-14**
 
-**Status:** completed (2026-05-14)
+**Status:** reverted (2026-05-14)
 **Owner:** code
-**Effort:** 4-6h — actual ~2.5h with parallel agents + ValidLocalBlocks migration pivot
-**Depends on:** Phase 01 (block library + QA pipeline)
-**Gate:** Automated mobile QA (iPhone 14 Chromium + WebKit, P0) + desktop informational (P1). Run `node qa/phase-02.mjs`. — **49/49 PASS** (steady state). Initial post-push run showed LCP=6432ms but multiple subsequent runs returned 1.4–1.6s (matches Phase 01 baseline 1.44s). **No code regression** — variance from Cloudflare cold cache after `shopify theme push`. QA script patched: Server-Timing check downgraded P0→P1 (CF cache hits omit Shopify's header).
-**Shipped commits:** theme repo `1ca4000` (6 local→theme block migration + 7 section @theme accept). preview theme 158279991548 pushed.
-**Architecture pivot:** Shopify `ValidLocalBlocks` constraint forbids mixing `@theme` + local block types. Resolved by migrating all 6 section-local types (pillar, phrase, review, tab, stat, column) to dedicated `blocks/*.liquid` theme block files. All setting IDs preserved → zero merchant content loss.
+**Effort:** ~3h spent (built + reverted same day)
+**Depends on:** Phase 01 (block library + QA pipeline) — preserved
+**Gate (when shipped):** 49/49 PASS
+**Reverted commits:**
+- theme repo `8d5d58d` (revert of `1ca4000` — the 6 local→theme migration + 7 section conversion)
+- theme repo `91d9acd` (drops Phase 01's hero `{"type":"@theme"}` test gate too — homepage stays entirely settings-driven)
+
+## Why reverted
+User verification on preview (newsletter section with seeded dop-heading + dop-text blocks) showed the **generic Tier 2 block styling does not match the section-specific brand aesthetics** (dark mood, orange accents, custom typography weights). Block-driven rendering looked worse than fallback settings-driven rendering.
+
+**Lesson:** Tier 2 customization works for NEW sections built block-first. For existing visually-rich brand sections (hero/manifesto/newsletter), blocks alone cannot replicate bespoke styling without per-section CSS overrides. The merchant-customization benefit is not worth the visual cost on these sections.
+
+## What's preserved from this phase
+- `qa/phase-02.mjs` + 4 new `qa/lib/assertions.mjs` helpers — useful for future automated QA of homepage state
+- ValidLocalBlocks platform-constraint knowledge (documented for future plan revisions)
+- Code patterns (settings-fallback w/ block-driven hybrid) — reusable when block-first sections are added later
+
+## What's discarded
+- 6 new `blocks/*.liquid` theme blocks (pillar, phrase, review, tab, stat, column) — these were just pass-through wrappers around existing local block types; deletion is clean
+- `{"type":"@theme"}` schema accept on all 7 home sections
+- All settings-fallback Liquid additions in hero/manifesto/newsletter
+
+## Theme repo current state (post-revert)
+- Identical to commit `9612985` minus the hero schema's `{"type":"@theme"}` test gate
+- 10 `blocks/dop-*.liquid` from Phase 01 still live (no-op for homepage; reserved for future block-first sections)
+- All 7 home sections render via original local blocks / hardcoded settings — brand identity intact
+
+## QA
+`node qa/phase-01.mjs` post-revert: **30/30 PASS** (verified 2026-05-14 12:26 ICT). Same baseline as Phase 01 ship.
 
 ## Goal
 Convert 3 hardcoded homepage sections (home-hero, home-manifesto, home-newsletter) to block-driven schemas. Add `@theme` accept to the 4 already-blocked home-* sections so merchant can intersperse theme blocks. Auto-migrate existing settings to default block presets so live preview keeps current content.
