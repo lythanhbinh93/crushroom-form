@@ -31,6 +31,15 @@ node phase-02.mjs
 Exit 0 = all P0 assertions passed (phase can proceed).
 Exit 1 = one or more P0 failures (phase is halted — do not merge).
 
+### Known infrastructure noise (run again if hit)
+
+The preview URL goes through Cloudflare → Shopify. Two intermittent CF behaviors can flake the QA:
+
+1. **CF cache hit omits Server-Timing header.** The `server-timing-theme-id` check is **P1 informational** (downgraded 2026-05-14); the real "correct theme served" signal is the `theme-served` selector check (P0).
+2. **CF rate limit / 503.** Running QA repeatedly within seconds can trip CF and return HTTP 503. Wait 20-30s between runs to let CF reset. If 503 is persistent, theme push may have failed — verify via `shopify theme list`.
+
+LCP measurements also vary 20-50% across runs depending on CF cache state. **Single-shot LCP is not authoritative.** Run 2-3x for a reliable read. Cold cache after `shopify theme push` is typically the worst case (saw 6432ms once vs steady-state 1.4-1.6s).
+
 ## Severity Tiers
 
 | Tier | Condition | Action |

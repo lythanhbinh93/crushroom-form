@@ -140,7 +140,9 @@ async function runViewport(viewport) {
       viewport: viewport.id,
     });
 
-    // ── P0: Server-Timing contains theme descriptor ───────────────────────────
+    // ── P1: Server-Timing contains theme descriptor (informational) ───────────
+    // Downgraded from P0 because Cloudflare cache hits omit Shopify's Server-Timing
+    // header. Real "correct theme served" signal is `theme-served` selector check below.
     try {
       const apiResp = await page.request.get(previewUrl("/"), { timeout: 15000 });
       const serverTiming = apiResp.headers()["server-timing"] ?? "";
@@ -153,8 +155,8 @@ async function runViewport(viewport) {
           ? `exact match: theme;desc="158279991548"`
           : looseMatch
           ? `loose match — Server-Timing: ${serverTiming.slice(0, 120)}`
-          : `MISSING — Server-Timing: ${serverTiming.slice(0, 120) || "(empty)"}`,
-        severity: "P0",
+          : `MISSING (likely CF cache hit) — Server-Timing: ${serverTiming.slice(0, 120) || "(empty)"}`,
+        severity: "P1",
         viewport: viewport.id,
       });
     } catch (e) {
@@ -162,7 +164,7 @@ async function runViewport(viewport) {
         step: "server-timing-theme-id",
         ok: false,
         detail: `request failed: ${e.message}`,
-        severity: "P0",
+        severity: "P1",
         viewport: viewport.id,
       });
     }
