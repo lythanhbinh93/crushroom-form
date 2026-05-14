@@ -9,8 +9,8 @@ branch: feat/bug-fix-sprint
 blockedBy: []
 blocks: []
 related:
-  - parent-plan: plans/260513-2248-pod-tee-block-driven-theme-rebuild (cancelled; Phase 07 extracted here)
-  - qa-pipeline: plans/260513-2248-pod-tee-block-driven-theme-rebuild/qa/ (reusable)
+  - predecessor: plans/260513-2248-pod-tee-block-driven-theme-rebuild (cancelled 2026-05-14; theme repo reverted to pre-Phase-01; phase-07 work extracted here)
+  - qa-pipeline: plans/260514-1230-pod-tee-publish-and-js-fixes/qa/ (relocated from cancelled predecessor)
 tags: [shopify, theme, pod-tee, dopamiles, publish, bug-fix]
 created: 2026-05-14
 ---
@@ -56,10 +56,13 @@ The block-driven rebuild plan (260513-2248) was cancelled 2026-05-14 after Phase
 - Optional: 5-min real-iPhone spot-check on live before retiring BuildMyPOD (user discretion)
 
 ## QA pipeline
-Reuses parent plan's `plans/260513-2248-pod-tee-block-driven-theme-rebuild/qa/` infrastructure:
+Reuses the now-relocated `qa/` infrastructure (moved here from the cancelled predecessor):
 - `qa/phase-01.mjs` — homepage baseline (still authoritative for "current preview = correct theme")
+- `qa/phase-02.mjs` — stale artifact from cancelled plan; can be deleted or repurposed
 - `qa/lib/*` — Playwright + WebKit, dual-engine baselines, severity tiers
-- No new QA scripts needed; existing assertions cover the fix gate
+- Run: `cd plans/260514-1230-pod-tee-publish-and-js-fixes/qa && node phase-01.mjs`
+- Expected post-revert baseline: 30/30 PASS (theme back to pre-Phase-01 state; pageerrors = 1 baseline)
+- After JS bug fix: gate on **zero pageerrors** (baseline 1 → 0)
 
 ## Out of scope
 - Block-driven theme rebuild (cancelled)
