@@ -1,6 +1,6 @@
 # Phase 02 — Accordion hide toggle
 
-**Status:** pending
+**Status:** shipped (preview 158279991548)
 **Owner:** code
 **Effort:** ~15 min
 **Depends on:** none (independent of Phase 01)
@@ -109,11 +109,11 @@ Pick whichever matches the file's existing style.
    - Other tabs unaffected throughout
 
 ## Todo
-- [ ] Read accordion schema + render loop context
-- [ ] Add `hidden` checkbox to block schema
-- [ ] Add `hidden != true` guard to render-loop conditional
-- [ ] shopify theme check passes (baseline preserved)
-- [ ] Push theme to preview
+- [x] Read accordion schema + render loop context
+- [x] Add `hidden` checkbox to block schema
+- [x] Add `hidden != true` guard to render-loop conditional
+- [x] shopify theme check passes (baseline 11/38 preserved)
+- [x] Push theme to preview 158279991548
 - [ ] Theme Editor verify: hidden=true omits tab from DOM
 - [ ] Theme Editor verify: hidden=false restores tab
 - [ ] DevTools verify: hidden block not present in DOM (not just visually hidden)

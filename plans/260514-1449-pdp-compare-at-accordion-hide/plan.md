@@ -1,7 +1,7 @@
 ---
 title: "PDP Enhancements — Compare-at Sticky ATC + Accordion Hide Toggle"
 description: "Two small PDP wins surfaced in 2026-05-14 brainstorm: render compare-at price on the mobile sticky ATC bar with JS variant sync, and add a per-block `hidden` checkbox to accordion blocks so merchants can hide individual detail tabs without deleting them."
-status: pending
+status: shipped
 priority: P2
 effort: ~45 min total
 repo: D:\github local\pod-tee-theme
@@ -33,8 +33,8 @@ Two surgical PDP improvements. Both extend existing sections, no new files.
 
 | # | Phase | Effort | Gate |
 |---|---|---|---|
-| 01 | [Compare-at sticky ATC](phase-01-compare-at-sticky-atc.md) | ~30 min | Compare-at renders + updates on variant change · theme check baseline |
-| 02 | [Accordion hide toggle](phase-02-accordion-hide-toggle.md) | ~15 min | Hidden block omitted from render · theme check baseline |
+| 01 | [Compare-at sticky ATC](phase-01-compare-at-sticky-atc.md) | ~30 min | ✅ Shipped to preview 158279991548 — awaiting manual spot-check |
+| 02 | [Accordion hide toggle](phase-02-accordion-hide-toggle.md) | ~15 min | ✅ Shipped to preview 158279991548 — awaiting manual spot-check |
 
 ## Definition of done
 - `dopamiles-mobile-sticky-atc.liquid` shows compare-at price when `variant.compare_at_price > variant.price`

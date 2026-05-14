@@ -1,6 +1,6 @@
 # Phase 01 — Compare-at price on sticky ATC
 
-**Status:** pending
+**Status:** shipped (preview 158279991548)
 **Owner:** code
 **Effort:** ~30 min
 **Depends on:** none
@@ -113,12 +113,12 @@ if (compareEl) {
 9. Manual verify on a product with compare-at set + multiple variants
 
 ## Todo
-- [ ] Read insertion-point context (Liquid + JS + CSS)
-- [ ] Add Liquid markup with data attribute + hidden guard
-- [ ] Add CSS rules (strike-through, color, hide-on-narrow)
-- [ ] Extend syncVariant() JS to update compare-at element
-- [ ] shopify theme check passes (baseline preserved)
-- [ ] Push theme to preview
+- [x] Read insertion-point context (Liquid + JS + CSS)
+- [x] Add Liquid markup with data attribute + hidden guard
+- [x] Add CSS rules (strike-through, color, hide-on-narrow)
+- [x] Extend syncVariant() JS to update compare-at element
+- [x] shopify theme check passes (baseline 11/38 preserved)
+- [x] Push theme to preview 158279991548
 - [ ] Manual verify: compare-at shows on on-sale variant
 - [ ] Manual verify: hides on non-sale variant
 - [ ] Manual verify: no layout shift on variant change
