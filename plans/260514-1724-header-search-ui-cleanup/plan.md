@@ -1,7 +1,7 @@
 ---
 title: "Header Search UI Cleanup"
 description: "Surgical CSS pass to fix three visual defects on the dopamiles-header expandable search form: native blue × cancel, browser-default submit button, and redundant outer toggle while form is open."
-status: pending
+status: shipped
 priority: P3
 effort: ~30 min total
 repo: D:\github local\pod-tee-theme

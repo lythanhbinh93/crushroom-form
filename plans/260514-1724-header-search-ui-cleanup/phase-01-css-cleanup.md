@@ -1,6 +1,6 @@
 # Phase 01 — Header search CSS cleanup
 
-**Status:** pending
+**Status:** code-shipped (awaiting manual visual verification)
 **Owner:** code
 **Effort:** ~30 min
 **Depends on:** none
@@ -96,16 +96,50 @@ Three CSS rule groups added to `dopamiles-header.css` to fix the user-reported "
    - Enter → submits
 
 ## Todo
-- [ ] Read CSS append point
-- [ ] Add WebKit cancel-button suppression rules
-- [ ] Add flat-icon submit button rules
-- [ ] Add aria-expanded toggle-hide rule
-- [ ] shopify theme check baseline preserved
-- [ ] Push to preview 158279991548
-- [ ] Manual verify: outer toggle hides on expand
-- [ ] Manual verify: no native × on input
-- [ ] Manual verify: submit reads as flat icon, hover darkens
-- [ ] Manual verify: Esc and Enter still work
+- [x] Read CSS append point
+- [x] Add WebKit cancel-button suppression rules
+- [x] ~~Add flat-icon submit button rules~~ → revised: hide inner submit
+- [x] ~~Add aria-expanded toggle-hide rule~~ → reverted (broke close UX)
+- [x] Fix JS outside-click race (e.target vs searchToggle equality)
+- [x] shopify theme check baseline preserved (11/38)
+- [x] Push assets/dopamiles-header.css + dopamiles-header.js to 158279991548
+- [x] Manual verify: outer toggle stays visible, clicking again closes form (superseded by overlay design)
+- [x] Manual verify: no native × on input
+- [x] Manual verify: only one magnifier visible when form open (overlay design — magnifier inside pill)
+- [x] Manual verify: Esc and Enter still work (verified via debugger agent)
+
+## Revision note (260514-1804)
+Original plan hid the outer toggle on `aria-expanded="true"` to eliminate
+two-magnifier redundancy. User testing surfaced the trade-off: no visible
+close affordance. Revised approach inverts the choice — inner submit button
+is hidden, outer toggle remains the single magnifier and doubles as the
+close button (existing JS already toggles open/close on re-click). Enter
+key submits the form natively, so functionality is preserved.
+
+## Revision note (260514-1855)
+User feedback: the always-visible pill + adjacent toggle still read as busy.
+Pivoted to a Dawn-style full-width slide-down overlay modeled on
+slothhikingclub.com.
+
+Changes (markup + CSS + JS):
+- Removed the inline `.dop-search-wrapper` pill from `.dop-nav-right`
+- Added `#dop-search-overlay` element inside `<header>` — absolute-positioned
+  over the header bar, opacity-fade transition, `.is-open` class toggled by JS
+- Inside overlay: form with submit magnifier on left + centered input
+  (max 720px) + dedicated `#dop-search-overlay-close` × button at far right
+- Toggle (`#dop-search-toggle`) gets `visibility: hidden` when
+  `aria-expanded="true"` so it doesn't bleed through the overlay
+- JS: `openSearch`/`closeSearch` toggle `.is-open` class; outside-click and
+  Esc close paths preserved; dedicated close-button handler added
+
+Verified on preview 158279991548 — 7/7 checks pass (initial, open, type,
+× close, Enter submit, Esc, toggle-twice). Theme check baseline 11/38
+preserved.
+
+Files touched in pod-tee-theme:
+- `sections/dopamiles-header.liquid`
+- `assets/dopamiles-header.css`
+- `assets/dopamiles-header.js`
 
 ## Success criteria
 All three defects resolved. Theme check baseline preserved. No JS or markup changes. Form submission paths (click + Enter) both functional.
