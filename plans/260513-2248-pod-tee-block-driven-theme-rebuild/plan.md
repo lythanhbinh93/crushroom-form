@@ -1,8 +1,10 @@
 ---
 title: "pod-tee Block-Driven Theme Rebuild — Customization + Publish"
 description: "Retrofit 24 hardcoded dopamiles-* sections into block-driven schema with Tier 2 customization (size/spacing/alignment/token-color), via 10 reusable theme blocks. Phased by template. Publish to dopamiles.co at end."
-status: in-progress
-progress: "Phase 01 SHIPPED 2026-05-14. Phase 02 BUILT + REVERTED same day (theme commits 8d5d58d + 91d9acd) — block aesthetics didn't match brand identity; user opted to preserve settings-driven sections. 10 dop-* theme blocks remain available for future block-first sections. Plan re-scoping required for Phases 03-07."
+status: cancelled
+outcome: "Phase 01 shipped (10 dop-* theme blocks available for future block-first sections). Phase 02 built + reverted same day (block aesthetics didn't match section-specific brand identity). Phases 03-06 cancelled — same brand-aesthetic concern applies to all remaining visually-rich sections. Phase 07 work (2 JS bug fixes + publish swap) extracted to a new minimal plan."
+cancelled: 2026-05-14
+progress: "Phase 01 SHIPPED. Phase 02 reverted. Phases 03-06 cancelled. Phase 07 extracted."
 priority: P1
 effort: 20-33h (across 7 phases)
 repo: D:\github local\pod-tee-theme
@@ -35,11 +37,11 @@ Convert hardcoded dopamiles-* sections to block-driven schemas so merchant can c
 |---|---|---|---|
 | 01 | [Theme-block foundation library + QA pipeline foundation](phase-01-theme-block-foundation-library.md) ✅ | 6-10h (actual ~3.5h) | **PASS** — 30/30 |
 | 02 | [Homepage template (home-hero, manifesto, newsletter + accept @theme on already-blocked)](phase-02-homepage-template.md) ⛔ | 4-6h | **REVERTED** — brand-aesthetic mismatch |
-| 03 | [PDP template (product-hero, reasons, trust-trio, bundle, 3pack-picker)](phase-03-pdp-template.md) | 3-5h | Automated QA (mobile critical) |
-| 04 | [Collection + cart templates](phase-04-collection-cart-templates.md) | 2-4h | Automated QA (mobile critical) |
-| 05 | [Misc pages (contact, page, search, blog)](phase-05-misc-pages.md) | 3-5h | Automated QA (mobile + desktop) |
-| 06 | [System pages — DEFERRABLE (404, password, gift-card, customer-*)](phase-06-system-pages-deferrable.md) | 2-3h | Automated smoke (mobile) |
-| 07 | [Publish prep + ship (fix 2 JS bugs + theme swap)](phase-07-publish-prep-and-ship.md) | 2-4h | Automated full-regression + 5-min user spot-check + LIVE |
+| 03 | ~~PDP template~~ | — | **CANCELLED** — brand-aesthetic concern |
+| 04 | ~~Collection + cart templates~~ | — | **CANCELLED** — same |
+| 05 | ~~Misc pages~~ | — | **CANCELLED** — same |
+| 06 | ~~System pages~~ | — | **CANCELLED** — DEFERRABLE marked, never started |
+| 07 | ~~Publish prep + ship~~ | — | **EXTRACTED** to a new minimal plan (JS bug fixes + theme swap) |
 
 **Total effort:** 22-37h (up from 20-33h after absorbing QA pipeline foundation into Phase 01).
 
