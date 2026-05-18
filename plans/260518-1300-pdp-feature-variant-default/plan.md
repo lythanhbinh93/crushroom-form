@@ -36,7 +36,9 @@ created: 2026-05-18T00:00:00.000Z
 
 ## Goal
 
-On every PDP, the Globo color swatch highlighted on initial load must match `product.selected_or_first_available_variant` (the server-resolved feature variant). Drag-and-drop variant reorder in Shopify admin becomes the merchant's single source of truth for the default color on PDP.
+On every PDP, the Globo color swatch highlighted on initial load must match the merchant-chosen feature variant. Merchant uses **media drag-and-drop in admin** (Products → Media section) as the source of truth — the variant whose `featured_media` is `product.media[0]` is the default.
+
+> **2026-05-18 update:** Original brainstorm assumed variant-order was the source of truth (drag-and-drop in Variants section). Live testing on `this-is-a-5k-right-t-shirt` revealed the merchant actually reorders MEDIA, not variants. Resolution logic in `dopamiles-product-hero.liquid` was updated (commit `72c3d7e`) to use media-order; JS alignment in `dopamiles-pdp-variant-sync.js` (commit `46755bf`) is unchanged — it follows whatever Liquid resolves.
 
 ## Root cause (from brainstorm)
 
