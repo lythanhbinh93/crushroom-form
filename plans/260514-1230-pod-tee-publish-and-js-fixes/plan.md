@@ -11,6 +11,7 @@ blocks: []
 related:
   - predecessor: plans/260513-2248-pod-tee-block-driven-theme-rebuild (cancelled 2026-05-14; theme repo reverted to pre-Phase-01; phase-07 work extracted here)
   - qa-pipeline: plans/260514-1230-pod-tee-publish-and-js-fixes/qa/ (relocated from cancelled predecessor)
+  - prereq-fix-shipped: plans/260518-1300-pdp-feature-variant-default (PDP wrong-color bug fixed 2026-05-18 — Globo swatch alignment; Playwright GREEN, iPhone real-device deferred to Gate 3)
 tags: [shopify, theme, pod-tee, dopamiles, publish, bug-fix]
 created: 2026-05-14
 ---

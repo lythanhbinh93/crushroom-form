@@ -8,7 +8,7 @@ repo: D:\github local\pod-tee-theme
 branch: feat/bug-fix-sprint (continue from round 1)
 blockedBy: []
 blocks: [260508-2145-pod-tee-theme-bug-fix-sprint]
-progress: "Phases 00-04 SHIPPED. Phase 05 Gates 0-2 PASSED. Phase 06 CODE-COMPLETE + DEPLOYED (2026-05-09 ~17:30 ICT, preview theme 158279991548). Gating now solely on user iPhone screen-recording verification (build-tag + error overlay + optimistic UI + CLS confirmation)."
+progress: "Phases 00-04 SHIPPED. Phase 05 Gates 0-2 PASSED. Phase 06 halted 2026-05-09 on Globo + optimistic-UI failures. Status refresh 2026-05-15: optimistic-UI code (dop-li-optimistic / optimisticLineUpdate / injectOptimisticAtcLine) was removed during post-halt iteration; Globo .globo-swatch-product-detail now renders visible (350x149px) on preview theme 158279991548 inside .dop-vs-slot (qa/debug-globo-state.mjs). [data-dawn-vs] wrapper kept but switched to display:none (no cascading visibility bug). Both halt failures effectively resolved. Round-5 micro-fix shipped 2026-05-18: PDP feature-variant default Globo swatch alignment (plans/260518-1300-pdp-feature-variant-default) — Playwright 2/2 + click-path test GREEN; iPhone manual deferred to Gate 3. Phase 05 ready to resume pending fresh real-iPhone QA recording."
 related:
   - parent-round-1: plans/260508-2145-pod-tee-theme-bug-fix-sprint
   - bug-source: plans/reports/web-testing-260508-1904-pod-tee-theme-mobile.md
