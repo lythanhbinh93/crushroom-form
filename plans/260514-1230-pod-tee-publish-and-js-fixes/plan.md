@@ -8,9 +8,11 @@ priority: P1
 effort: 2-4h
 repo: D:\github local\pod-tee-theme
 branch: feat/bug-fix-sprint
-blockedBy: []
-unblockedAt: 2026-05-19T04:35Z
-unblockedReason: "260518-1833-pdp-lighthouse-perf-pareto Phase 04 iPhone gate green; 5-run preview-side median 90/89/89, real-device perception clean across all 3 PDPs (6-step flow x lead/mid/edge)"
+blockedBy: [260519-1410-pod-tee-ux-revisions-pre-publish]
+reblockedAt: 2026-05-19T14:15Z
+reblockedReason: "user paused Phase 02 publish swap to iterate on UX/UI feedback before going live. 10 items / 5 patterns / 5 phases — see plans/260519-1410-pod-tee-ux-revisions-pre-publish. Publish unblocks after that plan ships to preview and visual smoke passes."
+priorUnblockedAt: 2026-05-19T04:35Z
+priorUnblockedReason: "260518-1833-pdp-lighthouse-perf-pareto Phase 04 iPhone gate green; 5-run preview-side median 90/89/89, real-device perception clean"
 blocks: []
 related:
   - predecessor: plans/260513-2248-pod-tee-block-driven-theme-rebuild (cancelled 2026-05-14; theme repo reverted to pre-Phase-01; phase-07 work extracted here)
