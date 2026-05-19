@@ -1,13 +1,18 @@
 ---
 title: "pod-tee UX Revisions Pre-Publish — 10 items / 5 patterns / 5 phases"
 description: "UX/UI revisions on preview theme 158279991548 before publish swap. 10 feedback items → 5 root patterns → 5 phases ordered low→high cascade risk. Halt rule after each phase."
-status: pending
+status: completed
+phasesCompleted: 5
+completedAt: 2026-05-19T15:00Z
+actualEffortMin: 150
 priority: P1
 effort: 3-4.5h
 repo: D:\github local\pod-tee-theme
 branch: feat/pdp-perf-pareto
 blockedBy: []
-blocks: [260514-1230-pod-tee-publish-and-js-fixes]
+blocks: []
+priorBlocked: [260514-1230-pod-tee-publish-and-js-fixes]
+priorBlockClearedAt: 2026-05-19T15:00Z
 related:
   - brainstorm: plans/reports/brainstormer-260519-1410-pod-tee-ux-revisions-pre-publish.md
   - downstream: plans/260514-1230-pod-tee-publish-and-js-fixes (publish swap Phase 02 paused awaiting these revisions)
@@ -39,11 +44,11 @@ All 10 feedback items reflected on preview theme 158279991548. 4 new section set
 
 | # | Name | Effort | Risk | Status |
 |---|---|---|:-:|---|
-| 1 | [Pure removals via CSS-only](./phase-01-pure-removals-css-only.md) | 10 min | near-zero | Pending |
-| 2 | [Lede max-width fix](./phase-02-lede-max-width.md) | 10 min | low | Pending |
-| 3 | [ATC redesign](./phase-03-atc-redesign.md) | 30-45 min | low-medium | Pending |
-| 4 | [Toggle pattern × 5 touchpoints](./phase-04-toggle-pattern.md) | 1-2h | medium | Pending |
-| 5 | [Toolbar Dawn migration](./phase-05-toolbar-dawn-migration.md) | 1h | medium-high | Pending |
+| 1 | [Pure removals via CSS-only](./phase-01-pure-removals-css-only.md) | 10 min | near-zero | **Completed 2026-05-19** — theme commit `87c5158` |
+| 2 | [Lede max-width fix](./phase-02-lede-max-width.md) | 10 min | low | **Completed 2026-05-19** — theme commit `80cdbaf` |
+| 3 | [ATC redesign](./phase-03-atc-redesign.md) | 30-45 min | low-medium | **Completed 2026-05-19** — theme commit `04029bd` |
+| 4 | [Toggle pattern × 5 touchpoints](./phase-04-toggle-pattern.md) | 1-2h | medium | **Completed 2026-05-19** — theme commit `e570ca5` |
+| 5 | [Toolbar Dawn migration](./phase-05-toolbar-dawn-migration.md) | 1h | medium-high | **Completed 2026-05-19** — theme commit `944abe4`. Staging-theme dry-run skipped per user (visual smoke gate sufficed). |
 
 ## Halt rule per phase
 
