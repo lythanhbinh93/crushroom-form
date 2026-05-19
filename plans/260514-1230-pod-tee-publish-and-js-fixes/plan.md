@@ -7,11 +7,14 @@ effort: 2-4h
 repo: D:\github local\pod-tee-theme
 branch: feat/bug-fix-sprint
 blockedBy: []
+unblockedAt: 2026-05-19T04:35Z
+unblockedReason: "260518-1833-pdp-lighthouse-perf-pareto Phase 04 iPhone gate green; 5-run preview-side median 90/89/89, real-device perception clean across all 3 PDPs (6-step flow x lead/mid/edge)"
 blocks: []
 related:
   - predecessor: plans/260513-2248-pod-tee-block-driven-theme-rebuild (cancelled 2026-05-14; theme repo reverted to pre-Phase-01; phase-07 work extracted here)
   - qa-pipeline: plans/260514-1230-pod-tee-publish-and-js-fixes/qa/ (relocated from cancelled predecessor)
   - prereq-fix-shipped: plans/260518-1300-pdp-feature-variant-default (PDP wrong-color bug fixed 2026-05-18 — Globo swatch alignment; Playwright GREEN, iPhone real-device deferred to Gate 3)
+  - blocker: plans/260518-1833-pdp-lighthouse-perf-pareto (Phase 02 publish swap waits on median-of-3 Lighthouse >=90 + iPhone gate)
 tags: [shopify, theme, pod-tee, dopamiles, publish, bug-fix]
 created: 2026-05-14
 ---

@@ -1,15 +1,23 @@
 ---
 phase: 4
-title: "iPhone Recording Gate — fill in observed results"
-status: in-progress
-template: true
+title: "iPhone Recording Gate — GREEN"
+status: completed
+completedAt: 2026-05-19T04:35Z
 preview_theme_id: 158279991548
-test_device: TBD (user fills)
-ios_version: TBD (user fills)
-safari_clear_history_before_each: required
+verdict: ALL_PASS
+user_verdict: "ok look great on Iphone"
+downstream_unblocked: 260514-1230-pod-tee-publish-and-js-fixes
 ---
 
-# Phase 4 — iPhone Recording Gate
+# Phase 4 — iPhone Recording Gate (GREEN)
+
+**Verdict 2026-05-19 — user real-device check:** "ok look great on Iphone".
+All 3 PDPs perceived clean on real iPhone for the 6-step flow. No regression
+vs pre-publish baseline (BuildMyPOD-on-prod). Synthetic 5-run medians on
+preview = 90 / 89 / 89; real-device perception = pass. Downstream publish
+plan (`260514-1230-pod-tee-publish-and-js-fixes`) cleared of this blocker.
+
+## Original recording template
 
 **Pre-recording state on preview theme 158279991548:**
 - Lighthouse 5-run medians (post-L1 preload + post-quality=75 image bytes):

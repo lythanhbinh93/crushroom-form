@@ -1,10 +1,14 @@
 ---
 phase: 4
 title: "iPhone Recording and Publish Gate"
-status: pending
+status: completed
+completedAt: 2026-05-19T04:35Z
 priority: P1
 effort: "1h"
 dependencies: [2]
+verdict: GATE_GREEN (user real-device verdict 2026-05-19)
+output: reports/gate-iphone-recording.md
+downstream_unblocked: 260514-1230-pod-tee-publish-and-js-fixes
 ---
 
 # Phase 4: iPhone Recording and Publish Gate

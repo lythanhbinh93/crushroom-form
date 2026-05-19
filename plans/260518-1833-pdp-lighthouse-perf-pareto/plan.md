@@ -1,9 +1,9 @@
 ---
 title: "PDP Lighthouse Performance — Pareto Waterfall to >=90 Mobile"
 description: "Diagnose-then-fix PDP mobile perf via median-of-3 Lighthouse runs. Halt at >=90. Blocks pod-tee publish swap."
-status: in-progress
-phasesCompleted: 3
-phasesActive: [4]
+status: completed
+phasesCompleted: 4
+completedAt: 2026-05-19T04:35Z
 priority: P1
 effort: 6-12h
 repo: D:\github local\pod-tee-theme
@@ -46,7 +46,7 @@ Mobile Lighthouse perf category **>= 90 on EVERY PDP individually** (strict — 
 | 1 | [Baseline and Diagnosis](./phase-01-baseline-and-diagnosis.md) | 2-3h | **Completed 2026-05-18** — median 85/71/71, P2 needed, lever L1 |
 | 2 | [Fix Top Bottleneck](./phase-02-fix-top-bottleneck.md) | 1-4h | **Completed 2026-05-19** — L1 (preload+srcset, commit 2976586). Δ +5/+15/+18 → median 90/86/89. Lead passes, mid+edge under gate. P3 needed. |
 | 3 | [Fix Second Bottleneck (Conditional)](./phase-03-fix-second-bottleneck-conditional.md) | 1-4h | **Completed 2026-05-19** — L6 attempted+reverted (no perf gain, real visual regress); image-quality=75 kept (b7003ce). 5-run median 90/89/89. Mid+edge 1pt shy. |
-| 4 | [iPhone Recording and Publish Gate](./phase-04-iphone-recording-and-publish-gate.md) | 1h | **Active** — proceeding despite preview-side mid+edge=89, because 262 KB preview-bar removes on live (plausible +3-5 pt lift). Awaiting user iPhone recording. |
+| 4 | [iPhone Recording and Publish Gate](./phase-04-iphone-recording-and-publish-gate.md) | 1h | **Completed 2026-05-19** — user real-device verdict: looks great on iPhone. Gate GREEN. Publish plan unblocked. |
 
 ## Dependencies
 
