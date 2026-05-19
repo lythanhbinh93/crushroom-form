@@ -1,0 +1,15 @@
+{
+  "name": "pdp-lighthouse-perf-pareto-qa",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Lighthouse mobile baseline harness for PDP perf Pareto plan",
+  "scripts": {
+    "baseline": "node lighthouse-baseline.mjs",
+    "pick-edge": "node pick-edge-pdp.mjs"
+  },
+  "dependencies": {
+    "lighthouse": "12.2.1",
+    "chrome-launcher": "1.1.2"
+  }
+}

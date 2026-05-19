@@ -1,0 +1,35 @@
+{
+  "capturedAt": "2026-05-18T12:25Z",
+  "purpose": "Snapshot for post-P2/P3 diff. Globo alignment + media-order variant resolution + zero section-refetch must remain identical after every perf fix.",
+  "source": "plans/260514-1230-pod-tee-publish-and-js-fixes/qa/perf-probe-feature-variant.mjs",
+  "previewThemeId": "158279991548",
+  "results": [
+    {
+      "handle": "a-new-chapter-begins",
+      "preferred": "Black",
+      "checkedValue": "Black",
+      "preferredMatchesChecked": true,
+      "globoAligned": "1",
+      "sectionRefetches": 0
+    },
+    {
+      "handle": "this-is-a-5k-right-t-shirt",
+      "preferred": "Heather Berry",
+      "checkedValue": "Heather Berry",
+      "preferredMatchesChecked": true,
+      "globoAligned": "1",
+      "sectionRefetches": 0
+    },
+    {
+      "handle": "5k-route-t-shirt",
+      "preferred": "Navy",
+      "checkedValue": "Navy",
+      "preferredMatchesChecked": true,
+      "globoAligned": "1",
+      "sectionRefetches": 0
+    }
+  ],
+  "passCount": 3,
+  "totalCount": 3,
+  "verdict": "GREEN"
+}
