@@ -1,7 +1,9 @@
 ---
 title: "pod-tee Publish Prep + 2 JS Bug Fixes"
 description: "Fix 2 known JS bugs (amount-not-defined, cart-main script-order) then swap dopamiles.co live theme from BuildMyPOD to pod-tee. Extracted from the cancelled block-driven rebuild's Phase 07."
-status: pending
+status: phase-01-done-phase-02-deferred
+phase01: complete (2026-05-19 — auto-cleared, QA 30/30 PASS, 0 pageerrors; no code change needed; bugs resolved indirectly by bug-fix-sprint round 2 + recent perf rounds)
+phase02: awaiting-user-publish (user picked: publish via admin manually, defer timing)
 priority: P1
 effort: 2-4h
 repo: D:\github local\pod-tee-theme
@@ -48,8 +50,8 @@ The block-driven rebuild plan (260513-2248) was cancelled 2026-05-14 after Phase
 
 | # | Phase | Effort | Gate |
 |---|---|---|---|
-| 01 | [Bug A + Bug B fixes](phase-01-js-bug-fixes.md) | 1-2h | Automated QA: zero pageerrors (baseline goes from 1 → 0) |
-| 02 | [Publish swap: pod-tee → live](phase-02-publish-swap.md) | 1-2h | Live theme = pod-tee; BuildMyPOD archived; rollback runbook drafted |
+| 01 | Bug A + Bug B fixes | 1-2h | **Complete 2026-05-19** — auto-cleared. QA 30/30 PASS, 0 pageerrors. No code change; bugs resolved indirectly. See `reports/phase-01-close-and-rollback-runbook.md`. |
+| 02 | Publish swap: pod-tee → live | 1-2h | **Awaiting user.** Method: admin UI (user-chosen). Timing: deferred. Rollback runbook drafted. |
 
 ## Definition of done (publish gate)
 - `node qa/phase-01.mjs` (from parent plan's qa pipeline) returns zero pageerrors across all 4 viewports
