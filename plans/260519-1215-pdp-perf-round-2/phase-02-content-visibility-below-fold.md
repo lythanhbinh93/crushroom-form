@@ -1,10 +1,16 @@
 ---
 phase: 2
 title: "Content-Visibility on Below-Fold Sections"
-status: pending
+status: completed
+completedAt: 2026-05-19T05:50Z
 priority: P1
 effort: "30-40min"
+actualEffortMin: 25
 dependencies: [1]
+themeCommit: e4ea6d2 (pod-tee-theme feat/pdp-perf-pareto)
+output: reports/p2-after-report.md
+probeOutput: reports/section-heights-probe.json
+verdict: HALT_GATE_CLEARED (5-run median 91/91/92 — Phase 3 auto-cancelled)
 ---
 
 # Phase 2: Content-Visibility on Below-Fold Sections

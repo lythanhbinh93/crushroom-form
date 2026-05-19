@@ -1,9 +1,13 @@
 ---
 title: "PDP Perf Round 2 — Pareto Stack (preconnect + content-visibility + CSS bundle)"
 description: "Round-2 polish on PDP Lighthouse perf. 3-step rollout low→high risk: kill unused preconnect, content-visibility on 6 below-fold sections, bundle 7 site-wide CSS files. Halt rule after each step."
-status: pending
+status: completed
+phasesCompleted: 2
+phasesCancelled: 1
+completedAt: 2026-05-19T05:50Z
 priority: P2
 effort: 1-3h
+actualEffortMin: 29
 repo: D:\github local\pod-tee-theme
 branch: feat/pdp-perf-pareto
 blockedBy: []
@@ -39,9 +43,9 @@ Rollout ordered low→high risk. Halt rule after each step: if every-PDP 5-run m
 
 | Phase | Name | Effort | Status |
 |-------|------|--------|--------|
-| 1 | [Kill Unused Preconnect](./phase-01-kill-unused-preconnect.md) | 5 min | Pending |
-| 2 | [Content-Visibility on Below-Fold](./phase-02-content-visibility-below-fold.md) | 30-40 min | Pending |
-| 3 | [Bundle Site-wide CSS with Staging Dry-Run](./phase-03-bundle-site-wide-css.md) | 40-90 min | Pending |
+| 1 | [Kill Unused Preconnect](./phase-01-kill-unused-preconnect.md) | 5 min | **Completed 2026-05-19** — theme commit `e9a2bac`. 3-line cut. |
+| 2 | [Content-Visibility on Below-Fold](./phase-02-content-visibility-below-fold.md) | 30-40 min | **Completed 2026-05-19** — theme commit `e4ea6d2`. 5-run median 91/91/92. **Halt gate cleared.** |
+| 3 | [Bundle Site-wide CSS with Staging Dry-Run](./phase-03-bundle-site-wide-css.md) | 40-90 min | **Cancelled 2026-05-19** — halt rule triggered after P2; medium-risk insurance step not needed. |
 
 ## Dependencies
 

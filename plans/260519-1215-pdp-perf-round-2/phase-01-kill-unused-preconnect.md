@@ -1,10 +1,14 @@
 ---
 phase: 1
 title: "Kill Unused Preconnect"
-status: pending
+status: completed
+completedAt: 2026-05-19T05:30Z
 priority: P1
 effort: "5min"
+actualEffortMin: 4
 dependencies: []
+themeCommit: e9a2bac (pod-tee-theme feat/pdp-perf-pareto)
+output: theme.liquid 3-line cut; verified via curl
 ---
 
 # Phase 1: Kill Unused Preconnect

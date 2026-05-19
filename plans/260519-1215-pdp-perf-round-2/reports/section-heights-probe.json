@@ -1,0 +1,77 @@
+{
+  "probedAt": "2026-05-19T05:44:48.665Z",
+  "preview_theme_id": "158279991548",
+  "results": {
+    "a-new-chapter-begins": {
+      "slot": "lead",
+      "heights": {
+        "dopamiles-fbt": 682,
+        "dopamiles-niche-favorites": 403,
+        "dopamiles-reasons": 1300,
+        "dopamiles-more-from-niche": 305,
+        "dopamiles-reviews-placeholder": 1405,
+        "dopamiles-faqs": 823
+      }
+    },
+    "this-is-a-5k-right-t-shirt": {
+      "slot": "mid",
+      "heights": {
+        "dopamiles-fbt": 682,
+        "dopamiles-niche-favorites": 403,
+        "dopamiles-reasons": 1300,
+        "dopamiles-more-from-niche": 305,
+        "dopamiles-reviews-placeholder": 1405,
+        "dopamiles-faqs": 823
+      }
+    },
+    "running-its-how-i-scope": {
+      "slot": "edge",
+      "heights": {
+        "dopamiles-fbt": 682,
+        "dopamiles-niche-favorites": 403,
+        "dopamiles-reasons": 1300,
+        "dopamiles-more-from-niche": 305,
+        "dopamiles-reviews-placeholder": 1405,
+        "dopamiles-faqs": 823
+      }
+    }
+  },
+  "summary": {
+    "dopamiles-fbt": {
+      "min": 682,
+      "max": 682,
+      "median": 682,
+      "recommended_intrinsic_px": 700
+    },
+    "dopamiles-niche-favorites": {
+      "min": 403,
+      "max": 403,
+      "median": 403,
+      "recommended_intrinsic_px": 500
+    },
+    "dopamiles-reasons": {
+      "min": 1300,
+      "max": 1300,
+      "median": 1300,
+      "recommended_intrinsic_px": 1300
+    },
+    "dopamiles-more-from-niche": {
+      "min": 305,
+      "max": 305,
+      "median": 305,
+      "recommended_intrinsic_px": 400
+    },
+    "dopamiles-reviews-placeholder": {
+      "min": 1405,
+      "max": 1405,
+      "median": 1405,
+      "recommended_intrinsic_px": 1500
+    },
+    "dopamiles-faqs": {
+      "min": 823,
+      "max": 823,
+      "median": 823,
+      "recommended_intrinsic_px": 900
+    }
+  }
+}

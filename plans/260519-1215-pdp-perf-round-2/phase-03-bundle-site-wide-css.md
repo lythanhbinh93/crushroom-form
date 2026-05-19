@@ -1,7 +1,9 @@
 ---
 phase: 3
 title: "Bundle Site-wide CSS with Staging Dry-Run"
-status: pending
+status: cancelled
+cancelledAt: 2026-05-19T05:50Z
+cancelReason: "Plan halt rule triggered after Phase 2 — every-PDP 5-run median ≥ 90 strict (91/91/92). Phase 3 was the medium-risk insurance step; not needed."
 priority: P2
 effort: "40-90min"
 dependencies: [2]
