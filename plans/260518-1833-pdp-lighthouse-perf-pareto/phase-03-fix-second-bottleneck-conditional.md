@@ -1,10 +1,21 @@
 ---
 phase: 3
 title: "Fix Second Bottleneck (Conditional)"
-status: pending
+status: completed
+completedAt: 2026-05-19T04:24Z
 priority: P2
 effort: "1-4h"
+actualEffortMin: 90
 dependencies: [2]
+leversAttempted: [L6-Inter-drop, image-quality=75]
+leversKept: [image-quality=75]
+leversReverted: [L6-Inter-drop]
+themeCommits:
+  - b7003ce (image quality=75 — kept)
+  - 8b6b377 (revert of L6)
+  - c928dd7 (L6 Inter drop — reverted, no perf gain)
+output: reports/p3-after-report.md
+verdict: PHASE_04_PUBLISH_SIDE_VALIDATE (5-run median 90/89/89 — mid+edge 1pt shy; preview-bar overhead likely covers gap on live)
 ---
 
 # Phase 3: Fix Second Bottleneck (Conditional)

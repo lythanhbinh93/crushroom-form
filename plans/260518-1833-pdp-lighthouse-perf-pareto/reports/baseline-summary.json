@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-05-19T03:51:47.921Z",
+  "generatedAt": "2026-05-19T04:24:02.941Z",
   "runner": "lighthouse-baseline.mjs",
   "lighthouseVersion": "12.2.1",
-  "runsPerPdp": 3,
+  "runsPerPdp": 5,
   "previewThemeId": "158279991548",
   "host": "https://dopamiles.co",
   "edgePick": {
@@ -22,100 +22,114 @@
         {
           "index": 1,
           "rawPath": "baseline-raw/a-new-chapter-begins-run-1.json",
-          "score": 65,
-          "elapsedMs": 13379
+          "score": 91,
+          "elapsedMs": 12546
         },
         {
           "index": 2,
           "rawPath": "baseline-raw/a-new-chapter-begins-run-2.json",
-          "score": 90,
-          "elapsedMs": 11396
+          "score": 89,
+          "elapsedMs": 11761
         },
         {
           "index": 3,
           "rawPath": "baseline-raw/a-new-chapter-begins-run-3.json",
-          "score": 93,
-          "elapsedMs": 11762
+          "score": 90,
+          "elapsedMs": 16568
+        },
+        {
+          "index": 4,
+          "rawPath": "baseline-raw/a-new-chapter-begins-run-4.json",
+          "score": 90,
+          "elapsedMs": 11459
+        },
+        {
+          "index": 5,
+          "rawPath": "baseline-raw/a-new-chapter-begins-run-5.json",
+          "score": 86,
+          "elapsedMs": 11539
         }
       ],
       "allScores": [
-        65,
+        91,
+        89,
         90,
-        93
+        90,
+        86
       ],
-      "medianScoreIndex": 1,
+      "medianScoreIndex": 2,
       "analysis": {
         "lighthouseVersion": "12.2.1",
-        "fetchTime": "2026-05-19T03:50:11.689Z",
+        "fetchTime": "2026-05-19T04:21:12.925Z",
         "finalDisplayedUrl": "https://dopamiles.co/products/a-new-chapter-begins?_ab=0&_fd=0&_sc=1",
         "metrics": {
           "perfScore": 90,
-          "lcpMs": 2597,
-          "fcpMs": 1258,
+          "lcpMs": 2602,
+          "fcpMs": 1281,
           "cls": 0.000045,
-          "tbtMs": 258,
-          "ttiMs": 7759,
-          "speedIndexMs": 3707,
-          "tti": 7759
+          "tbtMs": 276,
+          "ttiMs": 9398,
+          "speedIndexMs": 3264,
+          "tti": 9398
         },
         "lcpElement": null,
         "cls": [],
         "longTasks": [
           {
             "url": "https://dopamiles.co/cdn/wpm/b7a919571w0b784b64p16d009bem0237e62em.js",
-            "durationMs": 179,
-            "startTimeMs": 7247
+            "durationMs": 174,
+            "startTimeMs": 7402
           },
           {
             "url": "https://dopamiles.co/products/a-new-chapter-begins?_ab=0&_fd=0&_sc=1",
-            "durationMs": 116,
-            "startTimeMs": 1742
+            "durationMs": 134,
+            "startTimeMs": 1747
           },
           {
             "url": "https://dopamiles.co/products/a-new-chapter-begins?_ab=0&_fd=0&_sc=1",
-            "durationMs": 108,
-            "startTimeMs": 1892
+            "durationMs": 105,
+            "startTimeMs": 1915
           },
           {
             "url": "https://dopamiles.co/cdn/s/trekkie.storefront.2aca6cb2c1aba778eb370d48aa89866e7dbe9588.min.js",
-            "durationMs": 100,
-            "startTimeMs": 7997
+            "durationMs": 91,
+            "startTimeMs": 8194
           },
           {
             "url": "https://dopamiles.co/products/a-new-chapter-begins?_ab=0&_fd=0&_sc=1",
-            "durationMs": 70,
-            "startTimeMs": 2031
+            "durationMs": 80,
+            "startTimeMs": 2044
           }
         ],
         "renderBlocking": [],
         "resourceSummary": {
           "total": {
             "requestCount": 157,
-            "transferSize": 1947763
+            "transferSize": 1930627
           },
           "other": {
             "requestCount": 81,
-            "transferSize": 816272
+            "transferSize": 816342
           },
           "script": {
             "requestCount": 46,
-            "transferSize": 555605
+            "transferSize": 555527
           },
           "font": {
             "requestCount": 7,
-            "transferSize": 318210
+            "transferSize": 318216
           },
           "stylesheet": {
             "requestCount": 19,
-            "transferSize": 148704
+            "transferSize": 148759
           },
           "document": {
             "requestCount": 3,
-            "transferSize": 60510
+            "transferSize": 60535
           },
           "image": {
             "requestCount": 1,
-            "transferSize": 48462
+            "transferSize": 31248
           },
           "media": {
             "requestCount": 0,
@@ -123,15 +137,15 @@
           },
           "third-party": {
             "requestCount": 43,
-            "transferSize": 786709
+            "transferSize": 786682
           }
         },
         "thirdParty": [
           {
             "entity": "Shopify",
-            "transferSize": 538818,
-            "mainThreadTimeMs": 141,
-            "blockingTimeMs": 0,
+            "transferSize": 538793,
+            "mainThreadTimeMs": 175,
+            "blockingTimeMs": 8,
             "classification": "theme-owned"
           },
           {
@@ -143,7 +157,7 @@
           },
           {
             "entity": "shop.app",
-            "transferSize": 3489,
+            "transferSize": 3487,
             "mainThreadTimeMs": 1,
             "blockingTimeMs": 0,
             "classification": "shopify-platform"
@@ -160,100 +174,114 @@
         {
           "index": 1,
           "rawPath": "baseline-raw/this-is-a-5k-right-t-shirt-run-1.json",
-          "score": 68,
-          "elapsedMs": 12500
+          "score": 90,
+          "elapsedMs": 16765
         },
         {
           "index": 2,
           "rawPath": "baseline-raw/this-is-a-5k-right-t-shirt-run-2.json",
           "score": 86,
-          "elapsedMs": 11272
+          "elapsedMs": 12264
         },
         {
           "index": 3,
           "rawPath": "baseline-raw/this-is-a-5k-right-t-shirt-run-3.json",
-          "score": 88,
-          "elapsedMs": 11398
+          "score": 89,
+          "elapsedMs": 11835
+        },
+        {
+          "index": 4,
+          "rawPath": "baseline-raw/this-is-a-5k-right-t-shirt-run-4.json",
+          "score": 89,
+          "elapsedMs": 16678
+        },
+        {
+          "index": 5,
+          "rawPath": "baseline-raw/this-is-a-5k-right-t-shirt-run-5.json",
+          "score": 90,
+          "elapsedMs": 11572
         }
       ],
       "allScores": [
-        68,
+        90,
         86,
-        88
+        89,
+        89,
+        90
       ],
-      "medianScoreIndex": 1,
+      "medianScoreIndex": 3,
       "analysis": {
         "lighthouseVersion": "12.2.1",
-        "fetchTime": "2026-05-19T03:50:47.379Z",
+        "fetchTime": "2026-05-19T04:22:33.371Z",
         "finalDisplayedUrl": "https://dopamiles.co/products/this-is-a-5k-right-t-shirt?_ab=0&_fd=0&_sc=1",
         "metrics": {
-          "perfScore": 86,
-          "lcpMs": 3207,
-          "fcpMs": 1459,
-          "cls": 0.004117,
-          "tbtMs": 258,
-          "ttiMs": 9402,
-          "speedIndexMs": 3844,
-          "tti": 9402
+          "perfScore": 89,
+          "lcpMs": 2904,
+          "fcpMs": 1304,
+          "cls": 0.000045,
+          "tbtMs": 257,
+          "ttiMs": 8196,
+          "speedIndexMs": 3352,
+          "tti": 8196
         },
         "lcpElement": null,
         "cls": [],
         "longTasks": [
           {
             "url": "https://dopamiles.co/cdn/wpm/b7a919571w0b784b64p16d009bem0237e62em.js",
-            "durationMs": 180,
-            "startTimeMs": 8307
+            "durationMs": 179,
+            "startTimeMs": 8004
           },
           {
             "url": "https://dopamiles.co/products/this-is-a-5k-right-t-shirt?_ab=0&_fd=0&_sc=1",
-            "durationMs": 123,
-            "startTimeMs": 1707
+            "durationMs": 125,
+            "startTimeMs": 1779
           },
           {
             "url": "https://dopamiles.co/products/this-is-a-5k-right-t-shirt?_ab=0&_fd=0&_sc=1",
-            "durationMs": 111,
-            "startTimeMs": 1864
+            "durationMs": 110,
+            "startTimeMs": 1938
           },
           {
             "url": "https://dopamiles.co/cdn/s/trekkie.storefront.2aca6cb2c1aba778eb370d48aa89866e7dbe9588.min.js",
-            "durationMs": 111,
-            "startTimeMs": 9252
+            "durationMs": 94,
+            "startTimeMs": 8796
           },
           {
-            "url": "https://dopamiles.co/cdn/shop/t/6/assets/dopamiles-pdp-variant-sync.js?v=76793355696924848011779096676",
-            "durationMs": 96,
-            "startTimeMs": 9657
+            "url": "https://dopamiles.co/products/this-is-a-5k-right-t-shirt?_ab=0&_fd=0&_sc=1",
+            "durationMs": 75,
+            "startTimeMs": 1704
           }
         ],
         "renderBlocking": [],
         "resourceSummary": {
           "total": {
             "requestCount": 157,
-            "transferSize": 2052448
+            "transferSize": 1986816
           },
           "other": {
             "requestCount": 81,
-            "transferSize": 816408
+            "transferSize": 816353
           },
           "script": {
             "requestCount": 46,
-            "transferSize": 555713
+            "transferSize": 555779
           },
           "font": {
             "requestCount": 7,
-            "transferSize": 318232
-          },
-          "image": {
-            "requestCount": 1,
-            "transferSize": 153706
+            "transferSize": 318212
           },
           "stylesheet": {
             "requestCount": 19,
-            "transferSize": 148520
+            "transferSize": 148433
+          },
+          "image": {
+            "requestCount": 1,
+            "transferSize": 88254
           },
           "document": {
             "requestCount": 3,
-            "transferSize": 59869
+            "transferSize": 59785
           },
           "media": {
             "requestCount": 0,
@@ -261,27 +289,27 @@
           },
           "third-party": {
             "requestCount": 43,
-            "transferSize": 786664
+            "transferSize": 786639
           }
         },
         "thirdParty": [
           {
             "entity": "Shopify",
-            "transferSize": 538774,
-            "mainThreadTimeMs": 171,
-            "blockingTimeMs": 1,
+            "transferSize": 538744,
+            "mainThreadTimeMs": 172,
+            "blockingTimeMs": 0,
             "classification": "theme-owned"
           },
           {
             "entity": "Google Fonts",
             "transferSize": 244402,
-            "mainThreadTimeMs": 6,
+            "mainThreadTimeMs": 5,
             "blockingTimeMs": 0,
             "classification": "unknown"
           },
           {
             "entity": "shop.app",
-            "transferSize": 3488,
+            "transferSize": 3493,
             "mainThreadTimeMs": 1,
             "blockingTimeMs": 0,
             "classification": "shopify-platform"
@@ -298,100 +326,114 @@
         {
           "index": 1,
           "rawPath": "baseline-raw/running-its-how-i-scope-run-1.json",
-          "score": 68,
-          "elapsedMs": 16957
+          "score": 91,
+          "elapsedMs": 11629
         },
         {
           "index": 2,
           "rawPath": "baseline-raw/running-its-how-i-scope-run-2.json",
-          "score": 90,
-          "elapsedMs": 11392
+          "score": 88,
+          "elapsedMs": 11351
         },
         {
           "index": 3,
           "rawPath": "baseline-raw/running-its-how-i-scope-run-3.json",
+          "score": 88,
+          "elapsedMs": 11689
+        },
+        {
+          "index": 4,
+          "rawPath": "baseline-raw/running-its-how-i-scope-run-4.json",
+          "score": 90,
+          "elapsedMs": 16546
+        },
+        {
+          "index": 5,
+          "rawPath": "baseline-raw/running-its-how-i-scope-run-5.json",
           "score": 89,
-          "elapsedMs": 11249
+          "elapsedMs": 11751
         }
       ],
       "allScores": [
-        68,
+        91,
+        88,
+        88,
         90,
         89
       ],
-      "medianScoreIndex": 2,
+      "medianScoreIndex": 4,
       "analysis": {
         "lighthouseVersion": "12.2.1",
-        "fetchTime": "2026-05-19T03:51:38.449Z",
+        "fetchTime": "2026-05-19T04:23:52.924Z",
         "finalDisplayedUrl": "https://dopamiles.co/products/running-its-how-i-scope?_ab=0&_fd=0&_sc=1",
         "metrics": {
           "perfScore": 89,
-          "lcpMs": 2600,
-          "fcpMs": 1250,
+          "lcpMs": 2597,
+          "fcpMs": 1289,
           "cls": 0.000045,
-          "tbtMs": 238,
-          "ttiMs": 7940,
-          "speedIndexMs": 4527,
-          "tti": 7940
+          "tbtMs": 271,
+          "ttiMs": 7999,
+          "speedIndexMs": 4203,
+          "tti": 7999
         },
         "lcpElement": null,
         "cls": [],
         "longTasks": [
           {
             "url": "https://dopamiles.co/cdn/wpm/b7a919571w0b784b64p16d009bem0237e62em.js",
-            "durationMs": 170,
-            "startTimeMs": 7550
+            "durationMs": 169,
+            "startTimeMs": 7397
           },
           {
             "url": "https://dopamiles.co/products/running-its-how-i-scope?_ab=0&_fd=0&_sc=1",
+            "durationMs": 118,
+            "startTimeMs": 2015
+          },
+          {
+            "url": "Unattributable",
             "durationMs": 115,
-            "startTimeMs": 2031
+            "startTimeMs": 797
           },
           {
             "url": "https://dopamiles.co/products/running-its-how-i-scope?_ab=0&_fd=0&_sc=1",
-            "durationMs": 105,
-            "startTimeMs": 1895
+            "durationMs": 110,
+            "startTimeMs": 1847
           },
           {
             "url": "https://dopamiles.co/cdn/s/trekkie.storefront.2aca6cb2c1aba778eb370d48aa89866e7dbe9588.min.js",
-            "durationMs": 91,
-            "startTimeMs": 8339
-          },
-          {
-            "url": "https://dopamiles.co/products/running-its-how-i-scope?_ab=0&_fd=0&_sc=1",
-            "durationMs": 88,
-            "startTimeMs": 2146
+            "durationMs": 99,
+            "startTimeMs": 8189
           }
         ],
         "renderBlocking": [],
         "resourceSummary": {
           "total": {
             "requestCount": 160,
-            "transferSize": 2027791
+            "transferSize": 1965532
           },
           "other": {
             "requestCount": 82,
-            "transferSize": 825007
+            "transferSize": 823863
           },
           "script": {
             "requestCount": 47,
-            "transferSize": 560686
+            "transferSize": 561146
           },
           "font": {
             "requestCount": 7,
-            "transferSize": 318204
+            "transferSize": 318205
           },
           "stylesheet": {
             "requestCount": 19,
-            "transferSize": 148758
-          },
-          "image": {
-            "requestCount": 2,
-            "transferSize": 112852
+            "transferSize": 148440
           },
           "document": {
             "requestCount": 3,
-            "transferSize": 62284
+            "transferSize": 62278
+          },
+          "image": {
+            "requestCount": 2,
+            "transferSize": 51600
           },
           "media": {
             "requestCount": 0,
@@ -399,27 +441,27 @@
           },
           "third-party": {
             "requestCount": 44,
-            "transferSize": 793209
+            "transferSize": 791980
           }
         },
         "thirdParty": [
           {
             "entity": "Shopify",
-            "transferSize": 544182,
-            "mainThreadTimeMs": 216,
+            "transferSize": 544087,
+            "mainThreadTimeMs": 215,
             "blockingTimeMs": 0,
             "classification": "theme-owned"
           },
           {
             "entity": "Google Fonts",
             "transferSize": 244402,
-            "mainThreadTimeMs": 2,
+            "mainThreadTimeMs": 6,
             "blockingTimeMs": 0,
             "classification": "unknown"
           },
           {
             "entity": "shop.app",
-            "transferSize": 4625,
+            "transferSize": 3491,
             "mainThreadTimeMs": 1,
             "blockingTimeMs": 0,
             "classification": "shopify-platform"
@@ -441,7 +483,7 @@
       {
         "slot": "mid",
         "handle": "this-is-a-5k-right-t-shirt",
-        "perfScore": 86,
+        "perfScore": 89,
         "pass": false
       },
       {
