@@ -1,10 +1,18 @@
 ---
 phase: 2
 title: "Fix Top Bottleneck"
-status: pending
+status: completed
+completedAt: 2026-05-19T03:52Z
 priority: P1
 effort: "1-4h"
+actualEffortMin: 40
 dependencies: [1]
+leverApplied: L1 (preload + srcset/sizes)
+themeCommit: 2976586 (pod-tee-theme feat/pdp-perf-pareto)
+output: reports/p2-after-report.md
+verdict: PHASE_03_NEEDED (median 90/86/89 — lead PASS, mid+edge under gate)
+deltas: lead +5, mid +15, edge +18 perf pts; LCP -757/-2405/-2552 ms
+regressionStillGreen: true
 ---
 
 # Phase 2: Fix Top Bottleneck
