@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-05-20T14:31:48.282Z",
+  "url": "https://crushroom.myshopify.com",
+  "themeId": "158279991548",
+  "errors": [
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "HTTP 404: https://dopamiles.co/favicon.ico"
+  ],
+  "warnings": [
+    "Cart click failed: No element found for selector: [data-cart-icon], .Header__CartIcon, .js-drawer-open-cart, a[href=\"/cart\"]",
+    "Search click failed: No element found for selector: [data-search-icon], .Header__SearchIcon, .js-drawer-open-search, button[aria-label*=\"Search\"]",
+    "No product card found to hover"
+  ],
+  "errorCount": 2,
+  "warningCount": 3
+}

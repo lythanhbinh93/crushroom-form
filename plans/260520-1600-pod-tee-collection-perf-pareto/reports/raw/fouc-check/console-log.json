@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-05-20T14:31:21.975Z",
+  "url": "http://127.0.0.1:9292",
+  "errors": [
+    "HTTP 500: http://127.0.0.1:9292/",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "HTTP 404: http://127.0.0.1:9292/favicon.ico",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "warnings": [
+    "Cart click failed: No element found for selector: [data-cart-icon], .Header__CartIcon, .header-cart",
+    "Search click failed: No element found for selector: [data-search-icon], .Header__SearchIcon, .header-search"
+  ],
+  "errorCount": 4,
+  "warningCount": 2
+}

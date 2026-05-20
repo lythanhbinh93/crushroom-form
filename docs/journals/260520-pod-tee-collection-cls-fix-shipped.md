@@ -72,3 +72,40 @@ Plan to verify with production CrUX 7-14 days after deploy.
 
 - Whether to also preload Fraunces 400 woff2 directly (to give it a head start within the 100ms `optional` block). Brittle (Google Fonts URLs are version-stamped) but would reduce slow-3G mobile fallback rate. Defer to RUM data review.
 - Whether `display=fallback` (100ms block + 3s swap window) would be a better middle ground than `optional` — would re-introduce some swap shift on mobile but cap LCP impact. Defer to RUM.
+
+## Round 2 + Round 3 follow-ups (in-session)
+
+User QA on the live preview theme showed mobile Perf 57 (LCP 8.1s) — much worse than dev-server numbers led us to predict. Drove three more iterations:
+
+**Round 2 — LCP image priority** (commit `0461017`)
+Added `card_lcp` param to the shared product-card snippet. First product card per above-fold grid (collection-grid, niche-favorites, home-shop-grid) now gets `loading="eager" fetchpriority="high"` instead of `loading="lazy"`. Mobile Perf 57→80 (+23), LCP 8.1s→3.2s. Single highest-leverage change after Phase 1.
+
+**Round 2 — Image srcset + sizes** (commit `0601e17`)
+Product card image now serves 5 widths (200/300/400/600/800) with sizes hint matching the responsive grid (50vw mobile / 33vw tablet / 25vw desktop). Saves ~40-60% bytes on mobile vs the previous single-width=600 src. Addresses Lighthouse "Improve image delivery — 447 KiB savings" insight.
+
+**Round 2 — 3rd-party script audit** (report only, no code)
+Identified `portable-wallets.en.js` (385 KB, Shop Pay — required) + `globoswatch.js` (Globo Color Swatch app — theme has its own swatches, safe to uninstall) + Customer Events / pixels (admin-side audit) as the remaining unused-JS bulk. Report at `reports/third-party-script-audit.md`. Out-of-scope for theme code; surfaced for Shopify admin action.
+
+**Round 3 — Defer non-critical CSS** (commit `94835de`)
+Lighthouse "Render-blocking requests" flagged ~460ms savings. Deferred two of the eleven render-blocking dopamiles-*.css files via `media="print" onload="this.media='all'"`:
+- `dopamiles-feedback.css` (toasts/modals/skeletons — JS-injected or inside hidden cart drawer)
+- `dopamiles-cart-drawer-ui.css` (drawer interior — drawer hidden via cart.css's `translateX(100%)`)
+Skipped `dopamiles-search.css` + `dopamiles-bundle.css` because both contain CSS-only hide rules for above-fold elements (FOUC risk). Tester agent confirmed zero FOUC across 4 timestamped screenshots; mobile perf 80→82, desktop 91→95.
+
+## Final commit stack on `feat/pdp-perf-pareto` (ready to publish)
+
+| Commit | Change | Mobile impact |
+|---|---|---|
+| `416abc0` | predecessor: grid-auto-flow dense + stats toggle | (cleanup) |
+| `2f46304` | Phase 1: font-display=optional | CLS catastrophe fix (desktop) |
+| `583f4f5` | gift-card.liquid font parity | layout-bypass template hygiene |
+| `0461017` | LCP image priority (first product card) | Perf +23, LCP -4.9s |
+| `0601e17` | image srcset+sizes responsive | image bytes -40-60% |
+| `94835de` | defer feedback.css + cart-drawer-ui.css | Perf +2, FCP -100ms |
+
+Total mobile delta: **Perf 57 → 82** in one session. Desktop went from 74 (with CLS=0.45) to 95 with CLS=0. Ready to publish to live theme; user opted to leave preview as-is for further consideration.
+
+## Lessons added to memory
+
+- `lighthouse_simulate_vs_real_observer_gap.md` — when Lighthouse simulate and Puppeteer real-time CLS disagree by >3×, the gap IS the diagnostic; the `layout-shifts` audit subitems' explicit `cause:` field is authoritative.
+- `font_display_optional_cls_fix_pattern.md` — 1-char `&display=optional` Google Fonts URL fix; trade-off and when-to-use captured.
