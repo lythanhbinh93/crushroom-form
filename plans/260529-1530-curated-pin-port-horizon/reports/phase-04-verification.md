@@ -38,10 +38,13 @@ Collection cards in this theme render **no inline swatch inputs** (`input[name$=
 - **Smoke test on deployed theme** (real `beachnapclub.com` share-preview, tokens `_ab=0&_fd=0&_sc=1`): pin+variant (Light Pink) ✓ card #1, correct image, link `?variant=`, 0 errors; dormant ✓ pinnedCount=0, natural first product, 0 errors.
 - Preview themes live: `curated-pin-preview #143112962132` (theme-dev target) and the deployed `#143112831060`.
 
+## Shipped to LIVE (2026-05-29)
+After the loading-perf rounds, pushed to the **live BeachNapClub V1.0 theme `#141574930516`** with `--allow-live`. Surgical: divergence-checked the 2 modified files (`sections/main-collection.liquid`, `layout/theme.liquid`) against `master` baseline — both byte-identical to live → applied cleanly; the 3 new files (`assets/curated-pin.js`, `templates/product.card.json`, `sections/curated-pin-card.liquid`) didn't exist on live. `.shopifyignore` `!templates/product.card.json` negation let the code template deploy.
+**Live smoke test** (real `beachnapclub.com`, no preview param): ad URL `?first=retired-sunse&variant=…` → card #1, correct variant image, `?variant=` link, prefetch fired; dormant `/collections/sale` → natural first product, pinnedCount 0, prefetch dormant; 0 errors. Branch `feat/curated-pin-ad-landing` (final `cbf5ecf`).
+
 ## Rollback
-- Code is isolated on branch `feat/curated-pin-ad-landing`; `master` baseline = `9aedf43`.
-- To revert the theme: re-push `master` (or `git revert` + push) to `#143112831060`; or in admin simply do not promote/publish the Copy.
-- The live theme `#141574930516` was never touched.
+- Restore the 2 modified files to baseline to fully disable: `git show master:sections/main-collection.liquid` + `:layout/theme.liquid` → push those to `#141574930516` (removes the enqueue + prefetch → `curated-pin.js` never loads; template/section become harmless orphans). Or `git revert` the feat commits + push.
+- `master` baseline = `9aedf43`. Copy theme `#143112831060` retains the same code as a fallback preview.
 
 ## Round 2 — fetch+prepend for off-page products (commit `0fe0b29`)
 **Defect found by user testing "other products":** the locked "reorder-only" approach only pins products in the **initial 20-card render**. `sale` = 190 products, classic pagination → ~170 advertised products (page 2+) silently no-op'd. seashell-america worked only because it's page 1, card #8.
