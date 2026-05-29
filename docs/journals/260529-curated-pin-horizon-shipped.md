@@ -39,6 +39,9 @@ User: "it worked but still loads after the current product card a bit." Resource
 ## Round 6 — prefetch kicker (commit `cbf5ecf`)
 Final polish: a `<head>` script in `layout/theme.liquid` that, when `?first=` is present, starts the bare `?view=card` fetch during HTML parse and stashes `window.__curatedPinPrefetch = {handle, variant, promise}`. `fetchCardView` reuses that promise when it matches. Verified on deployed theme: the card fetch now starts ~2.1s (during parse) and finishes before `DOMContentLoaded` (~3.0s), so it's already complete by the time the module runs → the pinned card appears with no added round-trip. Dormant without `?first=` (returns immediately). Off-page pin is now effectively instant once the page is interactive.
 
+## Shipped to LIVE (commit `cbf5ecf`)
+Pushed all 5 files to the live BeachNapClub V1.0 theme `#141574930516` with `--allow-live`. Surgical: divergence-checked the 2 modified files (`main-collection.liquid`, `theme.liquid`) against `master` baseline — both byte-identical to live → clean apply; the 3 new files didn't exist on live. Live smoke test on the real public domain (no preview param): ad URL `?first=…&variant=…` pins card #1 with the correct variant image + `?variant=` link + prefetch fired; dormant `/collections/sale` shows the natural first product, pinnedCount 0, prefetch dormant; 0 errors. Rollback = restore baseline `main-collection.liquid` + `theme.liquid` (removes enqueue + prefetch → JS never loads). Copy theme `#143112831060` keeps the same code as a fallback preview.
+
 ## Reusable lessons
 - Horizon collection cards expose images (`slideshow-slide[slide-id][variant-image]`) but **not** swatch pickers inline — map variants via product JSON `featured_media.id`, not card DOM swatch attrs.
 - `slideshow.select({id})` matches by `slide-id`; reveal a hidden slide before selecting (it won't un-hide on its own).
