@@ -40,6 +40,22 @@ Collection cards in this theme render **no inline swatch inputs** (`input[name$=
 
 ## Rollback
 - Code is isolated on branch `feat/curated-pin-ad-landing`; `master` baseline = `9aedf43`.
-- To revert the theme: re-push `master` (or `git revert 4249b59` + push) to `#143112831060`; or in admin simply do not promote/publish the Copy.
+- To revert the theme: re-push `master` (or `git revert` + push) to `#143112831060`; or in admin simply do not promote/publish the Copy.
 - The live theme `#141574930516` was never touched.
+
+## Round 2 — fetch+prepend for off-page products (commit `0fe0b29`)
+**Defect found by user testing "other products":** the locked "reorder-only" approach only pins products in the **initial 20-card render**. `sale` = 190 products, classic pagination → ~170 advertised products (page 2+) silently no-op'd. seashell-america worked only because it's page 1, card #8.
+**Root cause (verified):** `findCardByHandle` only sees rendered DOM; off-page products aren't there. Confirmed: `retired-sunse` (page 5) → `targetInDOM:false, pinned:false`.
+**Fix (user-approved scope change, reverses brainstorm's no-fetch decision):** when not in the DOM, fetch the product's collection page via the Section Rendering API (`?section_id=<id>&page=N`, same call `paginated-list.js` uses), extract its real card `<li>`, prepend it, run the existing variant-swap. Page located via `/collections/<h>/products.json?limit=250` index ÷ perPage. Bounded to ≤4 same-origin fetches (1 products.json + ≤3 page probes with ±1 tolerance); **never a full-collection scan**; bad handle → 0 page fetches.
+**Adversarial review (DONE_WITH_CONCERNS, no Critical):** applied H1 (clear fetched card's foreign `data-page` so it can't skew pagination math), M1 (trust DOM `perPage` only on page 1), M2 (doc products.json default-sort assumption). Security PASS (handle never in fetch URL; DOMParser/importNode don't execute scripts; same-origin creds).
+**Verified on DEPLOYED Copy theme #143112831060** (real beachnapclub.com share-preview, 0 errors):
+- Off-page `retired-sunse` (page 5) → card #1, 21 cards, variant image swapped, link `?variant=`. ✓
+- Page-1 `seashell-america` → still **reorders** (20 cards, single instance, no fetch, no dup). ✓
+- Dormant → pinnedCount 0. ✓ · Bad handle → no-op, 0 fetches. ✓
+- Screenshot: `reports/offpage-pin-retired-sunse.png`.
+
+## Known limitations (current)
+- Products beyond products.json `limit=250` (collection >250) won't locate → no-op. `sale`=190, fine.
+- Assumes default collection sort on the ad URL (no `?sort_by=`/filters); a mismatch degrades to graceful no-op.
+- Still requires the code to be on the **theme the ad URL serves**. Public ad URLs hit the LIVE theme — so for real campaigns the feature must ship to live #141574930516 (user holding on that; currently on Copy #143112831060 only). Preview testing needs the share-preview session established first (the 301 drops `preview_theme_id`).
 </content>

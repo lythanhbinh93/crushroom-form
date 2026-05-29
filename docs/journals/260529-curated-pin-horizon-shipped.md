@@ -22,8 +22,14 @@ theme-dev local proxy (`127.0.0.1:9292`, renders local files — avoids the curl
 ## Known limitation
 Reorder-only: pins only products in the initial page render (`product_per_page`=20 on `sale`). A product deeper in the collection isn't in the DOM → graceful no-op. Merchant must sort advertised products into page 1.
 
+## Round 2 — fetch+prepend (commit `0fe0b29`, same day)
+User tested "other products" → nothing pinned. Root cause: reorder-only only reaches the **initial 20-card render**; `sale` has 190 products with classic pagination, so ~170 advertised products (page 2+) silently no-op'd. seashell-america worked by luck (page 1).
+Fix (user-approved; reverses the brainstorm's no-fetch decision — "in collection" ≠ "in rendered DOM"): when the product isn't in the DOM, fetch its collection page via the **Section Rendering API** (`?section_id=<id>&page=N`, the same call `paginated-list.js` uses), extract the real card `<li>`, prepend, then run the existing variant-swap. Page located via `/collections/<h>/products.json` index ÷ perPage; bounded to ≤4 same-origin fetches with ±1 tolerance, never a full scan. Adversarial review applied 3 hardening fixes (clear fetched card's foreign `data-page`; trust DOM perPage only on page 1; doc the default-sort assumption). Verified on deployed Copy theme: off-page product pins + swaps, page-1 still reorders (no dup), 0 errors.
+
 ## Reusable lessons
 - Horizon collection cards expose images (`slideshow-slide[slide-id][variant-image]`) but **not** swatch pickers inline — map variants via product JSON `featured_media.id`, not card DOM swatch attrs.
 - `slideshow.select({id})` matches by `slide-id`; reveal a hidden slide before selecting (it won't un-hide on its own).
-- `paginated-list.js` derives prev/next page from `cards[0]`/`cards[last]` `data-page` — when prepending a pinned card, set its `data-page` to the first visible page to avoid skewing pagination math.
+- `paginated-list.js` derives prev/next page from `cards[0]`/`cards[last]` `data-page` — when prepending a pinned card, set its `data-page` to the first visible page (and clear a fetched card's foreign `data-page`) to avoid skewing pagination math.
+- **"Product in collection" ≠ "product in the rendered DOM."** On a paginated collection only page 1 is in the DOM; a reorder-only pin silently fails for everything else. Use the Section Rendering API (`?section_id=&page=N`) to fetch any product's real card — the Horizon-native equivalent of dopamiles' `?view=card` fetch+prepend.
+- A `?first=` ad landing only works on the theme the **public ad URL serves** = the LIVE theme. Preview themes need the share-preview session established first (the 301 to the primary domain drops `preview_theme_id`); pasting the ad URL cold serves live → no feature.
 </content>
