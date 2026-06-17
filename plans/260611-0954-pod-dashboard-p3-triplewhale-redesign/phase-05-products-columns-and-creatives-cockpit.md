@@ -1,16 +1,16 @@
 ---
 phase: 5
 title: "Products Columns and Creatives Cockpit"
-status: 05a-shipped / 05b-pending
+status: shipped (05a + 05b)
 priority: P2
 effort: 12-15h
 dependencies: [phase-02-shell, phase-03-meta-etl]
-owns_migrations: [next-free-for-05b]
+owns_migrations: [0019]
 ---
 
 > **Split into 05a + 05b (2026-06-15).** Two surfaces with very different risk:
 > **05a — Products columns (Orders / Link clicks / ROAS): ✅ SHIPPED** to pod-dashboard main (`93fba25` → Vercel, /api/health 200). Code-only (NO migration — all data existed); `product-extra-columns.ts` pure helpers + `get-product-pl.ts` extension + 3 sortable table columns + footnote + variant-breakdown colspan fix. 13 tests, vitest 432/432, adversarial review (no Crit/High; 2 medium fixes applied: explicit-UTC order date bounds + large-`.in()` guard). Live-verified: Orders populate; Link clicks/ROAS correctly show "—" (ad_product_map ~empty → attribution maturing).
-> **05b — Creatives cockpit + creative-metadata ETL: PENDING.** The ETL-heavy, ships-dormant half: migration (next free, likely 0019) ALTER meta_ad_creative_cache; extend pull-meta creative pull (image_hash → ad_image_history.permanent_url, creative_type, video/carousel thumbnail); `get-creatives.ts` + `creatives-table.tsx` + `group-toggle.tsx` + `lib/normalize-title.ts`; user-owned creative backfill. Steps 1–5 below are 05b; the Products-columns parts of steps 6 are 05a (done).
+> **05b — Creatives cockpit + creative-metadata ETL: ✅ SHIPPED** (`8f41b98` → main → Vercel, /api/health 200) 2026-06-17. Migration **0019** ALTER meta_ad_creative_cache +6 cols (added `effective_status` for the Status column). `lib/connectors/meta/creative.ts` (pure `parseAdCreative` for image/video/carousel/link incl. video call_to_action links + batched `resolvePermanentUrls`) wired into `pull-meta` (one fetch powers mapping + thumbnails; cache write NON-FATAL so daily ETL stays green pre-migration). `get-creatives.ts` + `group-creatives-by-product.ts` (pure, tested) + `creatives-table.tsx` + `group-toggle.tsx` + `lib/normalize-title.ts`. 18 tests; vitest 450/450; review no Crit/High (M1 video-link fix + 3 Lows applied). Live-verified: cockpit renders real per-ad metrics (spend/link clicks/CPC/ROAS/CPA/purchases); thumbnails placeholder + product "—" until backfill/attribution. **USER-OWNED:** apply migration 0019 + trigger a creative backfill (re-pull meta) to populate thumbnails/status; one manual `adimages` curl recommended to confirm Meta field paths.
 
 # Phase 5: Products Columns and Creatives Cockpit
 

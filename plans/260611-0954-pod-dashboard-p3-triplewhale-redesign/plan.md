@@ -23,19 +23,19 @@ Evolve pod-dashboard (P1+P2: daily P&L, product P&L, UTM attribution) into a Tri
 | 2 | [Shell Sidebar Redesign](./phase-02-shell-sidebar-redesign.md) | ✅ Shipped (2026-06-13) | 8-11h | — |
 | 3 | [Meta ETL Extension + Summary Tiles](./phase-03-meta-etl-extension-and-summary-tiles.md) | 🟢 Code-complete (2026-06-13; user-owned: apply 0018 + 90d backfill) | 12-16h | 0018 |
 | 4 | [Funnel + Bounce Charts](./phase-04-funnel-and-bounce-charts.md) | Pending | 6-8h | — (reads aggregate directly) |
-| 5 | [Products Columns + Creatives Cockpit](./phase-05-products-columns-and-creatives-cockpit.md) | 🟡 05a Products columns ✅ Shipped (2026-06-15, `93fba25`, no migration); 05b Creatives cockpit Pending | 12-15h | 05b → next free (likely 0019) (ALTER creative cache) |
+| 5 | [Products Columns + Creatives Cockpit](./phase-05-products-columns-and-creatives-cockpit.md) | ✅ Shipped (05a `93fba25` 2026-06-15 no migration; 05b `8f41b98` 2026-06-17 migration 0019; user-owned: apply 0019 + creative backfill) | 12-15h | 0019 (05b) |
 | 6 | [Customers Cohorts + LTV](./phase-06-customers-cohorts-and-ltv.md) | Pending | 11-15h | 0021 |
 | 7 | [Anomaly Alerts + Bell](./phase-07-anomaly-alerts-and-bell.md) | Pending | 8-10h | 0022 |
 | 8 | [AI Chat Slide-over](./phase-08-ai-chat-slide-over.md) | Pending | 13-17h | 0023 |
 | 9 | [Soak + Ship v0.3.0](./phase-09-soak-and-ship-v0-3-0.md) | Pending | 6-8h | — |
 
-## Migration registry (latest on disk = 0018 as of 2026-06-13; next free = 0019)
+## Migration registry (latest on disk = 0019 as of 2026-06-17; next free = 0020)
 Numbers are assigned by disk order at BUILD time, not reserved by phase (anti-drift rule). Phase 03 was built ahead of phase 01, so it claimed 0018 (the next free number then). Phase 01 will take the next free number when it is built.
 | # | Phase | Purpose |
 |---|-------|---------|
-| 0018 | 03 | ✅ SHIPPED-PENDING-APPLY: add `inline_link_clicks bigint NULL` (null = not-backfilled) to `meta_ad_insights_daily` (`0018_meta_inline_link_clicks.sql`) |
-| next free (≥0019) | 01 | `pixel_events` (slim staging) + `daily_sessions` AGGREGATE rollup (PK workspace+date+is_bot+country) + RLS + prune fn; TZ policy doc block |
-| next free (≥0019) | 05b | `ALTER meta_ad_creative_cache ADD creative_id, creative_type, image_hash, permanent_url, thumbnail` (no new table). NOTE: 05a Products columns shipped with NO migration (all data existed). 05b + ph01 both want the next free number — whichever builds first claims it. |
+| 0018 | 03 | ✅ APPLIED 2026-06-15: `inline_link_clicks bigint NULL` on `meta_ad_insights_daily` (backfilled, verified) |
+| 0019 | 05b | ✅ SHIPPED-PENDING-APPLY: `ALTER meta_ad_creative_cache ADD creative_id, creative_type, image_hash, permanent_url, thumbnail, effective_status` (6 cols — added effective_status for the cockpit Status column; no new table). Creative-cache write is NON-FATAL, so daily ETL stays green even before this is applied. User-owned: apply 0019 + creative backfill to populate thumbnails. (`8f41b98`) |
+| next free (≥0020) | 01 | `pixel_events` (slim staging) + `daily_sessions` AGGREGATE rollup (PK workspace+date+is_bot+country) + RLS + prune fn; TZ policy doc block |
 | 0021 | 06 | cohort key = customer `email` (backfill column from raw JSONB) + `customer_cohorts` matview + owner-view (invoker=false + embedded filter) + LTV RPC |
 | 0022 | 07 | `alerts` table + RLS (select-for-members; dismiss-only RPC, NO generic UPDATE policy) |
 | 0023 | 08 | single `chat_messages` (denormalized `workspace_id`; tool-rows = audit) + RLS (WITH CHECK role='user' on client inserts) + template RPCs |
