@@ -127,5 +127,12 @@ customer flow (user explicitly refused a full-file paste-over of the live GAS sc
   END-STATE reference, **NOT what is live**. DO NOT full-paste it over production while `lark-notify.gs`
   exists → duplicate `const LARK_BASE` / `notifyLark_` = project won't compile.
 
-**Pending (end-state):** remove the email block to go Lark-only (1-block delete) after the team is happy
-running both for a few days. Optional repo reconcile so source matches the deployed additive layout.
+### 2026-06-18 — Email removal handed off (→ Lark-only)
+
+User opted to go Lark-only immediately. Handed off the live-script edit (delete the whole email block +
+the now-unused `recipientEmail` const; keep the `notifyLark_` call). `README.md` notify line synced from
+"Gmail access (MailApp)" → Lark bot. **Awaiting user deploy (New version) + no-email confirmation** before
+Phase 3 "No email sent" is marked verified.
+
+**Pending:** user deploys the Lark-only version; optional repo reconcile so source matches the deployed
+additive layout (separate `lark-notify.gs` + lock-held notify) vs the committed integrated swap.

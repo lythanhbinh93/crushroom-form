@@ -158,7 +158,7 @@ Truy cập `http://localhost:8000`
 **Yêu cầu Google Setup**:
 - Google Drive folder (lưu ảnh) — copy FOLDER_ID vào script
 - Google Sheet "form data" — auto-created trên upload đầu tiên
-- Gmail access (MailApp) — gửi thông báo tới crush@crushroom.vn
+- Lark bot notification — gửi thẻ (card) kèm ảnh inline tới group staff; cần `LARK_WEBHOOK_URL` / `LARK_APP_ID` / `LARK_APP_SECRET` trong Script Properties
 
 Chi tiết: Xem [docs/deployment-guide.md](docs/deployment-guide.md)
 
