@@ -28,6 +28,29 @@
   const ERROR_DISMISS_MS = 4000;
 
   // ----------------------------------------------------------------
+  // Admin token helpers — shared contract with admin.js
+  // ----------------------------------------------------------------
+
+  // Retrieve the admin token from localStorage, prompting once if absent.
+  // Each file declares its own copy because they are separate <script> bundles
+  // with no shared module scope.
+  function getAdminToken() {
+    var t = localStorage.getItem('cp_admin_token');
+    if (!t) {
+      t = (prompt('Nhập admin token:') || '').trim();
+      if (t) localStorage.setItem('cp_admin_token', t);
+    }
+    return t;
+  }
+
+  // Clears the cached token so the staffer is prompted on the next request.
+  // Called whenever a GAS action returns ok:false + error:'unauthorized'.
+  function handleUnauthorized() {
+    localStorage.removeItem('cp_admin_token');
+    alert('Token không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang và nhập token mới.');
+  }
+
+  // ----------------------------------------------------------------
   // State
   // ----------------------------------------------------------------
 
@@ -121,7 +144,8 @@
     listEl.innerHTML = '';
     emptyEl.style.display = 'none';
 
-    const url = VOICE_GAS_URL + '?action=listVoice&status=' + encodeURIComponent(currentFilter);
+    const url = VOICE_GAS_URL + '?action=listVoice&status=' + encodeURIComponent(currentFilter)
+                              + '&token=' + encodeURIComponent(getAdminToken());
     fetch(url)
       .then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -130,7 +154,12 @@
       .then(function (data) {
         showLoading(false);
         if (!data.ok) {
-          showError(data.error || 'GAS trả về lỗi không xác định');
+          if (data.error === 'unauthorized') {
+            handleUnauthorized();
+            showError('Không có quyền — vui lòng tải lại trang và nhập token mới');
+          } else {
+            showError(data.error || 'GAS trả về lỗi không xác định');
+          }
           return;
         }
         rows = Array.isArray(data.rows) ? data.rows : [];
@@ -340,7 +369,8 @@
     const body = new URLSearchParams({
       action: 'publishVoice',
       phone: row.phone || '',
-      order_id: row.order_id || ''
+      order_id: row.order_id || '',
+      token: getAdminToken()
     });
 
     fetch(VOICE_GAS_URL, { method: 'POST', body: body })
@@ -349,6 +379,10 @@
         return r.json();
       })
       .then(function (data) {
+        if (!data.ok && data.error === 'unauthorized') {
+          handleUnauthorized();
+          throw new Error('unauthorized — vui lòng tải lại trang và nhập token mới');
+        }
         if (!data.ok) throw new Error(data.error || 'publishVoice failed');
         // Update local row state
         row.status = 'published';
@@ -408,7 +442,8 @@
       action: 'archiveVoice',
       phone: row.phone || '',
       order_id: row.order_id || '',
-      target_status: targetStatus
+      target_status: targetStatus,
+      token: getAdminToken()
     });
 
     fetch(VOICE_GAS_URL, { method: 'POST', body: body })
@@ -417,6 +452,10 @@
         return r.json();
       })
       .then(function (data) {
+        if (!data.ok && data.error === 'unauthorized') {
+          handleUnauthorized();
+          throw new Error('unauthorized — vui lòng tải lại trang và nhập token mới');
+        }
         if (!data.ok) throw new Error(data.error || 'archiveVoice failed');
         showToast(targetStatus === 'pending' ? 'Đã restore về Pending' : 'Đã archive');
         // Reload list so the row disappears / reappears in correct filter
@@ -494,7 +533,8 @@
           action: 'updatePeaks',
           slug: row.slug,
           peaks: JSON.stringify(result.peaks),
-          audio_duration: String(result.duration)
+          audio_duration: String(result.duration),
+          token: getAdminToken()
         });
         return fetch(VOICE_GAS_URL, { method: 'POST', body: body }).then(function (r) {
           if (!r.ok) throw new Error('updatePeaks HTTP ' + r.status);
@@ -502,6 +542,10 @@
         });
       })
       .then(function (data) {
+        if (!data.ok && data.error === 'unauthorized') {
+          handleUnauthorized();
+          throw new Error('unauthorized — vui lòng tải lại trang và nhập token mới');
+        }
         if (!data.ok) throw new Error(data.error || 'updatePeaks failed');
       });
   }

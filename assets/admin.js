@@ -2,6 +2,24 @@ document.addEventListener('DOMContentLoaded', function() {
   // Google Apps Script URL - CẦN CẬP NHẬT URL NÀY
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbweeqxM3blNgfqB4A1y2HBaGfQcfUcpTdksG0GBiW29NLyUOr1C0Hl95Naju3AjgRq4qg/exec';
 
+  // Admin token — stored in localStorage so CS staff only enter it once per browser.
+  // Prompts on first call if absent. Cleared on 'unauthorized' response so staff
+  // can re-enter a corrected token without a manual localStorage wipe.
+  function getAdminToken() {
+    var t = localStorage.getItem('cp_admin_token');
+    if (!t) {
+      t = (prompt('Nhập admin token:') || '').trim();
+      if (t) localStorage.setItem('cp_admin_token', t);
+    }
+    return t;
+  }
+
+  // Call when a GAS response comes back unauthorized — forces token re-entry on next request.
+  function handleUnauthorized() {
+    localStorage.removeItem('cp_admin_token');
+    alert('Token không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang và nhập token mới.');
+  }
+
   // ============================================================
   // TAB SWITCHING — hash-based routing (#photos / #voice)
   // ============================================================
@@ -70,8 +88,8 @@ document.addEventListener('DOMContentLoaded', function() {
     hideAll();
     loading.style.display = 'block';
 
-    // Call Google Apps Script API
-    fetch(SCRIPT_URL + '?action=search&phone=' + phone)
+    // Call Google Apps Script API — token required; listProducts (public) is exempt
+    fetch(SCRIPT_URL + '?action=search&phone=' + phone + '&token=' + encodeURIComponent(getAdminToken()))
       .then(response => {
         console.log('Response status:', response.status);
         if (!response.ok) {
@@ -83,7 +101,10 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Response data:', data);
         loading.style.display = 'none';
 
-        if (data.success && data.results && data.results.length > 0) {
+        if (data.success === false && data.error === 'unauthorized') {
+          handleUnauthorized();
+          showError('Không có quyền — vui lòng tải lại trang và nhập token mới');
+        } else if (data.success && data.results && data.results.length > 0) {
           displayResults(data.results, phone);
         } else if (data.success && data.results && data.results.length === 0) {
           noResults.style.display = 'block';
@@ -466,7 +487,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Fallback: fetch image bytes via GAS imageProxy (same-origin JSON response),
   // decode base64 into a Blob, and load that via a blob: URL — clean canvas.
   async function loadThumbViaProxy(id, size) {
-    const r = await fetch(`${SCRIPT_URL}?action=imageProxy&id=${encodeURIComponent(id)}&size=w${size || 600}`);
+    const r = await fetch(`${SCRIPT_URL}?action=imageProxy&id=${encodeURIComponent(id)}&size=w${size || 600}&token=${encodeURIComponent(getAdminToken())}`);
     if (!r.ok) throw new Error(`proxy HTTP ${r.status}`);
     const j = await r.json();
     if (!j || !j.success || !j.base64) throw new Error((j && j.error) || 'proxy returned no image');
@@ -653,7 +674,7 @@ document.addEventListener('DOMContentLoaded', function() {
     hideAllList();
     listLoading.style.display = 'block';
 
-    const url = `${SCRIPT_URL}?action=list&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    const url = `${SCRIPT_URL}?action=list&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&token=${encodeURIComponent(getAdminToken())}`;
     fetch(url)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -662,7 +683,12 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         listLoading.style.display = 'none';
         if (!data.success) {
-          showListError(data.error || 'Lỗi không xác định');
+          if (data.error === 'unauthorized') {
+            handleUnauthorized();
+            showListError('Không có quyền — vui lòng tải lại trang và nhập token mới');
+          } else {
+            showListError(data.error || 'Lỗi không xác định');
+          }
           return;
         }
         if (!data.results || data.results.length === 0) {

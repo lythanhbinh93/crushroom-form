@@ -22,6 +22,24 @@ function intialSetup() {
     scriptProp.setProperty('key', activeSpreadsheet.getId());
 }
 
+// Fail-closed auth check: returns false when ADMIN_TOKEN is unset OR when the
+// supplied token does not match. Both conditions must reject — an unset property
+// means the deployment is unconfigured, not that it is open to the public.
+function requireAuth_(e) {
+    var expected = scriptProp.getProperty('ADMIN_TOKEN');
+    var got = (e && e.parameter && e.parameter.token) || '';
+    return !!expected && got === expected;
+}
+
+// Guards against formula-injection attacks where a customer submits a value
+// starting with =, +, -, @, TAB, or CR. Spreadsheet apps execute such values
+// as formulas when a user opens the sheet. Prepending a single-quote forces
+// the cell to be treated as literal text.
+function csvSafe_(v) {
+    v = String(v == null ? '' : v);
+    return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
+}
+
 // ===== XỬ LÝ GET REQUEST TỪ ADMIN PANEL =====
 function doGet(e) {
     try {
@@ -30,6 +48,12 @@ function doGet(e) {
 
         if (action === 'listProducts') {
             return listProducts();
+        }
+
+        // Staff-only actions: require a valid ADMIN_TOKEN so customer-facing catalog
+        // requests stay open while internal search/list/proxy stay closed.
+        if (!requireAuth_(e)) {
+            return jsonOut({ success: false, error: 'unauthorized' });
         }
 
         if (action === 'search' && phone) {
@@ -429,7 +453,16 @@ function normalizeVNPhone_(raw) {
 //   message            : optional free-text note (kept for schema compat, can be empty)
 function doPost(e) {
     const lock = LockService.getScriptLock();
-    lock.tryLock(10000);
+    // Reject immediately when another upload is in progress rather than silently
+    // proceeding without a lock — concurrent sheet appends can corrupt row order.
+    if (!lock.tryLock(10000)) return jsonOut({ result: 'error', error: 'busy, please retry' });
+
+    // Capture Lark notification args here so we can call notifyLark_ AFTER
+    // releasing the lock. notifyLark_ makes an external HTTP request; holding the
+    // lock during network I/O unnecessarily blocks concurrent uploads.
+    var notifyArgs = null;
+    var response;
+
     try {
         const doc = SpreadsheetApp.openById(scriptProp.getProperty('key'));
         const sheet = doc.getSheetByName(sheetName);
@@ -514,31 +547,41 @@ function doPost(e) {
                 case 'Date': return new Date();
                 case 'Name': return normalizeVNPhone_(e.parameter['Name']);
                 case 'radio': return derivedRadio;
-                case 'message': return e.parameter['message'] || '';
+                // message is customer-controlled free text — guard against formula injection.
+                case 'message': return csvSafe_(e.parameter['message'] || '');
                 case 'image-1': return items[0] ? items[0].fileUrl : '';
                 case 'image-2': return items[1] ? items[1].fileUrl : '';
-                case 'Filename1': return items[0] ? items[0].filename.replace(/\.jpg$/i, '') : (e.parameter['Filename1'] || '');
-                case 'Filename2': return items[1] ? items[1].filename.replace(/\.jpg$/i, '') : (e.parameter['Filename2'] || '');
+                // Filename fields are customer-supplied — guard against formula injection.
+                case 'Filename1': return csvSafe_(items[0] ? items[0].filename.replace(/\.jpg$/i, '') : (e.parameter['Filename1'] || ''));
+                case 'Filename2': return csvSafe_(items[1] ? items[1].filename.replace(/\.jpg$/i, '') : (e.parameter['Filename2'] || ''));
                 case 'ImgData1': return '';
                 case 'ImgData2': return '';
+                // Items is JSON we construct server-side, not a raw customer string; skip csvSafe_.
                 case 'Items': return JSON.stringify(items);
                 case 'SchemaVersion': return 2;
-                default: return e.parameter[header] || '';
+                // Any unexpected header echoes the raw POST param — treat as customer-controlled.
+                default: return csvSafe_(e.parameter[header] || '');
             }
         });
 
         sheet.getRange(nextRow, 1, 1, newRow.length).setValues([newRow]);
 
-        // Staff notification: Lark card with inline photos (replaces email).
-        // Fully try/catch-wrapped in notifyLark_, so a Lark failure never breaks the upload.
-        notifyLark_(phone, items, samePhoto, e.parameter['message']);
-
-        return ContentService.createTextOutput('Upload Done');
+        // Stash Lark args so the notification fires after the lock is released.
+        notifyArgs = [phone, items, samePhoto, e.parameter['message']];
+        response = ContentService.createTextOutput('Upload Done');
     } catch (err) {
-        return jsonOut({ result: 'error', error: String(err) });
+        response = jsonOut({ result: 'error', error: String(err) });
     } finally {
         lock.releaseLock();
     }
+
+    // Call notifyLark_ outside the lock: it makes an external HTTP request and
+    // is fully try/catch-wrapped, so a Lark failure never affects the response.
+    if (notifyArgs) {
+        notifyLark_(notifyArgs[0], notifyArgs[1], notifyArgs[2], notifyArgs[3]);
+    }
+
+    return response;
 }
 
 // Append Items / SchemaVersion columns if the sheet was created before v2.

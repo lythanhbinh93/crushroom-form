@@ -68,7 +68,12 @@ function authorizeUrlFetch() {
 function doGet(e) {
     try {
         const action = e.parameter.action;
-        if (action === 'listVoice') return handleListVoice_(e);
+        // listVoice exposes all customer records — require admin token.
+        if (action === 'listVoice') {
+            if (!requireAuth_(e)) return jsonOut({ ok: false, error: 'unauthorized' });
+            return handleListVoice_(e);
+        }
+        // getVoice and audioProxy are PUBLIC: recipients access published gifts without a token.
         if (action === 'getVoice') return handleGetVoice_(e);
         if (action === 'audioProxy') return handleAudioProxy_(e);
         return jsonOut({ ok: false, error: 'Invalid action' });
@@ -80,11 +85,22 @@ function doGet(e) {
 function doPost(e) {
     try {
         const action = e.parameter && e.parameter.action;
+        // initUpload and finishUpload are PUBLIC: customers call these from the gift form.
         if (action === 'initUpload') return handleInitUpload_(e);
         if (action === 'finishUpload') return handleFinishUpload_(e);
-        if (action === 'publishVoice') return handlePublishVoice_(e);
-        if (action === 'archiveVoice') return handleArchiveVoice_(e);
-        if (action === 'updatePeaks') return handleUpdatePeaks_(e);
+        // publishVoice, archiveVoice, updatePeaks mutate published state — require admin token.
+        if (action === 'publishVoice') {
+            if (!requireAuth_(e)) return jsonOut({ ok: false, error: 'unauthorized' });
+            return handlePublishVoice_(e);
+        }
+        if (action === 'archiveVoice') {
+            if (!requireAuth_(e)) return jsonOut({ ok: false, error: 'unauthorized' });
+            return handleArchiveVoice_(e);
+        }
+        if (action === 'updatePeaks') {
+            if (!requireAuth_(e)) return jsonOut({ ok: false, error: 'unauthorized' });
+            return handleUpdatePeaks_(e);
+        }
         return jsonOut({ ok: false, error: 'Invalid action' });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
@@ -112,6 +128,28 @@ function normalizeVNPhone_(raw) {
     }
     if (digits.length === 9 && /^[3-9]/.test(digits)) digits = '0' + digits;
     return digits;
+}
+
+/**
+ * Guard against CSV/formula-injection: a leading =, +, -, @, tab, or CR
+ * lets a cell value execute as a spreadsheet formula when opened in Excel/Sheets.
+ * Prefix those with a single quote (Sheets stores as text, hides the quote).
+ * Only apply to CUSTOMER-CONTROLLED fields (order_id, text_message, peaks).
+ */
+function csvSafe_(v) {
+    v = String(v == null ? '' : v);
+    return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
+}
+
+/**
+ * Fail-closed token check. Returns false if ADMIN_TOKEN script property is
+ * unset (prevents accidental open access when the property was never filled in).
+ * The token is read from e.parameter.token — appended by the admin frontend.
+ */
+function requireAuth_(e) {
+    var expected = scriptProp.getProperty('ADMIN_TOKEN');
+    var got = (e && e.parameter && e.parameter.token) || '';
+    return !!expected && got === expected;
 }
 
 // ============================================================
@@ -333,14 +371,27 @@ function handleFinishUpload_(e) {
 
         var sheet = ensureVoiceSheet_();
         var existing = voiceFindRowByKey_(phone, orderId);
+
+        // Block a public (unauthenticated) re-upload from silently overwriting a row
+        // that is already published. A customer re-submitting a form could otherwise
+        // wipe a live gift page. Admins can overwrite by passing a valid token.
+        if (existing) {
+            var iStatusCheck = VOICE_SHEET_HEADERS.indexOf('status');
+            var existingStatus = String(existing.row[iStatusCheck] || '');
+            if (existingStatus === 'published' && !requireAuth_(e)) {
+                return jsonOut({ ok: false, error: 'already_published' });
+            }
+        }
+
         var now = new Date().toISOString();
         // Prefix phone with apostrophe so Sheets stores as text and preserves leading 0.
         // (Without this, "0918260494" auto-casts to number 918260494 and breaks lookups.)
+        // csvSafe_ wraps customer-controlled text fields to prevent formula injection.
         var rowValues = [
-            now, "'" + phone, orderId, textMessage,
+            now, "'" + phone, csvSafe_(orderId), csvSafe_(textMessage),
             audioFileId, audioUrl, imageFileId, imageUrl,
             'pending', '', '',
-            peaks, audioDuration
+            csvSafe_(peaks), audioDuration
         ];
 
         var rowIdx;
@@ -456,7 +507,8 @@ function handleUpdatePeaks_(e) {
 
         var iPeaks = VOICE_SHEET_HEADERS.indexOf('peaks');
         var iDur = VOICE_SHEET_HEADERS.indexOf('audio_duration');
-        sheet.getRange(found.rowIdx, iPeaks + 1).setValue(peaks);
+        // csvSafe_ guards against a crafted peaks string injecting a formula into Sheets.
+        sheet.getRange(found.rowIdx, iPeaks + 1).setValue(csvSafe_(peaks));
         sheet.getRange(found.rowIdx, iDur + 1).setValue(audioDuration);
 
         return jsonOut({ ok: true, slug: slug });

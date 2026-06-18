@@ -598,6 +598,14 @@ document.addEventListener('DOMContentLoaded', function () {
         alert('Chỉ hỗ trợ ảnh (JPG, PNG, HEIC...).');
         return;
       }
+      // 25 MB hard cap — GAS URL Fetch limit is 50 MB but base64 expansion means
+      // a ~18 MB source file already pushes close to the payload ceiling.
+      var MAX_BYTES = 25 * 1024 * 1024;
+      if (file.size > MAX_BYTES) {
+        alert('Ảnh quá lớn (tối đa 25MB), vui lòng chọn ảnh nhỏ hơn.');
+        fileInput.value = '';
+        return;
+      }
       openImageCropModal(file, imgPreview, placeholder, previewArea, fileInput);
     }
 
@@ -751,7 +759,12 @@ document.addEventListener('DOMContentLoaded', function () {
     var reader = new FileReader();
     reader.onload = function (e) {
       croppie.bind({ url: e.target.result }).catch(function (err) {
+        // Croppie cannot decode the image data — most common cause is HEIC on
+        // browsers that lack native HEIC support (Chrome/Firefox on non-Apple).
         console.error('[CouplePix] Croppie bind failed:', err);
+        alert('Trình duyệt không hiển thị được định dạng ảnh này (HEIC). Vui lòng chụp/đổi sang JPG hoặc PNG.');
+        if (fileInput) fileInput.value = '';
+        closeModal();
       });
     };
     reader.onerror = function () {
@@ -961,17 +974,30 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     fetch(SCRIPT_URL, { method: 'POST', body: formData })
-      .then(function () {
-        alert('Bạn đã gửi ảnh thành công.');
+      .then(function (r) {
+        // GAS returns plain text 'Upload Done' on success; anything else (JSON
+        // error body or unexpected response) must be treated as a failure so the
+        // customer is not silently redirected while their photos were never saved.
+        return r.text();
       })
-      .then(function () {
-        window.location.href = 'https://crushroom.vn/pages/thank-you';
+      .then(function (body) {
+        if ((body || '').trim() === 'Upload Done') {
+          window.location.href = 'https://crushroom.vn/pages/thank-you';
+        } else {
+          // Surface the server error message if it is short enough to be readable.
+          var detail = '';
+          try { detail = JSON.parse(body).error || ''; } catch (e) { /* not JSON */ }
+          alert('Chưa gửi được ảnh. ' + (detail || 'Vui lòng thử lại hoặc liên hệ shop.'));
+          console.error('[CouplePix] Upload rejected by server:', body);
+          submitButton.disabled = false;
+          loaderBtn.style.display = 'none';
+          submitBtn.style.display = 'inline-block';
+        }
       })
       .catch(function (err) {
-        alert('Chưa gửi được ảnh. Xin thử lại');
-        console.error('Error!', err && err.message);
-      })
-      .finally(function () {
+        // Network / CORS failure — do not redirect.
+        alert('Chưa gửi được ảnh. Kiểm tra kết nối mạng và thử lại.');
+        console.error('[CouplePix] Network error:', err && err.message);
         submitButton.disabled = false;
         loaderBtn.style.display = 'none';
         submitBtn.style.display = 'inline-block';
