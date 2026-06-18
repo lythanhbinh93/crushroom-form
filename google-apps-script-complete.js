@@ -22,14 +22,6 @@ function intialSetup() {
     scriptProp.setProperty('key', activeSpreadsheet.getId());
 }
 
-// One-time: run from the Apps Script editor to store Lark credentials in Script Properties
-// (keeps them out of source/git). Pass the group-bot webhook URL + custom-app id/secret.
-function setLarkConfig_(webhookUrl, appId, appSecret) {
-    scriptProp.setProperty('LARK_WEBHOOK_URL', webhookUrl);
-    scriptProp.setProperty('LARK_APP_ID', appId);
-    scriptProp.setProperty('LARK_APP_SECRET', appSecret);
-}
-
 // ===== XỬ LÝ GET REQUEST TỪ ADMIN PANEL =====
 function doGet(e) {
     try {
@@ -438,8 +430,6 @@ function normalizeVNPhone_(raw) {
 function doPost(e) {
     const lock = LockService.getScriptLock();
     lock.tryLock(10000);
-    let response;
-    let notifyArgs = null;
     try {
         const doc = SpreadsheetApp.openById(scriptProp.getProperty('key'));
         const sheet = doc.getSheetByName(sheetName);
@@ -539,20 +529,16 @@ function doPost(e) {
 
         sheet.getRange(nextRow, 1, 1, newRow.length).setValues([newRow]);
 
-        // Defer the Lark notification until AFTER the lock is released (the photo uploads can take
-        // seconds for large multi-slot orders; holding the script lock that long would force
-        // concurrent uploads to wait). Stash the args + success response, notify post-finally.
-        notifyArgs = { phone: phone, items: items, samePhoto: samePhoto, message: e.parameter['message'] };
-        response = ContentService.createTextOutput('Upload Done');
+        // Staff notification: Lark card with inline photos (replaces email).
+        // Fully try/catch-wrapped in notifyLark_, so a Lark failure never breaks the upload.
+        notifyLark_(phone, items, samePhoto, e.parameter['message']);
+
+        return ContentService.createTextOutput('Upload Done');
     } catch (err) {
-        response = jsonOut({ result: 'error', error: String(err) });
+        return jsonOut({ result: 'error', error: String(err) });
     } finally {
         lock.releaseLock();
     }
-
-    // Lock-free: notifyLark_ is fully try/catch-wrapped, so it never affects the response.
-    if (notifyArgs) notifyLark_(notifyArgs.phone, notifyArgs.items, notifyArgs.samePhoto, notifyArgs.message);
-    return response;
 }
 
 // Append Items / SchemaVersion columns if the sheet was created before v2.
@@ -568,132 +554,6 @@ function ensureFormDataColumns_(sheet) {
     });
 }
 
-// ===== LARK BOT NOTIFICATION (replaces email) =====
-// Hybrid: a Lark custom app uploads each photo to get an img_key; the existing group-bot
-// webhook posts an interactive card embedding the photos inline (staff can copy/paste them).
-// Credentials live in Script Properties (see setLarkConfig_).
-
-const LARK_BASE = 'https://open.larksuite.com';
-
-// Tenant access token (cached ~2h). Refetched automatically once the cache entry expires.
-function getLarkTenantToken_() {
-    const cache = CacheService.getScriptCache();
-    const hit = cache.get('lark_tenant_token');
-    if (hit) return hit;
-    const res = UrlFetchApp.fetch(LARK_BASE + '/open-apis/auth/v3/tenant_access_token/internal', {
-        method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-        payload: JSON.stringify({
-            app_id: scriptProp.getProperty('LARK_APP_ID'),
-            app_secret: scriptProp.getProperty('LARK_APP_SECRET')
-        })
-    });
-    const j = JSON.parse(res.getContentText());
-    if (j.code !== 0) throw new Error('lark token: ' + res.getContentText());
-    cache.put('lark_tenant_token', j.tenant_access_token, Math.max(60, (j.expire || 7200) - 120));
-    return j.tenant_access_token;
-}
-
-// POST a blob to Lark's image API. Returns the parsed JSON (caller checks code).
-function uploadLarkImageBlob_(blob, token) {
-    const res = UrlFetchApp.fetch(LARK_BASE + '/open-apis/im/v1/images', {
-        method: 'post', muteHttpExceptions: true,
-        headers: { Authorization: 'Bearer ' + token },
-        // No contentType: let UrlFetchApp build multipart/form-data (with boundary) from the Blob.
-        payload: { image_type: 'message', image: blob }
-    });
-    return JSON.parse(res.getContentText());
-}
-
-// Upload one Drive photo → img_key. Sends the full-resolution original first (so staff get a
-// usable photo); if Lark rejects it (e.g. >10MB), retries with Drive's smaller thumbnail.
-// Uses DriveApp.getThumbnail() (auth-aware) rather than the public thumbnail URL, since the
-// uploaded files are private to the script owner and the unauthenticated URL would return HTML.
-function uploadLarkImage_(fileId, token) {
-    const file = DriveApp.getFileById(fileId);
-    let j = uploadLarkImageBlob_(file.getBlob(), token);
-    if (j.code !== 0) {
-        const thumb = file.getThumbnail();  // may be null for unsupported types
-        if (thumb) j = uploadLarkImageBlob_(thumb, token);
-    }
-    if (j.code !== 0) throw new Error('lark img: ' + JSON.stringify(j));
-    return j.data.image_key;
-}
-
-function larkImgEl_(imgKey, alt) {
-    return { tag: 'img', img_key: imgKey, alt: { tag: 'plain_text', content: alt } };
-}
-
-function larkItemLine_(idx, it) {
-    return {
-        tag: 'div', text: {
-            tag: 'lark_md',
-            content: (idx + 1) + '. ' + it.sku + ' — ' + it.name + ' · [Xem Drive](' + it.fileUrl + ')'
-        }
-    };
-}
-
-// Build + send the staff notification card. Whole body in try/catch: a Lark failure is logged
-// only and never breaks the upload response. Per-image failure degrades that slot to text + link.
-function notifyLark_(phone, items, samePhoto, message) {
-    try {
-        const webhook = scriptProp.getProperty('LARK_WEBHOOK_URL');
-        if (!webhook) { Logger.log('lark: no webhook configured'); return; }
-        if (!items || !items.length) return;
-
-        const token = getLarkTenantToken_();
-        const elements = [{
-            tag: 'div', text: {
-                tag: 'lark_md',
-                content: '**SĐT:** ' + (phone || '') + '\n**Số slot:** ' + items.length +
-                    (samePhoto ? ' · dùng cho ' + items.length + ' slot (1 ảnh)' : '')
-            }
-        }, { tag: 'hr' }];
-
-        if (samePhoto) {
-            // One shared photo: upload + show once, then list every product line.
-            try {
-                elements.push(larkImgEl_(uploadLarkImage_(items[0].fileId, token), items[0].name || 'ảnh'));
-            } catch (e) {
-                Logger.log('img fail (same) ' + items[0].fileId + ': ' + e);
-            }
-            items.forEach(function (it, i) { elements.push(larkItemLine_(i, it)); });
-        } else {
-            // Distinct photos: one image per slot; on upload failure show the line only.
-            items.forEach(function (it, i) {
-                try {
-                    elements.push(larkImgEl_(uploadLarkImage_(it.fileId, token), it.name || ('slot ' + (i + 1))));
-                } catch (e) {
-                    Logger.log('img fail ' + it.fileId + ': ' + e);
-                }
-                elements.push(larkItemLine_(i, it));
-            });
-        }
-
-        if (message) {
-            elements.push({ tag: 'hr' },
-                { tag: 'div', text: { tag: 'lark_md', content: '**Ghi chú khách:** ' + message } });
-        }
-
-        const card = {
-            config: { wide_screen_mode: true },
-            header: {
-                template: 'blue',
-                title: { tag: 'plain_text', content: 'Khách vừa tải ảnh lên' + (phone ? ' · ' + phone : '') }
-            },
-            elements: elements
-        };
-
-        const res = UrlFetchApp.fetch(webhook, {
-            method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-            payload: JSON.stringify({ msg_type: 'interactive', card: card })
-        });
-        const j = JSON.parse(res.getContentText());
-        if (j.code !== 0) Logger.log('lark post fail: ' + res.getContentText());
-    } catch (e) {
-        Logger.log('notifyLark_ failed: ' + e);
-    }
-}
-
 // ===== HƯỚNG DẪN CẬP NHẬT =====
 // 1. Copy toàn bộ code này vào Apps Script editor và Deploy > New deployment (Web app, Anyone access).
 // 2. Tạo sheet "products" với header: SKU | Name | Type | Material | ImagesPerUnit | Hint | ThumbnailUrl | Active.
@@ -704,7 +564,7 @@ function notifyLark_(phone, items, samePhoto, message) {
 // ✅ action=listProducts trả về catalog cho form khách
 // ✅ doPost hỗ trợ N slot (ImgData_0..N-1) kèm SKU/ProductName/Slot
 // ✅ Items JSON ghi kèm mỗi row (có fallback image-1/image-2 cho admin cũ)
-// ✅ Email thông báo liệt kê từng sản phẩm + link Drive
+// ✅ Lark bot card kèm ảnh inline + link Drive (thay cho email; fns ở lark-notify.gs)
 //
 // ===== CHANGELOG v3 =====
 // ✅ listProducts trả thêm type + material để form lọc dropdown

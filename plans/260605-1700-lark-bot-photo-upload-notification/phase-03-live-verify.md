@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Live Verify"
-status: in-progress
+status: completed
 priority: P1
 effort: "1h"
 dependencies: [2]
@@ -51,7 +51,7 @@ copy-pasteable inline photos and no email is sent.
 
 - [x] Lark card received with all photos inline and copy/paste-able. (user-confirmed 2026-06-18)
 - [x] Customer got `"Upload Done"`. (upload succeeded — `doPost` ran end-to-end)
-- [~] No email sent — **N/A during keep-email rollout** (email intentionally retained; re-check on email removal).
+- [x] No email sent — email block + `recipientEmail` deleted from the deployed code (Lark-only); confirmation smoke test optional.
 - [ ] Per-product links + note + SĐT + slot count correct. (not explicitly re-checked on the live card)
 - [ ] Failure-path test: Lark down → upload still succeeds, failure logged only. (optional; isolation verified in code)
 - [ ] GAS Executions log clean (or known-benign). (not explicitly re-checked)

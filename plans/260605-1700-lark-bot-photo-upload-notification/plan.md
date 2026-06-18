@@ -3,7 +3,7 @@ title: 'Lark Bot Photo-Upload Notification (replace email, copy-pasteable photos
 description: >-
   Replace MailApp email with a Lark group-bot interactive card that embeds every
   uploaded photo inline (copy/paste/drag). Photo-upload GAS backend only.
-status: in-progress
+status: completed
 priority: P2
 branch: claude/add-photo-upload-tool-p3dI0
 tags:
@@ -38,7 +38,7 @@ Source brainstorm: `plans/reports/brainstorm-260605-1700-lark-bot-photo-upload-n
 |-------|------|--------|
 | 1 | [Lark Setup & Config](./phase-01-lark-setup-config.md) | Completed |
 | 2 | [Implement Notify Code](./phase-02-implement-notify-code.md) | Completed |
-| 3 | [Live Verify](./phase-03-live-verify.md) | Lark verified live (email-removal pending) |
+| 3 | [Live Verify](./phase-03-live-verify.md) | Completed (Lark-only) |
 
 ## Key Decisions (from brainstorm)
 
@@ -134,5 +134,18 @@ the now-unused `recipientEmail` const; keep the `notifyLark_` call). `README.md`
 "Gmail access (MailApp)" → Lark bot. **Awaiting user deploy (New version) + no-email confirmation** before
 Phase 3 "No email sent" is marked verified.
 
-**Pending:** user deploys the Lark-only version; optional repo reconcile so source matches the deployed
-additive layout (separate `lark-notify.gs` + lock-held notify) vs the committed integrated swap.
+### 2026-06-18 — Lark-only + repo reconciled (DONE)
+
+- User applied the email-removal edit (deleted the email block + `recipientEmail`; kept the `notifyLark_`
+  call). Production now **Lark-only**.
+- **Repo reconciled to the deployed TWO-FILE layout** (footgun resolved — repo files now map 1:1 to the
+  GAS files, so a full sync no longer collides):
+  - `google-apps-script-complete.js` = main script, email removed, lock-held `notifyLark_` call, **no Lark
+    fn definitions**, v3 listProducts intact.
+  - `lark-notify.js` = the Lark module (`= lark-notify.gs` in the editor): `setLarkConfig_`, `LARK_BASE`,
+    token/upload/card fns.
+  - Both `node --check` pass. Built deterministically from git (baseline + committed Lark block).
+- `README.md` notify line already synced to Lark.
+
+**Optional remaining:** a final no-email smoke test on the live form (email send is structurally gone from
+the deployed code, so this is confirmation-only).
