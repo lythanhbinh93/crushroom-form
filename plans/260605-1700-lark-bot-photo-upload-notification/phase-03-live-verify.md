@@ -1,13 +1,18 @@
 ---
 phase: 3
 title: "Live Verify"
-status: pending
+status: in-progress
 priority: P1
 effort: "1h"
 dependencies: [2]
 ---
 
 # Phase 3: Live Verify
+
+> **Deployed additive (keep-email), not the swap.** Live 2026-06-18 — real upload produced the Lark
+> card with inline photos (user-confirmed). Because email is intentionally retained during the rollout,
+> the "no email sent" criterion is **N/A for now** (re-checked when the email block is removed).
+> See plan.md → Deployment Log.
 
 ## Overview
 
@@ -44,12 +49,12 @@ copy-pasteable inline photos and no email is sent.
 
 ## Success Criteria
 
-- [ ] Lark card received with all photos inline and copy/paste-able.
-- [ ] Per-product links + note + SĐT + slot count correct.
-- [ ] No email sent for the test upload.
-- [ ] Customer got `"Upload Done"`.
-- [ ] Failure-path test: Lark down → upload still succeeds, failure logged only.
-- [ ] GAS Executions log clean (or known-benign).
+- [x] Lark card received with all photos inline and copy/paste-able. (user-confirmed 2026-06-18)
+- [x] Customer got `"Upload Done"`. (upload succeeded — `doPost` ran end-to-end)
+- [~] No email sent — **N/A during keep-email rollout** (email intentionally retained; re-check on email removal).
+- [ ] Per-product links + note + SĐT + slot count correct. (not explicitly re-checked on the live card)
+- [ ] Failure-path test: Lark down → upload still succeeds, failure logged only. (optional; isolation verified in code)
+- [ ] GAS Executions log clean (or known-benign). (not explicitly re-checked)
 
 ## Risk Assessment
 

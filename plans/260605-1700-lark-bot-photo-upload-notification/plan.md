@@ -36,9 +36,9 @@ Source brainstorm: `plans/reports/brainstorm-260605-1700-lark-bot-photo-upload-n
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Lark Setup & Config](./phase-01-lark-setup-config.md) | Pending |
+| 1 | [Lark Setup & Config](./phase-01-lark-setup-config.md) | Completed |
 | 2 | [Implement Notify Code](./phase-02-implement-notify-code.md) | Completed |
-| 3 | [Live Verify](./phase-03-live-verify.md) | Pending |
+| 3 | [Live Verify](./phase-03-live-verify.md) | Lark verified live (email-removal pending) |
 
 ## Key Decisions (from brainstorm)
 
@@ -100,3 +100,32 @@ code-reviewer (DONE_WITH_CONCERNS) raised 1 Critical + 1 High + 3 Medium + 3 Low
 - **L1-L3** — benign / already-correct (token TTL, guarded access via per-slot try/catch). No change.
 
 Post-fix `node --check`: pass. Email path fully removed (grep: 0 `MailApp`/`recipientEmail`).
+
+## Deployment Log
+
+### 2026-06-18 — Lark notification LIVE (additive keep-email rollout)
+
+Shipped via a **safe additive rollout** instead of the phase-02 swap, to avoid touching the live
+customer flow (user explicitly refused a full-file paste-over of the live GAS script):
+
+- **A1** group webhook reused (`df40fc93…`). **A2** custom app `cli_a7c3e35ba4f9d010` (international
+  `larksuite.com`, same org as the webhook group): Bot capability ("Send and receive message") +
+  `im:resource` scope, **released**. First app was built in the wrong org (DOPAMILES) and discarded.
+- **Pre-deploy smoke tests** (all `code 0`): tenant token, image upload → `img_key`, webhook card with
+  a real `img_key` rendering inline.
+- **GAS deploy = additive, not swap:** added a NEW file `lark-notify.gs` (all Lark fns) + ONE line in
+  `doPost` — `notifyLark_(phone, items, samePhoto, e.parameter['message'])` placed AFTER
+  `MailApp.sendEmail`. **Email retained** — both email + Lark card fire. Creds in Script Properties.
+  Adversarially verified SHIP-SAFE (current flow byte-for-byte unchanged; `notifyLark_` can't throw
+  out of `doPost`; no symbol collision vs live).
+- **Live-verified 2026-06-18:** real upload → Lark card with inline photos confirmed working.
+
+⚠️ **Repo ⇄ production divergence (footgun):**
+- **Production** main script = live pre-Lark+v3 + the one-line `notifyLark_` call (email kept), PLUS a
+  separate `lark-notify.gs`.
+- **Repo** `google-apps-script-complete.js` = the INTEGRATED swap (email removed, single file) — the
+  END-STATE reference, **NOT what is live**. DO NOT full-paste it over production while `lark-notify.gs`
+  exists → duplicate `const LARK_BASE` / `notifyLark_` = project won't compile.
+
+**Pending (end-state):** remove the email block to go Lark-only (1-block delete) after the team is happy
+running both for a few days. Optional repo reconcile so source matches the deployed additive layout.

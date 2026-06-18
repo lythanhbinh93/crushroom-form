@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Lark Setup & Config"
-status: pending
+status: completed
 priority: P1
 effort: "1h"
 dependencies: []
@@ -60,10 +60,10 @@ Config stored alongside the existing Spreadsheet-ID pattern (`scriptProp` at `go
 
 ## Success Criteria
 
-- [ ] Custom bot added to staff group; webhook URL captured.
-- [ ] Custom app created + released; `app_id`/`app_secret` captured; image-upload scope granted.
-- [ ] All three Script Properties set and readable from GAS.
-- [ ] No credential literal committed to `google-apps-script-complete.js`.
+- [x] Custom bot added to staff group; webhook URL captured. (`df40fc93…`, smoke-tested `code 0`)
+- [x] Custom app created + released; `app_id`/`app_secret` captured; image-upload scope granted. (`cli_a7c3e35ba4f9d010`, `im:resource`, larksuite.com — token + image upload smoke-tested `code 0`)
+- [x] All three Script Properties set and readable from GAS. (set via Project Settings; live upload fired the card)
+- [x] No credential literal committed to `google-apps-script-complete.js`. (creds live in Script Properties only)
 
 ## Risk Assessment
 
