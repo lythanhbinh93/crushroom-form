@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crush Room — Xử lý đơn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./assets/fulfillment.css">
+</head>
+<body>
+
+  <!-- ===== Login gate (token) ===== -->
+  <div id="login" class="login" hidden>
+    <form class="login-card" id="loginForm">
+      <span class="gem" aria-hidden="true"></span>
+      <h1>Crush Room · Xử lý đơn</h1>
+      <p class="muted">Nhập mã truy cập do quản trị cấp (lưu trong sheet Users).</p>
+      <label class="lab" for="tokenInput">Mã truy cập</label>
+      <input class="inp" id="tokenInput" type="password" autocomplete="off" placeholder="••••••••" required>
+      <button class="btn" type="submit">Đăng nhập</button>
+      <p class="err" id="loginErr" hidden></p>
+    </form>
+  </div>
+
+  <!-- ===== App ===== -->
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <span class="gem" aria-hidden="true"></span>
+      <h1>Crush Room · Xử lý đơn</h1>
+      <span class="badge" id="phaseBadge">Phase 1 · đồng bộ đơn</span>
+      <span class="spacer"></span>
+      <button class="btn jade" id="syncBtn" hidden>Đồng bộ đơn</button>
+      <span class="who" id="whoBadge"></span>
+      <button class="btn ghost sm" id="logoutBtn" title="Đăng xuất">Thoát</button>
+    </header>
+
+    <main class="wrap">
+      <div class="toolbar">
+        <div class="filters" id="statusFilters">
+          <button class="chip on" data-status="">Tất cả</button>
+          <button class="chip" data-status="synced">Mới đồng bộ</button>
+          <button class="chip" data-status="reconciling">Đang xử lý</button>
+          <button class="chip" data-status="ready">Sẵn sàng</button>
+          <button class="chip" data-status="batched">Đã gửi xưởng</button>
+        </div>
+        <span class="count" id="orderCount"></span>
+      </div>
+
+      <div id="syncResult" class="syncbar" hidden></div>
+
+      <div class="tablewrap">
+        <table class="ledger" id="ordersTable">
+          <thead>
+            <tr>
+              <th>Đơn</th><th>SĐT</th><th>Khách</th><th>SKU</th><th>Sản phẩm</th>
+              <th>SL</th><th>Trạng thái Poscake</th><th>Tags</th><th>Xử lý</th><th>Nhận bởi</th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody"></tbody>
+        </table>
+        <div class="empty" id="emptyState" hidden>Chưa có đơn nào — bấm <b>Đồng bộ đơn</b> để kéo từ Poscake.</div>
+        <div class="empty" id="loadingState">Đang tải…</div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="./assets/fulfillment.js"></script>
+</body>
+</html>
