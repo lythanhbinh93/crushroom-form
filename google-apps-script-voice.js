@@ -37,7 +37,7 @@ const VOICE_PAGE_BASE_URL = 'https://crushroom-form.vercel.app/voice.html?id=';
 const scriptProp = PropertiesService.getScriptProperties();
 
 // ============================================================
-//  SETUP & AUTH
+//  SETUP
 // ============================================================
 
 function intialSetup() {
@@ -68,11 +68,7 @@ function authorizeUrlFetch() {
 function doGet(e) {
     try {
         const action = e.parameter.action;
-        // listVoice exposes all customer records — require admin token.
-        if (action === 'listVoice') {
-            if (!requireAuth_(e)) return jsonOut({ ok: false, error: 'unauthorized' });
-            return handleListVoice_(e);
-        }
+        if (action === 'listVoice') return handleListVoice_(e);
         // getVoice and audioProxy are PUBLIC: recipients access published gifts without a token.
         if (action === 'getVoice') return handleGetVoice_(e);
         if (action === 'audioProxy') return handleAudioProxy_(e);
@@ -85,22 +81,11 @@ function doGet(e) {
 function doPost(e) {
     try {
         const action = e.parameter && e.parameter.action;
-        // initUpload and finishUpload are PUBLIC: customers call these from the gift form.
         if (action === 'initUpload') return handleInitUpload_(e);
         if (action === 'finishUpload') return handleFinishUpload_(e);
-        // publishVoice, archiveVoice, updatePeaks mutate published state — require admin token.
-        if (action === 'publishVoice') {
-            if (!requireAuth_(e)) return jsonOut({ ok: false, error: 'unauthorized' });
-            return handlePublishVoice_(e);
-        }
-        if (action === 'archiveVoice') {
-            if (!requireAuth_(e)) return jsonOut({ ok: false, error: 'unauthorized' });
-            return handleArchiveVoice_(e);
-        }
-        if (action === 'updatePeaks') {
-            if (!requireAuth_(e)) return jsonOut({ ok: false, error: 'unauthorized' });
-            return handleUpdatePeaks_(e);
-        }
+        if (action === 'publishVoice') return handlePublishVoice_(e);
+        if (action === 'archiveVoice') return handleArchiveVoice_(e);
+        if (action === 'updatePeaks') return handleUpdatePeaks_(e);
         return jsonOut({ ok: false, error: 'Invalid action' });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
@@ -139,17 +124,6 @@ function normalizeVNPhone_(raw) {
 function csvSafe_(v) {
     v = String(v == null ? '' : v);
     return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
-}
-
-/**
- * Fail-closed token check. Returns false if ADMIN_TOKEN script property is
- * unset (prevents accidental open access when the property was never filled in).
- * The token is read from e.parameter.token — appended by the admin frontend.
- */
-function requireAuth_(e) {
-    var expected = scriptProp.getProperty('ADMIN_TOKEN');
-    var got = (e && e.parameter && e.parameter.token) || '';
-    return !!expected && got === expected;
 }
 
 // ============================================================
@@ -371,17 +345,6 @@ function handleFinishUpload_(e) {
 
         var sheet = ensureVoiceSheet_();
         var existing = voiceFindRowByKey_(phone, orderId);
-
-        // Block a public (unauthenticated) re-upload from silently overwriting a row
-        // that is already published. A customer re-submitting a form could otherwise
-        // wipe a live gift page. Admins can overwrite by passing a valid token.
-        if (existing) {
-            var iStatusCheck = VOICE_SHEET_HEADERS.indexOf('status');
-            var existingStatus = String(existing.row[iStatusCheck] || '');
-            if (existingStatus === 'published' && !requireAuth_(e)) {
-                return jsonOut({ ok: false, error: 'already_published' });
-            }
-        }
 
         var now = new Date().toISOString();
         // Prefix phone with apostrophe so Sheets stores as text and preserves leading 0.

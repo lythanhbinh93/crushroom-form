@@ -22,15 +22,6 @@ function intialSetup() {
     scriptProp.setProperty('key', activeSpreadsheet.getId());
 }
 
-// Fail-closed auth check: returns false when ADMIN_TOKEN is unset OR when the
-// supplied token does not match. Both conditions must reject — an unset property
-// means the deployment is unconfigured, not that it is open to the public.
-function requireAuth_(e) {
-    var expected = scriptProp.getProperty('ADMIN_TOKEN');
-    var got = (e && e.parameter && e.parameter.token) || '';
-    return !!expected && got === expected;
-}
-
 // Guards against formula-injection attacks where a customer submits a value
 // starting with =, +, -, @, TAB, or CR. Spreadsheet apps execute such values
 // as formulas when a user opens the sheet. Prepending a single-quote forces
@@ -48,12 +39,6 @@ function doGet(e) {
 
         if (action === 'listProducts') {
             return listProducts();
-        }
-
-        // Staff-only actions: require a valid ADMIN_TOKEN so customer-facing catalog
-        // requests stay open while internal search/list/proxy stay closed.
-        if (!requireAuth_(e)) {
-            return jsonOut({ success: false, error: 'unauthorized' });
         }
 
         if (action === 'search' && phone) {
