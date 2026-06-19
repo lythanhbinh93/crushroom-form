@@ -3,15 +3,10 @@
  *
  * Submit flow:
  *  1. Client-side validation (phone, audio, image, text).
- *  2. POST GAS initUpload → receive { uploadUrl, sessionId }.
- *  3. Chunked PUT audio bytes directly to Drive resumable uploadUrl.
- *     - 256 KB chunks: small enough for snappy progress on slow 4G,
- *       large enough to keep HTTP overhead low.
- *     - On 308 Resume Incomplete → send next chunk.
- *     - On 5xx → exponential-backoff retry (1s, 2s, 4s); on persistent failure
- *       query Drive for resume cursor and offer Resume button.
- *  4. POST GAS finishUpload with fileId, text, image base64, image filename.
- *  5. Show success panel.
+ *  2. (Optional) compress audio via window.compressAudio; extract waveform peaks
+ *     via window.extractPeaks — both best-effort, fall back to raw file/null.
+ *  3. Single POST to GAS finishUpload with audioData, imgData, text, peaks.
+ *  4. Show success panel.
  */
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -63,8 +58,6 @@ document.addEventListener('DOMContentLoaded', function () {
   var progressFill   = document.getElementById('progress-bar-fill');
   var progressLabel  = document.getElementById('progress-label');
   var successPanel   = document.getElementById('success-panel');
-  var paramErrorPanel = document.getElementById('param-error-panel');
-  var paramErrorMsg  = document.getElementById('param-error-message');
 
   /* ── Helpers ────────────────────────────────────────────────────────────── */
   function escapeHtml(s) {

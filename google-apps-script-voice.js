@@ -69,7 +69,7 @@ function doGet(e) {
     try {
         const action = e.parameter.action;
         if (action === 'listVoice') return handleListVoice_(e);
-        // getVoice and audioProxy are PUBLIC: recipients access published gifts without a token.
+        // getVoice and audioProxy are recipient-facing: no admin login required.
         if (action === 'getVoice') return handleGetVoice_(e);
         if (action === 'audioProxy') return handleAudioProxy_(e);
         return jsonOut({ ok: false, error: 'Invalid action' });
@@ -282,7 +282,7 @@ function handleInitUpload_(e) {
  * Params:
  *   Required: phone, order_id, text_message
  *   Audio source — EITHER:
- *     (a) fileId  — Drive ID from completed resumable upload (original flow, unused post-pivot)
+ *     (a) fileId  — Drive ID from a completed resumable upload (server-side callers; initUpload feeds this path)
  *     (b) audioData (base64) + audioFilename + audioMime — direct upload through GAS
  *         (PIVOT: Drive resumable PUT fails browser CORS, so browser posts audio base64 here)
  *   Optional: imgData (base64 JPEG), imgFilename
@@ -357,14 +357,8 @@ function handleFinishUpload_(e) {
             csvSafe_(peaks), audioDuration
         ];
 
-        var rowIdx;
-        if (existing) {
-            rowIdx = existing.rowIdx;
-            sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([rowValues]);
-        } else {
-            rowIdx = sheet.getLastRow() + 1;
-            sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([rowValues]);
-        }
+        var rowIdx = existing ? existing.rowIdx : sheet.getLastRow() + 1;
+        sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([rowValues]);
 
         try {
             var subject = '[Voice Gift] New upload — order ' + orderId;

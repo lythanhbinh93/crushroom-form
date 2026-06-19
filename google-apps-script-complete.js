@@ -50,7 +50,7 @@ function doGet(e) {
         }
 
         if (action === 'imageProxy' && e.parameter.id) {
-            return imageProxy(e.parameter.id, e.parameter.size || 'w600');
+            return imageProxy(e.parameter.id);
         }
 
         return jsonOut({ success: false, error: 'Invalid request' });
@@ -79,7 +79,7 @@ function authorizeUrlFetch() {
 // via the web app, the deployment's "Execute as" is not set to "Me".
 function testImageProxy() {
     const TEST_ID = 'PASTE_A_REAL_PRODUCT_DRIVE_ID_HERE';
-    const out = imageProxy(TEST_ID, 'w200');
+    const out = imageProxy(TEST_ID);
     Logger.log(out.getContent().substring(0, 200));
 }
 
@@ -93,7 +93,7 @@ function testImageProxy() {
 // it will read — otherwise a caller could enumerate Drive ids and pull any
 // file the script-owner can see. The allow-list checks that the file's parent
 // folder is one of the two known folders: customer uploads or product images.
-function imageProxy(id, size) {
+function imageProxy(id) {
     try {
         const file = DriveApp.getFileById(id);
         if (!isProxyAllowed_(file)) {
