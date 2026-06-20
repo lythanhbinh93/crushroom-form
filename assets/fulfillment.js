@@ -71,7 +71,7 @@ async function doSync() {
     const bar = document.getElementById('syncResult');
     if (r && r.success) {
       const s = r.stats || {};
-      bar.textContent = `✓ Đồng bộ ${r.window_days} ngày: +${s.new} mới · ${s.updated} cập nhật · bỏ qua ${s.skippedTag36} đơn đã "Đang sản xuất".`;
+      bar.textContent = `✓ Đồng bộ new + waitting: +${s.new} mới · ${s.updated} cập nhật · gỡ ${s.pruned || 0} đơn đã rời trạng thái · bỏ qua ${s.skippedTag36} "Đang sản xuất".`;
       bar.hidden = false;
       toast('Đồng bộ xong'); loadOrders();
     } else {

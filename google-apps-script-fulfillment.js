@@ -14,13 +14,15 @@
  * CONFIG — set in Apps Script → Project Settings → Script Properties (NOT in code):
  *   PANCAKE_API_KEY   — Poscake api_key (secret)
  *   SHOP_ID           — 2798984 (auto-seeded by intialSetup)
- *   SYNC_WINDOW_DAYS  — 14 (auto-seeded)
+ *   SYNC_STATUSES     — comma list of Poscake status codes to pull (default "0,11" = new, waitting)
  *   key               — this spreadsheet id (auto-set by intialSetup)
  */
 
 const scriptProp = PropertiesService.getScriptProperties();
 const PANCAKE_BASE = 'https://pos.pages.fm/api/v1';
 const PRODUCTION_TAG_ID = 36; // "Đang sản xuất" — orders already tagged are skipped by sync
+// Poscake status codes: 0=new · 1=submitted · 3=delivered · 6=canceled · 8=packing · 9=pending · 11=waitting.
+// Sync pulls ONLY the statuses in SYNC_STATUSES (default new+waitting) — the orders that need photo prep.
 
 // ---- Sheet schemas (headers locked now so P2/P3/P4 don't migrate) ----
 const ORDERS_HEADER = ['poscake_order_id', 'line_index', 'fulfill_status', 'order_status',
@@ -43,7 +45,7 @@ function intialSetup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   scriptProp.setProperty('key', ss.getId());
   if (!scriptProp.getProperty('SHOP_ID')) scriptProp.setProperty('SHOP_ID', '2798984');
-  if (!scriptProp.getProperty('SYNC_WINDOW_DAYS')) scriptProp.setProperty('SYNC_WINDOW_DAYS', '14');
+  if (!scriptProp.getProperty('SYNC_STATUSES')) scriptProp.setProperty('SYNC_STATUSES', '0,11'); // new, waitting
   ensureSheet_(ss, 'Orders', ORDERS_HEADER);
   ensureSheet_(ss, 'UploadGroups', UPLOADGROUPS_HEADER);
   ensureSheet_(ss, 'PhotoMap', PHOTOMAP_HEADER);
@@ -61,6 +63,15 @@ function ensureSheet_(ss, name, header) {
 
 // Quick editor smoke test (no web request) — verifies api_key + sync works.
 function testSync() { Logger.log(JSON.stringify(syncOrders_(null, 'admin'))); }
+
+// Wipe all Orders data rows (keep header). Run ONCE to clear a stale all-status sync,
+// then run testSync() to repopulate with only new+waitting. (Sync also auto-prunes ongoing.)
+function resetOrders() {
+  const sheet = ss_().getSheetByName('Orders');
+  const last = sheet.getLastRow();
+  if (last > 1) sheet.deleteRows(2, last - 1);
+  Logger.log('Orders cleared (header kept). Now run testSync().');
+}
 
 // ============================================================================
 // HELPERS
@@ -168,9 +179,7 @@ function syncOrders_(e, editorRole) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { success: false, error: 'sync busy, retry' };
   try {
-    const days = parseInt(scriptProp.getProperty('SYNC_WINDOW_DAYS') || '14', 10);
-    const end = Math.floor(Date.now() / 1000);
-    const start = end - days * 86400;
+    const statuses = (scriptProp.getProperty('SYNC_STATUSES') || '0,11').split(',').map(function (s) { return s.trim(); }).filter(String);
     const sheet = ss_().getSheetByName('Orders');
     const data = sheet.getDataRange().getValues();
     const idx = idxOf_(data[0]);
@@ -180,40 +189,71 @@ function syncOrders_(e, editorRole) {
     const stats = { fetched: 0, new: 0, updated: 0, skippedTag36: 0 };
     const appends = [];
     const seenThisRun = {}; // key -> appends index; blocks within-run double-append on page overlap
-    let page = 1, totalPages = 1, partial = false, truncated = false;
+    const seenKeys = {};    // every key seen this run → unseen + still-'synced' rows get pruned below
+    let partial = false, truncated = false;
+
+    function upsertLine_(o, item, li) {
+      stats.fetched++;
+      const row = buildOrderRow_(o, item, li);
+      const key = String(o.id) + '#' + String(li);
+      seenKeys[key] = true;
+      const rowArr = ORDERS_HEADER.map(function (h) { return row[h] !== undefined ? row[h] : ''; });
+      if (rowByKey[key]) {
+        updateOrderRow_(sheet, rowByKey[key], row, idx);
+        stats.updated++;
+      } else if (seenThisRun[key] !== undefined) {
+        appends[seenThisRun[key]] = rowArr; // same line on two pages → keep latest, never duplicate
+      } else {
+        seenThisRun[key] = appends.length;
+        appends.push(rowArr);
+        stats.new++;
+      }
+    }
+
+    function ingestOrder(o) {
+      const tagIds = (o.tags || []).map(function (t) { return t.id; });
+      if (tagIds.indexOf(PRODUCTION_TAG_ID) !== -1) { stats.skippedTag36++; return; }
+      const items = o.items || [];
+      if (items.length === 0) {
+        upsertLine_(o, null, 0); // no products yet (e.g. 'new' draft) — still show the order as one placeholder line
+      } else {
+        items.forEach(function (item, li) { upsertLine_(o, item, li); });
+      }
+    }
+
     try {
-      do {
-        const res = pancakeGet_('/orders', { page_size: 100, page_number: page, startDateTime: start, endDateTime: end });
-        totalPages = res.total_pages || 1;
-        (res.data || []).forEach(function (o) {
-          const tagIds = (o.tags || []).map(function (t) { return t.id; });
-          if (tagIds.indexOf(PRODUCTION_TAG_ID) !== -1) { stats.skippedTag36++; return; }
-          (o.items || []).forEach(function (item, li) {
-            stats.fetched++;
-            const row = buildOrderRow_(o, item, li);
-            const key = String(o.id) + '#' + String(li);
-            const rowArr = ORDERS_HEADER.map(function (h) { return row[h] !== undefined ? row[h] : ''; });
-            if (rowByKey[key]) {
-              updateOrderRow_(sheet, rowByKey[key], row, idx);
-              stats.updated++;
-            } else if (seenThisRun[key] !== undefined) {
-              appends[seenThisRun[key]] = rowArr; // same line on two pages → keep latest, never duplicate
-            } else {
-              seenThisRun[key] = appends.length;
-              appends.push(rowArr);
-              stats.new++;
-            }
-          });
-        });
-        page++;
-      } while (page <= totalPages && page <= 60); // page cap = exec-time backstop
-      if (page > 60 && page <= totalPages) truncated = true; // window exceeded the cap — tail not pulled
+      // One server-side status-filtered pass per status (default new=0, waitting=11). Small all-time sets.
+      statuses.forEach(function (st) {
+        let page = 1, totalPages = 1;
+        do {
+          const res = pancakeGet_('/orders', { page_size: 100, page_number: page, status: st });
+          totalPages = res.total_pages || 1;
+          (res.data || []).forEach(ingestOrder);
+          page++;
+        } while (page <= totalPages && page <= 30); // per-status page cap (exec-time backstop)
+        if (page > 30 && page <= totalPages) truncated = true;
+      });
     } catch (err) {
       partial = true; stats.error = String(err.message || err); // surface; still flush below for consistency
     }
     // Flush staged new rows even on partial failure (updates already wrote in-loop — keep them consistent).
     if (appends.length) sheet.getRange(sheet.getLastRow() + 1, 1, appends.length, ORDERS_HEADER.length).setValues(appends);
-    return { success: !partial, partial: partial, truncated: truncated, window_days: days, stats: stats };
+
+    // Self-clean: drop rows that are no longer in the synced statuses AND untouched by CS
+    // (fulfill_status still 'synced'). CS-in-progress rows (reconciling/ready/batched) are kept.
+    // Skip on a partial sync so a failed page-fetch never deletes orders it just didn't see.
+    stats.pruned = 0;
+    if (!partial) {
+      const toDelete = [];
+      for (let r = 1; r < data.length; r++) {
+        const k = String(data[r][idx.poscake_order_id]) + '#' + String(data[r][idx.line_index]);
+        const fstat = data[r][idx.fulfill_status];
+        if (!seenKeys[k] && (fstat === 'synced' || fstat === '')) toDelete.push(r + 1);
+      }
+      toDelete.sort(function (a, b) { return b - a; }).forEach(function (rowNum) { sheet.deleteRow(rowNum); }); // bottom-up keeps row numbers valid
+      stats.pruned = toDelete.length;
+    }
+    return { success: !partial, partial: partial, truncated: truncated, statuses: statuses, stats: stats };
   } finally {
     lock.releaseLock();
   }
@@ -237,7 +277,7 @@ function buildOrderRow_(o, item, li) {
     shipping_address: csvSafe_(sa.full_address || sa.address || ''),
     sku: csvSafe_(vi.display_id || ''),
     product_name: csvSafe_(vi.name || ''),
-    qty: item.quantity || '',
+    qty: (item && item.quantity) || '', // item is null for product-less orders (placeholder line)
     cod: o.cod || 0,
     total_price: o.total_price || 0,
     tags: tags.map(function (t) { return t.name; }).join(', '),
