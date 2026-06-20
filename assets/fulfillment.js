@@ -59,6 +59,7 @@ function showApp(me) {
   document.getElementById('app').hidden = false;
   document.getElementById('whoBadge').textContent = (me.name || me.email || '') + ' · ' + (me.role || '');
   document.getElementById('syncBtn').hidden = (me.role !== 'admin'); // sync is admin-only
+  document.getElementById('newLinkBtn').hidden = false; // both cs + admin create upload links
   loadOrders();
 }
 
@@ -79,6 +80,83 @@ async function doSync() {
     }
   } catch (e) { toast('Lỗi mạng khi đồng bộ'); }
   btn.disabled = false; btn.textContent = 'Đồng bộ đơn';
+}
+
+// ---- create upload link (CS/admin) ----
+function openLinkModal() {
+  document.getElementById('labelRows').innerHTML = '';
+  addLabelRow('', 1);
+  document.getElementById('internalNote').value = '';
+  document.getElementById('linkPhone').value = '';
+  document.getElementById('linkResult').hidden = true;
+  document.getElementById('linkErr').hidden = true;
+  document.getElementById('linkModal').hidden = false;
+}
+function closeLinkModal() { document.getElementById('linkModal').hidden = true; }
+
+function addLabelRow(label, count) {
+  const row = document.createElement('div');
+  row.className = 'label-row';
+  row.innerHTML =
+    '<input class="inp label-text" type="text" placeholder="VD: Mặt dây thú cưng">' +
+    '<input class="inp label-count" type="number" min="1" max="10" value="' + (count || 1) + '" title="Số ảnh" aria-label="Số ảnh">' +
+    '<button class="btn ghost sm label-remove" type="button" aria-label="Xoá">×</button>';
+  row.querySelector('.label-text').value = label || '';
+  row.querySelector('.label-remove').addEventListener('click', function () {
+    row.remove();
+    if (!document.querySelectorAll('#labelRows .label-row').length) addLabelRow('', 1); // never leave zero rows
+  });
+  document.getElementById('labelRows').appendChild(row);
+}
+
+function collectLabels() {
+  const labels = [];
+  document.querySelectorAll('#labelRows .label-row').forEach(function (r) {
+    const label = (r.querySelector('.label-text').value || '').trim();
+    let count = parseInt(r.querySelector('.label-count').value, 10);
+    if (isNaN(count) || count < 1) count = 1;
+    if (count > 10) count = 10;
+    if (label) labels.push({ label: label, count: count });
+  });
+  return labels;
+}
+
+async function createLink() {
+  const errEl = document.getElementById('linkErr');
+  errEl.hidden = true;
+  const labels = collectLabels();
+  if (!labels.length) { errEl.textContent = 'Cần ít nhất 1 nhãn có nội dung.'; errEl.hidden = false; return; }
+  const btn = document.getElementById('createLinkBtn');
+  btn.disabled = true; btn.textContent = 'Đang tạo…';
+  try {
+    const r = await api('createUploadLink', {
+      labels: JSON.stringify(labels),
+      internal_note: document.getElementById('internalNote').value || '',
+      phone: document.getElementById('linkPhone').value || ''
+    });
+    if (r && r.success) {
+      // Build the absolute customer link from the dashboard's own origin/path (handles subpaths).
+      const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+      document.getElementById('linkOut').value = base + r.link_path;
+      document.getElementById('linkReqId').textContent = 'Mã: ' + r.req_id;
+      document.getElementById('linkResult').hidden = false;
+      toast('Đã tạo link');
+    } else {
+      errEl.textContent = 'Lỗi: ' + ((r && r.error) || 'không rõ'); errEl.hidden = false;
+    }
+  } catch (e) {
+    errEl.textContent = 'Lỗi mạng khi tạo link.'; errEl.hidden = false;
+  }
+  btn.disabled = false; btn.textContent = 'Tạo link';
+}
+
+function copyLink() {
+  const out = document.getElementById('linkOut');
+  out.select();
+  const done = function () { toast('Đã sao chép link'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(out.value).then(done, function () { try { document.execCommand('copy'); } catch (e) {} done(); });
+  } else { try { document.execCommand('copy'); } catch (e) {} done(); }
 }
 
 // ---- list ----
@@ -126,6 +204,15 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
 document.getElementById('syncBtn').addEventListener('click', doSync);
 document.getElementById('logoutBtn').addEventListener('click', () => { clearToken(); location.reload(); });
+
+// create-link modal
+document.getElementById('newLinkBtn').addEventListener('click', openLinkModal);
+document.getElementById('linkClose').addEventListener('click', closeLinkModal);
+document.getElementById('addLabelBtn').addEventListener('click', () => addLabelRow('', 1));
+document.getElementById('addCoupleBtn').addEventListener('click', () => addLabelRow('', 2));
+document.getElementById('createLinkBtn').addEventListener('click', createLink);
+document.getElementById('copyLinkBtn').addEventListener('click', copyLink);
+document.getElementById('linkModal').addEventListener('click', (e) => { if (e.target.id === 'linkModal') closeLinkModal(); });
 
 document.getElementById('statusFilters').addEventListener('click', (e) => {
   const btn = e.target.closest('.chip'); if (!btn) return;

@@ -31,6 +31,7 @@
       <h1>Crush Room · Xử lý đơn</h1>
       <span class="badge" id="phaseBadge">Phase 1 · đồng bộ đơn</span>
       <span class="spacer"></span>
+      <button class="btn" id="newLinkBtn" hidden>＋ Tạo link upload</button>
       <button class="btn jade" id="syncBtn" hidden>Đồng bộ đơn</button>
       <span class="who" id="whoBadge"></span>
       <button class="btn ghost sm" id="logoutBtn" title="Đăng xuất">Thoát</button>
@@ -64,6 +65,44 @@
         <div class="empty" id="loadingState">Đang tải…</div>
       </div>
     </main>
+  </div>
+
+  <!-- ===== Create-upload-link modal (CS/admin) ===== -->
+  <div id="linkModal" class="modal-overlay" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="linkModalTitle">
+      <div class="modal-head">
+        <h2 id="linkModalTitle">Tạo link upload</h2>
+        <button class="modal-close" id="linkClose" type="button" aria-label="Đóng">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted">Đặt nhãn cho từng ảnh khách cần gửi (couple = 2 ảnh). Link tạo ra dùng để gửi cho khách upload.</p>
+
+        <label class="lab">Các mục ảnh (nhãn)</label>
+        <div id="labelRows"></div>
+        <div class="link-row-actions">
+          <button class="btn ghost sm" id="addLabelBtn" type="button">＋ Thêm nhãn</button>
+          <button class="btn ghost sm" id="addCoupleBtn" type="button">＋ Cặp đôi (2 ảnh)</button>
+        </div>
+
+        <label class="lab" for="internalNote">Ghi chú nội bộ (CS) — khách KHÔNG thấy</label>
+        <textarea class="inp" id="internalNote" rows="2" placeholder="VD: khách chốt dây bạc 45cm"></textarea>
+
+        <label class="lab" for="linkPhone">SĐT khách (tuỳ chọn)</label>
+        <input class="inp" id="linkPhone" type="text" inputmode="numeric" autocomplete="off" placeholder="09xx…">
+
+        <button class="btn" id="createLinkBtn" type="button">Tạo link</button>
+        <p class="err" id="linkErr" hidden></p>
+
+        <div id="linkResult" class="link-result" hidden>
+          <label class="lab">Link chia sẻ cho khách</label>
+          <div class="link-copy-row">
+            <input class="inp mono" id="linkOut" type="text" readonly>
+            <button class="btn jade sm" id="copyLinkBtn" type="button">Sao chép</button>
+          </div>
+          <p class="muted" id="linkReqId"></p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="toast" role="status" aria-live="polite"></div>

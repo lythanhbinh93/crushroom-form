@@ -23,6 +23,14 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // ------- Labeled-upload (?req=) branch -------
+  // A CS-shared `?req=` link renders CS-defined LABELED boxes (no catalog) and posts to the
+  // fulfillment backend's saveUpload. Generic / `?phone=` links fall through to the catalog flow
+  // below — unchanged. The two backends are deliberately separate deployments.
+  var FULFILLMENT_URL = 'https://script.google.com/macros/s/AKfycbwbOkkfdUO_A0OUIj4BQegmxEeWo1NxTiK4b1Zez0E_CkuvWuilQ6SyiizgAz6pVHEOWw/exec';
+  var reqIdParam = new URLSearchParams(window.location.search).get('req');
+  if (reqIdParam) { initReqUpload(reqIdParam.trim()); return; }
+
   // ------- State -------
   // allProducts: full catalog as returned by GAS (preserved for filter re-renders).
   // productsById: { [sku]: { sku, name, type, material, imagesPerUnit, hint, thumbnailUrl } }
@@ -1003,6 +1011,180 @@ document.addEventListener('DOMContentLoaded', function () {
         submitBtn.style.display = 'inline-block';
       });
   });
+
+  // ===================================================================
+  // Labeled-upload (?req=) flow — reuses the hoisted slot/croppie machinery
+  // (initCroppieSlot, openImageCropModal, last4) but renders CS labels instead
+  // of the catalog and posts to the fulfillment backend. Self-contained: it
+  // re-queries the DOM so it never depends on the catalog-flow `var`s above
+  // (which are unassigned because we `return` early before them).
+  // ===================================================================
+  function initReqUpload(req) {
+    // Swap page copy for the labeled flow.
+    var heading = document.querySelector('.title-heading');
+    if (heading) heading.textContent = 'Tải ảnh theo yêu cầu';
+    var desc = document.querySelector('.header .description p');
+    if (desc) desc.textContent = 'Tải ảnh cho từng mục bên dưới theo hướng dẫn của shop.';
+
+    // Hide the whole catalog/product-picker control — this flow uses CS labels, not the catalog.
+    ['product-picker-loading', 'product-picker-error', 'sku-quickadd', 'type-tabs', 'product-filter-bar',
+     'product-picker-count', 'product-picker-prompt', 'product-picker', 'product-picker-empty',
+     'same-photo-control'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    var pickerEl = document.getElementById('product-picker');
+    var pickerControl = pickerEl && pickerEl.closest('.form-control');
+    if (pickerControl) pickerControl.style.display = 'none';
+
+    var slotsContainer = document.getElementById('slots-container');
+    slotsContainer.innerHTML = '<p class="help-text globo-description">Đang tải danh sách ảnh cần upload…</p>';
+
+    fetch(FULFILLMENT_URL + '?action=getUploadLabels&req_id=' + encodeURIComponent(req))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        slotsContainer.innerHTML = '';
+        if (!data || !data.success) {
+          showReqFatal((data && data.error) || 'Link không hợp lệ hoặc đã hết hạn.');
+          return;
+        }
+        if (data.phone) {
+          var phoneEl = document.getElementById('mobile_code');
+          if (phoneEl && !phoneEl.value) phoneEl.value = data.phone;
+        }
+        buildLabeledSlots(data.labels || []);
+        if (!slotsContainer.querySelectorAll('.slot-card').length) {
+          showReqFatal('Link chưa có mục ảnh nào. Vui lòng liên hệ shop.');
+        }
+      })
+      .catch(function (err) {
+        slotsContainer.innerHTML = '';
+        showReqFatal('Lỗi kết nối: ' + (err && err.message ? err.message : 'không rõ'));
+      });
+
+    wireReqSubmit(req);
+  }
+
+  function showReqFatal(msg) {
+    var slotsError = document.getElementById('slots-error');
+    if (slotsError) { slotsError.textContent = msg; slotsError.style.display = 'block'; }
+    var submitButton = document.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+  }
+
+  // Render one labeled box per (label × count). Reuses #slot-template + initCroppieSlot.
+  function buildLabeledSlots(labels) {
+    var slotsContainer = document.getElementById('slots-container');
+    var tpl = document.getElementById('slot-template');
+    var globalIdx = 0;
+    labels.forEach(function (l) {
+      var label = String((l && l.label) || '').trim();
+      if (!label) return;
+      var count = parseInt((l && l.count) || 1, 10);
+      if (isNaN(count) || count < 1) count = 1;
+      for (var u = 0; u < count; u++) {
+        var slotEl = tpl.content.firstElementChild.cloneNode(true);
+        slotEl.setAttribute('data-slot-index', String(globalIdx));
+        slotEl.setAttribute('data-label', label);
+        slotEl.setAttribute('data-box-index', String(globalIdx));
+        slotEl.querySelector('.slot-title').textContent = label + (count > 1 ? ' — #' + (u + 1) : '');
+        var hintEl = slotEl.querySelector('.slot-hint');
+        if (hintEl) hintEl.style.display = 'none';
+        initCroppieSlot(slotEl);
+        slotsContainer.appendChild(slotEl);
+        globalIdx++;
+      }
+    });
+  }
+
+  function validateReqForm() {
+    var phoneError = document.getElementById('phone-error');
+    var slotsError = document.getElementById('slots-error');
+    var slotsContainer = document.getElementById('slots-container');
+    if (phoneError) phoneError.style.display = 'none';
+    if (slotsError) slotsError.style.display = 'none';
+
+    var phoneEl = document.getElementById('mobile_code');
+    var phoneVal = (phoneEl.value || '').trim();
+    var digitsOnly = phoneVal.replace(/\D/g, '');
+    var hasError = false;
+
+    if (!phoneVal) {
+      showReqErr(phoneError, 'Vui lòng nhập số điện thoại'); phoneEl.classList.add('has-error'); hasError = true;
+    } else if (digitsOnly.length < 8 || digitsOnly.length > 12) {
+      showReqErr(phoneError, 'Số điện thoại không hợp lệ (cần 8-12 chữ số)'); phoneEl.classList.add('has-error'); hasError = true;
+    } else {
+      phoneEl.classList.remove('has-error');
+    }
+
+    var slots = slotsContainer.querySelectorAll('.slot-card');
+    if (!slots.length) {
+      showReqErr(slotsError, 'Link chưa có mục ảnh nào. Vui lòng liên hệ shop.'); hasError = true;
+    } else {
+      var missing = 0;
+      slots.forEach(function (s) {
+        var imgData = s.querySelector('.slot-img-data').value;
+        if (!imgData) { s.classList.add('has-error'); missing++; } else { s.classList.remove('has-error'); }
+      });
+      if (missing > 0) { showReqErr(slotsError, 'Vui lòng tải ảnh cho ' + missing + ' ô còn thiếu.'); hasError = true; }
+    }
+    return !hasError;
+  }
+
+  function showReqErr(el, msg) { if (el) { el.textContent = msg; el.style.display = 'block'; } }
+
+  function wireReqSubmit(req) {
+    var form = document.forms['contact-form'];
+    var loaderBtn = document.getElementById('loaderBtn');
+    var submitBtn = document.getElementById('submitBtn');
+    var submitButton = document.querySelector('button[type="submit"]');
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!validateReqForm()) return;
+
+      loaderBtn.style.display = 'inline-block';
+      submitBtn.style.display = 'none';
+      submitButton.disabled = true;
+
+      var phoneDigits = (document.getElementById('mobile_code').value || '').replace(/\D/g, '');
+      var phone4 = last4(phoneDigits);
+      var slotEls = Array.prototype.slice.call(document.getElementById('slots-container').querySelectorAll('.slot-card'));
+
+      var formData = new FormData();
+      formData.set('action', 'saveUpload');
+      formData.set('req_id', req);
+      formData.set('Name', phoneDigits);
+      formData.set('ItemCount', String(slotEls.length));
+
+      slotEls.forEach(function (slotEl, i) {
+        formData.set('ImgData_' + i, slotEl.querySelector('.slot-img-data').value);
+        formData.set('Label_' + i, slotEl.getAttribute('data-label') || '');
+        formData.set('BoxIndex_' + i, slotEl.getAttribute('data-box-index') || String(i));
+        formData.set('Filename_' + i, (phoneDigits || 'image') + '_' + i + '_' + phone4);
+      });
+
+      fetch(FULFILLMENT_URL, { method: 'POST', body: formData })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.success) {
+            window.location.href = 'https://crushroom.vn/pages/thank-you';
+          } else {
+            alert('Chưa gửi được ảnh. ' + ((data && data.error) || 'Vui lòng thử lại hoặc liên hệ shop.'));
+            submitButton.disabled = false;
+            loaderBtn.style.display = 'none';
+            submitBtn.style.display = 'inline-block';
+          }
+        })
+        .catch(function (err) {
+          alert('Chưa gửi được ảnh. Kiểm tra kết nối mạng và thử lại.');
+          console.error('[CouplePix] req upload network error:', err && err.message);
+          submitButton.disabled = false;
+          loaderBtn.style.display = 'none';
+          submitBtn.style.display = 'inline-block';
+        });
+    });
+  }
 
   // Kick things off.
   loadProducts();

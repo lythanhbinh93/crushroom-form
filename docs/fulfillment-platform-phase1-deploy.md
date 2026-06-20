@@ -53,5 +53,35 @@ Frontend = [`fulfillment.html`](../fulfillment.html) + [`assets/fulfillment.js`]
 - Start with the **manual "Đồng bộ" button**; add a time-driven trigger only after manual sync is proven stable.
 - Writeback to Poscake (tag/note) is **Phase 3/4** — Phase 1 is read-only against Poscake.
 
+## E. Phase 2 — Labeled upload + photo staging (UploadGroups)
+
+Adds: CS "Tạo link upload" panel → mints a `?req=` link with free-text photo **labels** + an optional internal note; the customer form renders **one labeled box per (label × count)** and stages photos into an `UploadGroups` row (status `awaiting_upload → uploaded`). The labeled `?req=` flow talks to **this** (fulfillment) backend; generic `?phone=` links keep using the CouplePix backend unchanged.
+
+### E1. New Script Properties (Project Settings → Script Properties)
+| Key | Value | Required | Notes |
+|---|---|---|---|
+| `UPLOAD_FOLDER_ID` | Drive folder id for customer photos | yes (auto-seeded) | `intialSetup` seeds the CouplePix folder `1JB9vANvnKu52WQX4Mg1fYqF6i-Jthhs7`; change to a dedicated folder if desired. |
+| `FORM_DATA_SHEET_ID` | spreadsheet id of the **CouplePix** backend (the one holding the `form data` sheet) | optional | When set, each labeled upload is **mirrored** into `form data` so the existing phone-pool (`searchByPhone`) + admin view still find these photos. Leave blank to skip the mirror — the `UploadGroups` row is still the primary record. |
+
+> Re-run `intialSetup` once (or add `UPLOAD_FOLDER_ID` by hand) so the upload folder is set.
+
+### E2. Re-deploy + re-authorize
+`saveUpload` uses **Drive** (`DriveApp.createFile`) and, if `FORM_DATA_SHEET_ID` is set, opens the **CouplePix spreadsheet**. Both are new scopes vs Phase 1, so the next run prompts a fresh Google auth dialog — approve it. Then **Deploy → Manage deployments → Edit → New version** (so the live `/exec` serves the P2 code: `createUploadLink`, `getUploadLabels`, `saveUpload`).
+- **Execute as:** keep `User accessing the web app`. **Who has access:** `Anyone` (the customer upload form is anonymous, like the CouplePix `doPost`).
+
+### E3. Smoke test
+1. Dashboard → **＋ Tạo link upload** → add 2 labels (e.g. `Vòng đôi` count 2 via "Cặp đôi", `Mặt dây` count 1), type a "Ghi chú nội bộ", **Tạo link** → copy the link. Check `UploadGroups` has a row at `status=awaiting_upload` with `labels_json`, `internal_note`, `created_by`.
+2. Open the copied `…/couplepix.html?req=…` link → you should see **labeled boxes** (couple = 2), no catalog. Upload + crop each → **Gửi ảnh**.
+3. Verify the `UploadGroups` row flipped to `status=uploaded` with `photos_json` (label ↔ file ids). If `FORM_DATA_SHEET_ID` is set, a new `form data` row exists too (phone-pool intact).
+4. **Regression:** open the plain `couplepix.html` (no `?req=`) → the catalog/phone flow is unchanged.
+
+✅ Phase 2 done when: a labeled link mints an `awaiting_upload` row; a `?req=` upload flips it to `uploaded` with correct label↔file mapping; the generic catalog form still works.
+
+### Notes / guardrails (P2)
+- The customer form **never** sees SKU/price/internal_note — only the CS free-text labels.
+- `getUploadLabels`/`saveUpload` are public (anonymous customer), like the CouplePix `doPost`. `createUploadLink` is token-gated (cs/admin).
+- The `form data` mirror is **best-effort** — a mirror failure never blocks the customer (photo is already in Drive + `UploadGroups`).
+- Labeled uploads do **not** fire the CouplePix Lark notification (that lives in the CouplePix backend); they surface in the dashboard queues instead (P3/P4).
+
 ## What's next after this deploys
-P2 = labeled upload + photo staging (UploadGroups). P3 = CS reconcile + writeback. P4 = supplier package. See `plans/260604-1231-crushroom-fulfillment-platform/`.
+P3 = CS reconcile + writeback (join pulled order ↔ UploadGroup by phone, auto-match photos by label, fill note/size/chain, writeback tag+note+link). P4 = supplier package. See `plans/260604-1231-crushroom-fulfillment-platform/`.

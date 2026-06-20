@@ -95,4 +95,27 @@ body{margin:0;font-family:var(--body);color:var(--ink);font-size:14px;line-heigh
   opacity:0;transition:transform .25s,opacity .25s;z-index:80;box-shadow:var(--sh-2);max-width:90vw}
 #toast.on{transform:translateX(-50%) translateY(0);opacity:1}
 
+/* create-link modal */
+.modal-overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-start;justify-content:center;
+  padding:40px 16px;background:rgba(33,27,21,.5);overflow:auto}
+.modal-card{background:var(--card);border:1px solid var(--rule);border-top:5px solid var(--garnet);
+  border-radius:16px;box-shadow:var(--sh-2);width:min(520px,96vw)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--rule)}
+.modal-head h2{font-family:var(--disp);font-weight:800;font-size:18px;margin:0}
+.modal-close{border:none;background:none;font-size:24px;line-height:1;cursor:pointer;color:var(--ink-2);padding:2px 7px;border-radius:8px}
+.modal-close:hover{color:var(--garnet);background:var(--garnet-tint)}
+.modal-body{padding:16px 20px 22px;display:flex;flex-direction:column;gap:2px}
+.modal-body .btn{margin-top:14px;justify-content:center}
+.modal-body textarea.inp{resize:vertical;min-height:46px;font-size:14px}
+.label-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.label-row .label-text{flex:1}
+.label-row .label-count{width:74px;flex:none;text-align:center}
+.label-row .label-remove{flex:none;min-height:40px;padding:7px 11px}
+.link-row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.link-result{margin-top:16px;padding-top:14px;border-top:1px dashed var(--rule-2)}
+.link-copy-row{display:flex;gap:8px;align-items:center}
+.link-copy-row .inp{flex:1;font-size:13px}
+.link-copy-row .btn{flex:none;margin-top:0}
+#linkReqId{font-family:var(--mono);font-size:11px;margin:8px 0 0}
+
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
