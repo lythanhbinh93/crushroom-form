@@ -38,7 +38,7 @@ Poscake API (base `https://pos.pages.fm/api/v1`, `?api_key=`, SHOP_ID 2798984 �
 | 0 | Live API spike (read + order-UPDATE writeback) + Sheets schema + auth lock | **GREEN — API done; setup config open** | — | [phase-00](phase-00-api-spike-and-schema-lock.md) |
 | 1 | Datastore + orders-mirror sync (read) + auth/roles | pending | P0 | [phase-01](phase-01-orders-ingest-and-auth.md) |
 | 2 | Labeled upload rework + UploadGroup photo staging + link creation | **code-complete** (awaiting deploy + E2E) | P1 | [phase-02](phase-02-labeled-upload-and-staging.md) |
-| 3 | **CS reconcile + writeback** (pulled line-items ↔ photos auto-match, note/size/chain, local field override, writeback tag+note+link) | pending | P2 | [phase-03](phase-03-cs-reconcile-surface.md) |
+| 3 | **CS reconcile + writeback** (pulled line-items ↔ photos auto-match, note/size/chain, local field override, writeback tag+note+link) | **code-complete** (awaiting deploy + E2E; confirm live GET-one shape) | P2 | [phase-03](phase-03-cs-reconcile-surface.md) |
 | 4 | Supplier-package generator + ready queue + tag writeback | pending | P3 + P0/P1 schema | [phase-04](phase-04-supplier-package-generator.md) |
 | 5 | Status board, polish, retire Streamlit, docs | pending | P1-P4 | [phase-05](phase-05-status-board-polish-retire.md) |
 

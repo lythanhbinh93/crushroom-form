@@ -67,6 +67,24 @@
     </main>
   </div>
 
+  <!-- ===== Reconcile view (open an order to match photos + annotate + Mark Ready) ===== -->
+  <div id="reconcileView" class="reconcile-view" hidden>
+    <div class="reconcile-head">
+      <button class="btn ghost sm" id="rcBack" type="button">← Quay lại</button>
+      <span class="rc-title">Xử lý đơn <span id="rcOrderId" class="psk"></span></span>
+      <span class="rc-claim" id="rcClaim"></span>
+      <button class="btn ghost sm" id="rcRelease" type="button" hidden>Nhả</button>
+      <span class="spacer"></span>
+      <button class="btn ghost sm" id="rcReopen" type="button" hidden>Mở lại</button>
+      <button class="btn jade" id="rcSave" type="button">Lưu khớp</button>
+      <button class="btn" id="rcReady" type="button">Sẵn sàng →</button>
+    </div>
+    <div class="reconcile-body">
+      <div class="rc-meta" id="rcMeta"></div>
+      <div class="rc-lines" id="rcLines"></div>
+    </div>
+  </div>
+
   <!-- ===== Create-upload-link modal (CS/admin) ===== -->
   <div id="linkModal" class="modal-overlay" hidden>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="linkModalTitle">

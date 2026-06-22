@@ -38,7 +38,9 @@ const ORDERS_HEADER = ['poscake_order_id', 'line_index', 'fulfill_status', 'orde
   'order_status_name', 'phone', 'last4', 'customer_name', 'shipping_address', 'sku',
   'product_name', 'qty', 'cod', 'total_price', 'tags', 'tag_ids', 'note_print', 'note',
   'note_image', 'note_size', 'note_chain', 'claimed_by', 'claimed_at', 'local_overrides_json',
-  'upload_group_id', 'synced_at', 'updated_at'];
+  'upload_group_id', 'synced_at', 'updated_at', 'writeback_state', 'reconciled_at']; // last 2 added in P3
+// note_print = CS descriptive print note (yy source + Poscake writeback target). writeback_state =
+// JSON {status,note,tag,skipped} from the last Poscake PUT. reconciled_at set at Mark-Ready.
 const UPLOADGROUPS_HEADER = ['req_id', 'phone', 'last4', 'status', 'labels_json', 'photos_json',
   'internal_note', 'created_by', 'created_at', 'updated_at', 'bound_order_id']; // written by P2
 // labels_json = [{label,count}] seeded at link creation (immutable). photos_json = [{label,box_index,
@@ -76,6 +78,17 @@ function ensureSheet_(ss, name, header) {
   // after a sync) have getLastRow()>1 → header preserved.
   if (sh.getLastRow() <= 1) sh.getRange(1, 1, 1, header.length).setValues([header]);
   return sh;
+}
+
+// Append any header columns missing from a sheet that ALREADY has data (so we can't rewrite the
+// whole header). New columns land at the end → existing rows read '' for them, positions stay valid.
+// Used to migrate the Orders sheet to the P3 columns (writeback_state, reconciled_at).
+function ensureColumns_(sheet, header) {
+  const lastCol = sheet.getLastColumn();
+  const live = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const missing = header.filter(function (h) { return live.indexOf(h) === -1; });
+  if (!missing.length) return;
+  missing.forEach(function (h, i) { sheet.getRange(1, lastCol + 1 + i).setValue(h); });
 }
 
 // Quick editor smoke test (no web request) — verifies api_key + sync works.
@@ -177,6 +190,11 @@ function doGet(e) {
     if (action === 'listOrders') return jsonOut(listOrders_(e));
     if (action === 'createUploadLink') return jsonOut(createUploadLink_(e)); // CS/admin (token-gated)
     if (action === 'getUploadLabels') return jsonOut(getUploadLabels_(e));   // public (customer form)
+    if (action === 'getReconcileData') return jsonOut(getReconcileData_(e)); // CS/admin
+    if (action === 'claimDraft') return jsonOut(claimDraft_(e));             // CS/admin
+    if (action === 'releaseDraft') return jsonOut(releaseDraft_(e));         // CS/admin
+    if (action === 'markReady') return jsonOut(markReady_(e));               // CS/admin (triggers writeback)
+    if (action === 'reopenOrder') return jsonOut(reopenOrder_(e));           // CS/admin (admin if batched)
     return jsonOut({ success: false, error: 'Invalid action' });
   } catch (err) {
     return jsonOut({ success: false, error: String(err.message || err) });
@@ -188,6 +206,7 @@ function doPost(e) {
   try {
     const action = (e && e.parameter && e.parameter.action) || '';
     if (action === 'saveUpload') return jsonOut(saveUpload_(e));
+    if (action === 'saveReconcile') return jsonOut(saveReconcile_(e)); // CS/admin — carries a JSON payload
     return jsonOut({ success: false, error: 'Invalid action' });
   } catch (err) {
     return jsonOut({ success: false, error: String(err.message || err) });
@@ -211,6 +230,7 @@ function syncOrders_(e, editorRole) {
   try {
     const statuses = (scriptProp.getProperty('SYNC_STATUSES') || '0,11').split(',').map(function (s) { return s.trim(); }).filter(String);
     const sheet = ss_().getSheetByName('Orders');
+    ensureColumns_(sheet, ORDERS_HEADER); // lazily add P3 columns to a pre-P3 Orders sheet
     const data = sheet.getDataRange().getValues();
     const idx = idxOf_(data[0]);
     const rowByKey = {};
@@ -330,7 +350,7 @@ function buildOrderRow_(o, item, li) {
 function updateOrderRow_(sheet, rowNum, newRow, idx) {
   const existing = sheet.getRange(rowNum, 1, 1, ORDERS_HEADER.length).getValues()[0];
   const csStarted = existing[idx.fulfill_status] && existing[idx.fulfill_status] !== 'synced';
-  const preserve = { fulfill_status: 1, note_size: 1, note_chain: 1, claimed_by: 1, claimed_at: 1, local_overrides_json: 1, upload_group_id: 1, synced_at: 1 };
+  const preserve = { fulfill_status: 1, note_size: 1, note_chain: 1, claimed_by: 1, claimed_at: 1, local_overrides_json: 1, upload_group_id: 1, synced_at: 1, writeback_state: 1, reconciled_at: 1 };
   if (csStarted) preserve.note_print = 1; // CS may have edited the print note
   const out = existing.slice();
   ORDERS_HEADER.forEach(function (h) {
@@ -556,4 +576,390 @@ function ensureFormDataColumns_(sheet) {
   const missing = needed.filter(function (h) { return headers.indexOf(h) === -1; });
   if (!missing.length) return;
   missing.forEach(function (h, i) { sheet.getRange(1, lastCol + 1 + i).setValue(h); });
+}
+
+// ============================================================================
+// PHASE 3 — CS reconcile + writeback (line-items ↔ photos · annotate · writeback)
+// Join a PULLED Orders row to its staged photos, fill note/size/chain, Mark Ready →
+// write note_print + photo link onto the EXISTING Poscake order (status<2 guard). The
+// tool NEVER creates an order. PhotoMap rows feed the P4 supplier package.
+// ============================================================================
+
+// ---- app.py filename port (parity with clean_sku / safe_note / expand_slots naming) ----
+// clean_sku: COUPLEPIX-XXX → XXX (first token); else uppercase + drop spaces.
+function cleanSku_(sku) {
+  if (sku == null) return '';
+  const up = String(sku).trim().toUpperCase();
+  if (up.indexOf('COUPLEPIX-') !== -1) {
+    const parts = up.split('COUPLEPIX-');
+    if (parts.length > 1 && parts[1]) {
+      const first = parts[1].trim().split(/\s+/)[0];
+      if (first) return first;
+    }
+  }
+  return up.replace(/ /g, ''); // Python str.replace(" ","") removes every space
+}
+
+// safe_note: trim → / \ : become - → strip chars outside [\w \s -.,] (Python \w is UNICODE, so
+// \p{L}\p{N}_ is the parity-correct allow-set for VN/ASCII) → drop spaces → cap (default 35).
+function safeNote_(note, maxLength) {
+  if (note == null || note === '') return '';
+  if (maxLength == null) maxLength = 35;
+  let s = String(note).trim().replace(/\//g, '-').replace(/\\/g, '-').replace(/:/g, '-');
+  s = s.replace(/[^\p{L}\p{N}_\s.,-]/gu, '');
+  return s.replace(/ /g, '').slice(0, maxLength);
+}
+
+// expand_slots name: "_".join([f"{idx}.", last4, sku] (+ yy)) → "1._1234_DCM_yy".
+function buildSlotName_(slotIdx, last4, skuClean, noteYY) {
+  const parts = [slotIdx + '.', last4 || '0000', skuClean || ''];
+  if (noteYY) parts.push(noteYY);
+  return parts.join('_');
+}
+
+// ---- small shared helpers ----
+function parseJsonArr_(s) { try { const v = JSON.parse(s || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function setCell_(sheet, rowNum, idx, field, value) { if (idx[field] !== undefined) sheet.getRange(rowNum, idx[field] + 1).setValue(value); }
+
+const CLAIM_TTL_MS = 4 * 60 * 60 * 1000; // soft-claim auto-release window (4h idle)
+function isClaimStale_(claimedAt) {
+  if (!claimedAt) return true;
+  const t = (claimedAt instanceof Date) ? claimedAt.getTime() : new Date(claimedAt).getTime();
+  return isNaN(t) || (Date.now() - t) > CLAIM_TTL_MS;
+}
+
+// Load every Orders line for an order_id (+ ensure P3 columns). Returns {sheet,idx,rows:[{rowNum,row}]}.
+function loadOrder_(orderId) {
+  const sheet = ss_().getSheetByName('Orders');
+  ensureColumns_(sheet, ORDERS_HEADER);
+  const data = sheet.getDataRange().getValues();
+  const idx = idxOf_(data[0]);
+  const rows = [];
+  for (let r = 1; r < data.length; r++) {
+    if (String(data[r][idx.poscake_order_id]) === String(orderId)) rows.push({ rowNum: r + 1, row: data[r] });
+  }
+  return { sheet: sheet, idx: idx, rows: rows };
+}
+
+function stampClaim_(sheet, rows, idx, who) {
+  const now = new Date();
+  rows.forEach(function (lr) {
+    sheet.getRange(lr.rowNum, idx.claimed_by + 1).setValue(who);
+    sheet.getRange(lr.rowNum, idx.claimed_at + 1).setValue(now);
+  });
+}
+
+// Photos staged in the UploadGroup matched to this order (by req_id bind, else by phone).
+// Returns {req_id, internal_note, labels, photos, status} or null.
+function uploadGroupPhotos_(phoneNorm, reqId) {
+  const sheet = ss_().getSheetByName('UploadGroups');
+  const data = sheet.getDataRange().getValues();
+  const idx = idxOf_(data[0]);
+  let phoneHit = null;
+  for (let r = 1; r < data.length; r++) {
+    const row = data[r];
+    if (reqId && String(row[idx.req_id]) === String(reqId)) {
+      return pickUploadGroup_(row, idx);
+    }
+    if (phoneNorm && String(row[idx.phone]) === String(phoneNorm)) {
+      // Prefer an uploaded group; remember the first match as a fallback.
+      if (!phoneHit || row[idx.status] === UPLOAD_STATUS_UPLOADED) phoneHit = row;
+    }
+  }
+  return phoneHit ? pickUploadGroup_(phoneHit, idx) : null;
+}
+function pickUploadGroup_(row, idx) {
+  return {
+    req_id: row[idx.req_id], internal_note: row[idx.internal_note] || '',
+    labels: parseJsonArr_(row[idx.labels_json]), photos: parseJsonArr_(row[idx.photos_json]),
+    status: row[idx.status]
+  };
+}
+
+// Phone-pool fallback: photos from the customer-upload "form data" sheet (other spreadsheet).
+// Mirrors searchByPhone's suffix match. Returns [] when FORM_DATA_SHEET_ID is unset.
+function phonePoolPhotos_(phoneNorm) {
+  const sheetId = scriptProp.getProperty('FORM_DATA_SHEET_ID');
+  if (!sheetId || !phoneNorm) return [];
+  const clean = String(phoneNorm).replace(/\D/g, '');
+  if (clean.length < 8 || clean.length > 12) return [];
+  let sheet;
+  try { sheet = SpreadsheetApp.openById(sheetId).getSheetByName('form data'); } catch (e) { return []; }
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const nameIdx = headers.indexOf('Name');
+  const itemsIdx = headers.indexOf('Items');
+  if (nameIdx === -1) return [];
+  const out = [];
+  for (let i = 1; i < data.length; i++) {
+    const nameVal = String(data[i][nameIdx] || '');
+    const rowPhone = nameVal.replace(/\D/g, '');
+    if (rowPhone.length < 8 || rowPhone.length > 12) continue;
+    if ((nameVal.length - rowPhone.length) > 5) continue;
+    const exact = rowPhone === clean;
+    const endM = rowPhone.length >= clean.length && rowPhone.slice(-clean.length) === clean && (rowPhone.length - clean.length) <= 3;
+    const startM = clean.length >= rowPhone.length && clean.slice(-rowPhone.length) === rowPhone && (clean.length - rowPhone.length) <= 3;
+    if (!(exact || endM || startM)) continue;
+    const items = itemsIdx !== -1 ? parseJsonArr_(data[i][itemsIdx]) : [];
+    items.forEach(function (it) {
+      if (it && (it.fileUrl || it.fileId)) {
+        out.push({ label: it.name || '', photo_file_id: it.fileId || '', photo_url: it.fileUrl || '', filename: it.filename || '' });
+      }
+    });
+  }
+  return out;
+}
+
+function photoMapByLine_(orderId) {
+  const pm = ss_().getSheetByName('PhotoMap');
+  const data = pm.getDataRange().getValues();
+  const idx = idxOf_(data[0]);
+  const byLine = {};
+  for (let r = 1; r < data.length; r++) {
+    if (String(data[r][idx.poscake_order_id]) !== String(orderId)) continue;
+    const li = String(data[r][idx.line_index]);
+    (byLine[li] = byLine[li] || []).push({
+      slot: data[r][idx.slot], photo_file_id: data[r][idx.photo_file_id], photo_url: data[r][idx.photo_url],
+      sku: data[r][idx.sku], size: data[r][idx.size], chain: data[r][idx.chain]
+    });
+  }
+  return byLine;
+}
+
+// ---- reconcile read ----
+function getReconcileData_(e) {
+  const u = requireRole_(e, ['admin', 'cs']);
+  const orderId = String(e.parameter.poscake_order_id || e.parameter.order_id || '').trim();
+  if (!orderId) return { success: false, error: 'thiếu poscake_order_id' };
+  const o = loadOrder_(orderId);
+  if (!o.rows.length) return { success: false, error: 'không tìm thấy đơn ' + orderId };
+  const idx = o.idx, first = o.rows[0].row;
+
+  // Soft-claim on open: stamp if unclaimed or stale; warn (don't block) if a fresh claim is someone else's.
+  let claimedBy = first[idx.claimed_by], claimedAt = first[idx.claimed_at], claimMsg = '';
+  if (!claimedBy || isClaimStale_(claimedAt)) {
+    const who = u.email || u.name || 'cs';
+    stampClaim_(o.sheet, o.rows, idx, who);
+    claimedBy = who; claimedAt = new Date();
+  } else if (String(claimedBy).toLowerCase() !== String(u.email).toLowerCase()) {
+    claimMsg = 'đang xử lý bởi ' + claimedBy;
+  }
+
+  const phoneNorm = first[idx.phone];
+  const ug = uploadGroupPhotos_(phoneNorm, first[idx.upload_group_id]);
+  const pmByLine = photoMapByLine_(orderId);
+
+  const lineItems = o.rows.map(function (lr) {
+    const row = lr.row, li = String(row[idx.line_index]);
+    return {
+      line_index: row[idx.line_index], sku: row[idx.sku], product_name: row[idx.product_name], qty: row[idx.qty],
+      note_print: row[idx.note_print] || '', note_size: row[idx.note_size] || '', note_chain: row[idx.note_chain] || '',
+      local_overrides_json: row[idx.local_overrides_json] || '', saved_photos: pmByLine[li] || []
+    };
+  });
+
+  return {
+    success: true,
+    order: {
+      poscake_order_id: orderId,
+      order_status: first[idx.order_status], order_status_name: first[idx.order_status_name],
+      fulfill_status: first[idx.fulfill_status],
+      phone_masked: maskPhone_(phoneNorm), phone: phoneNorm, last4: first[idx.last4],
+      customer_name: first[idx.customer_name], shipping_address: first[idx.shipping_address],
+      cod: first[idx.cod], total_price: first[idx.total_price], tags: first[idx.tags], tag_ids: first[idx.tag_ids],
+      internal_note: ug ? ug.internal_note : '',
+      claimed_by: claimedBy, claimed_at: claimedAt, claim_msg: claimMsg,
+      writeback_state: first[idx.writeback_state] || '', can_writeback: canWriteback_(first[idx.order_status])
+    },
+    line_items: lineItems,
+    matched_photos: ug ? ug.photos : [], upload_status: ug ? ug.status : '',
+    phone_pool_photos: phonePoolPhotos_(phoneNorm)
+  };
+}
+
+// ---- soft claim ----
+function claimDraft_(e) {
+  const u = requireRole_(e, ['admin', 'cs']);
+  const o = loadOrder_(String(e.parameter.poscake_order_id || '').trim());
+  if (!o.rows.length) return { success: false, error: 'không tìm thấy đơn' };
+  const cur = o.rows[0].row[o.idx.claimed_by], curAt = o.rows[0].row[o.idx.claimed_at];
+  if (cur && !isClaimStale_(curAt) && String(cur).toLowerCase() !== String(u.email).toLowerCase() && u.role !== 'admin') {
+    return { success: false, error: 'đơn đang được xử lý bởi ' + cur, claimed_by: cur };
+  }
+  stampClaim_(o.sheet, o.rows, o.idx, u.email || u.name || 'cs');
+  return { success: true, claimed_by: u.email || u.name };
+}
+function releaseDraft_(e) {
+  const u = requireRole_(e, ['admin', 'cs']);
+  const o = loadOrder_(String(e.parameter.poscake_order_id || '').trim());
+  if (!o.rows.length) return { success: false, error: 'không tìm thấy đơn' };
+  const cur = o.rows[0].row[o.idx.claimed_by];
+  if (cur && String(cur).toLowerCase() !== String(u.email).toLowerCase() && u.role !== 'admin') {
+    return { success: false, error: 'chỉ người đang giữ hoặc admin mới nhả được' };
+  }
+  o.rows.forEach(function (lr) { setCell_(o.sheet, lr.rowNum, o.idx, 'claimed_by', ''); setCell_(o.sheet, lr.rowNum, o.idx, 'claimed_at', ''); });
+  return { success: true };
+}
+
+// ---- save reconcile (POST: note/size/chain + local overrides + photo map) ----
+function saveReconcile_(e) {
+  requireRole_(e, ['admin', 'cs']);
+  const orderId = String(e.parameter.poscake_order_id || '').trim();
+  let payload;
+  try { payload = JSON.parse(e.parameter.payload || '{}'); } catch (err) { return { success: false, error: 'payload không hợp lệ' }; }
+  const lines = payload.lines || [];
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: 'busy, retry' };
+  try {
+    const o = loadOrder_(orderId);
+    if (!o.rows.length) return { success: false, error: 'không tìm thấy đơn' };
+    const rowByLine = {};
+    o.rows.forEach(function (lr) { rowByLine[String(lr.row[o.idx.line_index])] = lr; });
+    lines.forEach(function (ln) {
+      const lr = rowByLine[String(ln.line_index)];
+      if (!lr) return;
+      if (ln.note != null) setCell_(o.sheet, lr.rowNum, o.idx, 'note_print', csvSafe_(String(ln.note).slice(0, 200)));
+      if (ln.size != null) setCell_(o.sheet, lr.rowNum, o.idx, 'note_size', csvSafe_(String(ln.size).slice(0, 60)));
+      if (ln.chain != null) setCell_(o.sheet, lr.rowNum, o.idx, 'note_chain', csvSafe_(String(ln.chain).slice(0, 60)));
+      if (ln.local_overrides != null) setCell_(o.sheet, lr.rowNum, o.idx, 'local_overrides_json', JSON.stringify(ln.local_overrides));
+      const fs = lr.row[o.idx.fulfill_status];
+      if (fs !== 'ready' && fs !== 'batched') setCell_(o.sheet, lr.rowNum, o.idx, 'fulfill_status', 'reconciling');
+    });
+    writePhotoMap_(orderId, lines, o);
+    return { success: true, order_id: orderId, lines: lines.length };
+  } finally { lock.releaseLock(); }
+}
+
+// Idempotent PhotoMap upsert: drop this order's rows, re-append from the payload.
+function writePhotoMap_(orderId, lines, o) {
+  const pm = ss_().getSheetByName('PhotoMap');
+  const data = pm.getDataRange().getValues();
+  const pmIdx = idxOf_(data[0]);
+  const del = [];
+  for (let r = 1; r < data.length; r++) if (String(data[r][pmIdx.poscake_order_id]) === String(orderId)) del.push(r + 1);
+  del.sort(function (a, b) { return b - a; }).forEach(function (rn) { pm.deleteRow(rn); });
+
+  const rowByLine = {};
+  o.rows.forEach(function (lr) { rowByLine[String(lr.row[o.idx.line_index])] = lr.row; });
+  const appends = [];
+  lines.forEach(function (ln) {
+    const orow = rowByLine[String(ln.line_index)] || [];
+    const last4 = orow[o.idx.last4] || '';
+    const skuClean = cleanSku_(ln.sku || orow[o.idx.sku] || '');
+    const yy = safeNote_(ln.note || '');
+    const qty = orow[o.idx.qty] || '';
+    (ln.photos || []).forEach(function (ph, si) {
+      const rowObj = {
+        poscake_order_id: orderId, line_index: ln.line_index, slot: (ph.slot != null ? ph.slot : si),
+        photo_file_id: ph.photo_file_id || '', photo_url: ph.photo_url || '',
+        sku: skuClean, note_print: yy, size: csvSafe_(String(ln.size || '')), chain: csvSafe_(String(ln.chain || '')),
+        qty: qty, last4: last4, updated_at: new Date()
+      };
+      appends.push(PHOTOMAP_HEADER.map(function (h) { return rowObj[h] !== undefined ? rowObj[h] : ''; }));
+    });
+  });
+  if (appends.length) pm.getRange(pm.getLastRow() + 1, 1, appends.length, PHOTOMAP_HEADER.length).setValues(appends);
+}
+
+// ---- writeback to the EXISTING Poscake order (order-UPDATE, never create) ----
+function canWriteback_(status) { const s = parseInt(status, 10); return !isNaN(s) && s < 2; } // status>=2 = sent to carrier
+function mergeTagIds_(currentIds, addId) {
+  const seen = {}, out = [];
+  (currentIds || []).forEach(function (id) { const k = String(id); if (!seen[k]) { seen[k] = 1; out.push(parseInt(id, 10)); } });
+  if (!seen[String(addId)]) out.push(addId);
+  return out;
+}
+function pancakePut_(path, bodyObj) {
+  const key = scriptProp.getProperty('PANCAKE_API_KEY');
+  const shop = scriptProp.getProperty('SHOP_ID');
+  if (!key || !shop) throw new Error('Missing PANCAKE_API_KEY / SHOP_ID in Script Properties');
+  const url = PANCAKE_BASE + '/shops/' + shop + path + '?api_key=' + encodeURIComponent(key);
+  const resp = UrlFetchApp.fetch(url, { method: 'put', contentType: 'application/json', payload: JSON.stringify(bodyObj), muteHttpExceptions: true });
+  const code = resp.getResponseCode();
+  if (code < 200 || code >= 300) throw new Error('Poscake PUT ' + code + ': ' + resp.getContentText().slice(0, 200));
+  return JSON.parse(resp.getContentText() || '{}');
+}
+// Read live status (status<2 guard) + tags (union), then PUT note_print and/or tag 36. Never throws
+// on a status>=2 order — returns {skipped:true}. Used by markReady (note) and P4 (tag).
+function writebackToPoscake_(orderId, opts) {
+  const live = pancakeGet_('/orders/' + encodeURIComponent(orderId));
+  // Single-order GET shape isn't live-verified; tolerate {data:{}}, {data:[{}]}, or a bare order.
+  let order = live && (live.data !== undefined ? live.data : live);
+  if (Array.isArray(order)) order = order[0] || {};
+  if (!order || typeof order !== 'object') order = {};
+  const status = order.status;
+  const result = { status: status, note: false, tag: false, skipped: false };
+  // Distinguish a real shipped order (status>=2) from a misread response, so writeback_state is debuggable.
+  if (status == null) { result.skipped = true; result.reason = 'unexpected order shape (status missing)'; return result; }
+  if (!canWriteback_(status)) { result.skipped = true; result.reason = 'status>=2 (đã gửi vận chuyển)'; return result; }
+  const body = {};
+  if (opts.note) { body.note_print = String(opts.note_print || '').slice(0, 1500); result.note = true; }
+  if (opts.tag) { body.tags = mergeTagIds_((order.tags || []).map(function (t) { return t.id; }), PRODUCTION_TAG_ID); result.tag = true; }
+  if (Object.keys(body).length) pancakePut_('/orders/' + encodeURIComponent(orderId), body);
+  return result;
+}
+
+// Compose the Poscake print note: one line per photo slot — slotName | size | chain | photo url.
+function buildPrintNote_(o, pmByLine) {
+  const idx = o.idx, lines = [];
+  let slotIdx = 1;
+  o.rows.forEach(function (lr) {
+    const row = lr.row, li = String(row[idx.line_index]);
+    const last4 = row[idx.last4] || '', size = row[idx.note_size] || '', chain = row[idx.note_chain] || '';
+    const skuClean = cleanSku_(row[idx.sku] || ''), yy = safeNote_(row[idx.note_print] || '');
+    (pmByLine[li] || []).forEach(function (p) {
+      lines.push(buildSlotName_(slotIdx, last4, skuClean, yy) + ' | size:' + size + ' | dây:' + chain + ' | ' + (p.photo_url || ''));
+      slotIdx++;
+    });
+  });
+  return lines.join('\n').slice(0, 1500);
+}
+
+// ---- mark ready (validate → ready → writeback note → clear claim) ----
+function markReady_(e) {
+  requireRole_(e, ['admin', 'cs']);
+  const orderId = String(e.parameter.poscake_order_id || '').trim();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return { success: false, error: 'busy, retry' };
+  try {
+    const o = loadOrder_(orderId);
+    if (!o.rows.length) return { success: false, error: 'không tìm thấy đơn' };
+    const pmByLine = photoMapByLine_(orderId);
+    const missing = [];
+    o.rows.forEach(function (lr) {
+      const li = String(lr.row[o.idx.line_index]);
+      if (!String(lr.row[o.idx.note_size] || '').trim()) missing.push('dòng ' + li + ': thiếu size');
+      if (!String(lr.row[o.idx.note_chain] || '').trim()) missing.push('dòng ' + li + ': thiếu dây/chain');
+      const hasPhoto = (pmByLine[li] || []).some(function (p) { return p.photo_file_id || p.photo_url; });
+      if (!hasPhoto) missing.push('dòng ' + li + ': thiếu ảnh');
+    });
+    if (missing.length) return { success: false, error: 'Chưa đủ điều kiện Sẵn sàng: ' + missing.join('; ') };
+
+    const now = new Date();
+    o.rows.forEach(function (lr) { setCell_(o.sheet, lr.rowNum, o.idx, 'fulfill_status', 'ready'); setCell_(o.sheet, lr.rowNum, o.idx, 'reconciled_at', now); });
+
+    // Writeback the print note + photo links (best-effort; status<2 guard inside).
+    const notePrint = buildPrintNote_(o, pmByLine);
+    let wb;
+    try { wb = writebackToPoscake_(orderId, { note: true, note_print: notePrint }); }
+    catch (err) { wb = { error: String(err.message || err) }; }
+    setCell_(o.sheet, o.rows[0].rowNum, o.idx, 'writeback_state', JSON.stringify(wb));
+
+    // Work done → clear the soft claim.
+    o.rows.forEach(function (lr) { setCell_(o.sheet, lr.rowNum, o.idx, 'claimed_by', ''); setCell_(o.sheet, lr.rowNum, o.idx, 'claimed_at', ''); });
+
+    return { success: true, order_id: orderId, writeback: wb, note_print: notePrint };
+  } finally { lock.releaseLock(); }
+}
+
+// ---- reopen a ready (not batched) order for a photo/spec swap; batched ⇒ admin only ----
+function reopenOrder_(e) {
+  const u = requireRole_(e, ['admin', 'cs']);
+  const o = loadOrder_(String(e.parameter.poscake_order_id || '').trim());
+  if (!o.rows.length) return { success: false, error: 'không tìm thấy đơn' };
+  const fstat = o.rows[0].row[o.idx.fulfill_status];
+  if (fstat === 'batched' && u.role !== 'admin') return { success: false, error: 'đơn đã gửi xưởng — chỉ admin mở lại được' };
+  o.rows.forEach(function (lr) { setCell_(o.sheet, lr.rowNum, o.idx, 'fulfill_status', 'reconciling'); });
+  return { success: true, order_id: o.rows[0].row[o.idx.poscake_order_id], fulfill_status: 'reconciling' };
 }

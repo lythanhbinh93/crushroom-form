@@ -65,7 +65,7 @@ Generic link (no req) → existing catalog/phone form path (unchanged) → "form
 - [x] `couple-pix.js` `?req=` labeled-box branch (early-return; generic catalog path untouched)
 - [x] `saveUpload` (UploadGroups upsert + status `awaiting_upload`→`uploaded` + best-effort "form data" mirror, LockService; `ItemCount`/size caps)
 - [x] CS "Tạo link upload" UI (labels + count + "Ghi chú nội bộ" + copy)
-- [ ] E2E: link creates `awaiting_upload` row w/ note → labeled couple upload flips to `uploaded` + form-data verified *(manual — after deploy/redeploy + UPLOAD_FOLDER_ID/FORM_DATA_SHEET_ID config)*
+- [~] E2E: **deployment leg VERIFIED live 2026-06-22** (probe `?action=getUploadLabels&req_id=…` → `{"success":false,"error":"không tìm thấy link…"}` = P2 routing live + UploadGroups readable + public access OK). **Upload-flip leg pending** merchant manual test (create link → `awaiting_upload` row → customer upload → `uploaded` + `photos_json`). Merchant SKIPPED `FORM_DATA_SHEET_ID` → no form-data mirror (UploadGroup is sole record; reversible by setting the prop, no redeploy).
 
 ## Code-complete notes (2026-06-20)
 - The labeled `?req=` flow talks to the **fulfillment** backend (one round-trip): `getUploadLabels` (GET) + `saveUpload` (POST). Generic `?phone=` links stay on the CouplePix backend, unchanged.

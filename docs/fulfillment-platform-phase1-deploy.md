@@ -83,5 +83,34 @@ Adds: CS "Tạo link upload" panel → mints a `?req=` link with free-text photo
 - The `form data` mirror is **best-effort** — a mirror failure never blocks the customer (photo is already in Drive + `UploadGroups`).
 - Labeled uploads do **not** fire the CouplePix Lark notification (that lives in the CouplePix backend); they surface in the dashboard queues instead (P3/P4).
 
+## F. Phase 3 — CS reconcile + writeback to Poscake
+
+Adds the **reconcile screen**: click a synced order → match staged/phone-pool photos to its pulled line-items, fill note/size/chain, **Sẵn sàng** → writes the print note + photo links onto the EXISTING Poscake order (`PUT …/orders/{id}`). Soft-claim coordinates shared-pool CS. The tool still **never creates an order**.
+
+### F1. Re-deploy + re-authorize
+`writebackToPoscake` makes an outbound **`PUT`** to Poscake (new scope vs read-only P1). Run `intialSetup` once (it now appends the `writeback_state` + `reconciled_at` columns to the Orders sheet via `ensureColumns_`), approve the auth prompt, then **Deploy → Manage deployments → Edit → New version**. New actions served: `getReconcileData`, `claimDraft`, `releaseDraft`, `markReady`, `reopenOrder` (GET) + `saveReconcile` (POST).
+
+### F2. ⚠️ Verify the live single-order GET shape BEFORE relying on writeback
+The writeback reads the order's LIVE status first (the `status<2` carrier guard). In the Apps Script editor, run a one-liner against a real order id and check the shape:
+```
+function probeOrderShape() { Logger.log(JSON.stringify(pancakeGet_('/orders/REAL_ORDER_ID')).slice(0, 400)); }
+```
+- If the order object is at `…data.status` (object) or `…data[0].status` (array) or a bare `status`, the code already handles all three.
+- If `status` is missing, `markReady` still succeeds but the writeback **safe-skips** and records `writeback_state.reason="unexpected order shape"` — that's the signal the shape needs another unwrap. (A real shipped order records `reason="status>=2…"` instead — the two are deliberately distinct.)
+
+### F3. Smoke test (one order, status < 2)
+1. Sync orders, open one from the table → soft-claim stamps (header shows "đang giữ: you"); the matched photos (from the `?req=` UploadGroup) + phone-pool photos appear per line.
+2. Toggle a photo onto each line, fill **size** + **dây/chain**, watch the filename preview (`1._{last4}_{SKU}_{note}`). **Lưu khớp** → `PhotoMap` rows + `fulfill_status=reconciling`.
+3. **Sẵn sàng** (confirm) → `fulfill_status=ready`, claim cleared, and the Poscake order's `note_print` gets the composed note + photo links. Re-open the order in Pancake to confirm.
+4. Force a **status≥2** order → Mark Ready still succeeds but `writeback_state` shows `skipped` (note stays in the dashboard for the P4 package). **Reopen** a ready order → back to `reconciling` (no Poscake write).
+
+✅ Phase 3 done when: a status<2 order reconciles + writes its note back; a status≥2 order safe-skips; the production tag is NOT duplicated (tag write lands in P4); order count in Poscake is unchanged (never creates).
+
+### Notes / guardrails (P3)
+- Writeback body is **whitelist-built** (`note_print` / `tags` only) — it can never touch items/price/qty.
+- The production **tag 36** write is deferred to **P4** (batch send); Mark-Ready writes only the note.
+- Soft-claim is a coordination hint (4h auto-release); LockService guards the real writes.
+- Phone-pool photo override needs `FORM_DATA_SHEET_ID` set (same prop as the P2 mirror); without it, reconcile uses only the `?req=` UploadGroup photos.
+
 ## What's next after this deploys
-P3 = CS reconcile + writeback (join pulled order ↔ UploadGroup by phone, auto-match photos by label, fill note/size/chain, writeback tag+note+link). P4 = supplier package. See `plans/260604-1231-crushroom-fulfillment-platform/`.
+P4 = supplier-package generator (renamed Drive folder + PDF from `PhotoMap`/ready orders) + the production-tag writeback at batch send (`writebackToPoscake_(id,{tag:true})` is already built). See `plans/260604-1231-crushroom-fulfillment-platform/`.

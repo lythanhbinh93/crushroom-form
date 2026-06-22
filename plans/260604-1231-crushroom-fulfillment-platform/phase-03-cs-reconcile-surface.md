@@ -92,16 +92,24 @@ Post-Ready edit (order not yet batched):
 10. E2E: pull a 2-line couple order (status < 2) → open reconcile → soft-claim stamps → auto-match confirms photos → fill note/size/chain → Mark Ready → `note_print`+photo link PUT onto the existing Poscake order + PhotoMap rows + claim cleared + filename strings exact. Then a phone-pool reconcile (no UploadGroup), a **status >= 2 best-effort skip** (writeback flagged, package still ships), a soft-claim/release cycle, and a post-Ready photo-swap reopen.
 
 ## Todo List
-- [ ] Port `cleanSku_`/`safeNote_`/`expandSlots_`/`buildSlotName_` (JS) with parity to app.py
-- [ ] `getReconcileData` (pulled line-items + UploadGroup/phone-pool photos) + `autoMatchPhotos_` + soft-claim on open + internal_note copy
-- [ ] `claimDraft`/`releaseDraft` + `isClaimStale_` (4h auto-release on read)
-- [ ] Reconcile UI (header: internal_note + phone + claim badge + Nhả; READ-ONLY pulled line-items + local override, photo auto-match + phone-pool override, read-only customer/ship/COD, size/chain, filename preview)
-- [ ] `reconcile`/`savePhotoMap` upsert (PhotoMap + local overrides, status=`reconciling`)
-- [ ] `writebackToPoscake` (`PUT …/orders/{id}` `{note_print, tags:[union(36)]}`; `canWriteback_` status < 2 guard; `mergeTagIds_` union; idempotent tag; writeback_state)
-- [ ] `markReady` (validate → ready → writeback note+link → clear claim)
-- [ ] `reopenOrder` (post-Ready photo/spec swap, no Poscake write; admin-only when batched; route price/customer/ship to manual Poscake)
-- [ ] Ready validation gate (photo + size + chain per line)
-- [ ] E2E: labeled reconcile + writeback, phone-pool reconcile, status>=2 best-effort-skip degrade, soft-claim/release, post-Ready reopen
+- [x] Port `cleanSku_`/`safeNote_`/`buildSlotName_` (JS) with parity to app.py — **node test `tests/app-py-port-parity.test.js` PASSES 15/15** (eval's the real shipped helpers, not a copy)
+- [x] `getReconcileData` (pulled line-items + UploadGroup/phone-pool photos) + soft-claim on open + internal_note surfaced live from the matched UploadGroup
+- [x] `claimDraft`/`releaseDraft` + `isClaimStale_` (4h auto-release on read)
+- [x] Reconcile UI (full-screen view: header internal_note + phone + claim badge + Nhả; per-line read-only sku/qty, photo toggle-grid from matched∪phone-pool, size/chain inputs, live filename preview)
+- [x] `saveReconcile`/`writePhotoMap_` upsert (PhotoMap delete+re-append by order + local overrides, status=`reconciling`)
+- [x] `writebackToPoscake` (`PUT …/orders/{id}`; `canWriteback_` status<2 guard reads LIVE status; `mergeTagIds_` union; whitelist body = note_print/tags only; writeback_state)
+- [x] `markReady` (validate → ready → writeback note → clear claim; best-effort/try-caught)
+- [x] `reopenOrder` (ready→reconciling; admin-only when batched)
+- [x] Ready validation gate (server-side: photo + size + chain per line; client guard advisory)
+- [ ] E2E: labeled reconcile + writeback, phone-pool reconcile, status>=2 skip, soft-claim/release, post-Ready reopen *(manual — after deploy)*
+
+## Code-complete notes (2026-06-22)
+- All P3 endpoints in `google-apps-script-fulfillment.js`; reconcile UI in `fulfillment.html`/`assets/fulfillment.{js,css}`.
+- **Writeback safety (code-reviewer verified):** never creates an order (only GET/GET-one/PUT); PUT body is whitelist-built (`note_print`/`tags` only — structurally can't touch items/price/qty); `status<2` guard reads LIVE status before every PUT; tag union idempotent (never bare `[36]`, never drops/dupes); api_key only from `scriptProp`, never returned/logged. Tag-36 write is wired but **deferred to P4** (markReady writes only `note_print`).
+- **Schema:** Orders gained `writeback_state` + `reconciled_at` via append-only `ensureColumns_` (safe on a sheet with data; called in `syncOrders_` + `loadOrder_`); `updateOrderRow_` preserves them on re-sync.
+- **Soft-claim** is a UX hint (stamped on GET, no lock); LockService guards the real writes (`saveReconcile`/`markReady`). Plan-intended.
+- **Review fix applied:** `writebackToPoscake_` now tolerates `{data:{}}` / `{data:[{}]}` / bare order shapes and flags a missing-status misread distinctly from a real status>=2 skip.
+- **⚠️ Deploy-time verify (unresolved Q below):** confirm the live `GET /shops/2798984/orders/{id}` response shape so the status-read isn't a silent misread. The hardening makes any misread a safe-fail (writeback skipped + `writeback_state.reason='unexpected order shape'`), but the note-writeback only works once the real shape is confirmed.
 
 ## Success Criteria
 - A pulled 2-line couple order is reconciled and marked Ready in a clean flow: photos auto-matched correct, size/chain entered, one "Sẵn sàng" click; the print note + photo link are written back onto the EXISTING Poscake order (or the unsupported piece flagged for manual, package unaffected).
@@ -141,4 +149,7 @@ Post-Ready edit (order not yet batched):
 - COD/customer data is sensitive — pulled order data stays in role-gated payloads only; never in non-gated output.
 
 ## Next Steps
-P4 reads PhotoMap rows (or finalized Orders columns) for ready orders to build the renamed Drive folder + PDF, then writes back the production tag "Đang sản xuất" at batch send. The pre-batch cancellation re-check reuses the verified orders-READ endpoint to confirm each Ready order's live status before generating a package. Add time-driven tag-retry only if manual proves stable.
+P4 reads PhotoMap rows (or finalized Orders columns) for ready orders to build the renamed Drive folder + PDF, then writes back the production tag "Đang sản xuất" at batch send (call `writebackToPoscake_(orderId, {tag:true})` — already implemented + idempotent). The pre-batch cancellation re-check reuses the verified orders-READ endpoint to confirm each Ready order's live status before generating a package. Add time-driven tag-retry only if manual proves stable.
+
+## Unresolved questions
+1. **Live single-order GET shape** — confirm `GET /shops/2798984/orders/{id}` returns `{data:{…}}` (object) vs `{data:[{…}]}` (array). Drives whether the note writeback fires or safe-skips. Hardened either way (skip + distinct `writeback_state.reason`), but the feature only works once the real shape is confirmed in `writebackToPoscake_`.
