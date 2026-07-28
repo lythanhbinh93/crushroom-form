@@ -85,7 +85,9 @@ async function doSync() {
       bar.hidden = false;
       toast('Đồng bộ xong'); loadOrders();
     } else {
-      toast('Lỗi đồng bộ: ' + (r && r.error));
+      // a partial sync reports its cause in stats.error, not the top-level error field
+      const msg = (r && (r.error || (r.stats && r.stats.error))) || 'không rõ nguyên nhân';
+      toast('Lỗi đồng bộ: ' + msg);
     }
   } catch (e) { toast('Lỗi mạng khi đồng bộ'); }
   btn.disabled = false; btn.textContent = 'Đồng bộ đơn';
@@ -412,7 +414,9 @@ document.getElementById('rcReady').addEventListener('click', doMarkReady);
 document.getElementById('rcRelease').addEventListener('click', async () => {
   if (!rcState) return;
   const r = await api('releaseDraft', { poscake_order_id: rcState.orderId });
-  if (r && r.success) { toast('Đã nhả đơn'); openReconcile(rcState.orderId); } else { toast('Lỗi: ' + (r && r.error)); }
+  // Back to the list, NOT openReconcile: getReconcileData_ soft-claims on open, so
+  // reopening re-claimed the order we just released and the button did nothing.
+  if (r && r.success) { toast('Đã nhả đơn'); closeReconcile(); loadOrders(); } else { toast('Lỗi: ' + (r && r.error)); }
 });
 document.getElementById('rcReopen').addEventListener('click', async () => {
   if (!rcState) return;
