@@ -1,0 +1,16 @@
+{
+  "brands": 325,
+  "design_ads": 745,
+  "design_analysis": 10,
+  "design_state": 0,
+  "designs": 6623,
+  "runs": 24,
+  "snapshots": 1431,
+  "_meta": {
+    "captured": "2026-07-28",
+    "db_bytes": 2924544,
+    "max_snapshot_date": "2026-07-27",
+    "distinct_snapshot_dates": 5,
+    "max_run_id": 24
+  }
+}
