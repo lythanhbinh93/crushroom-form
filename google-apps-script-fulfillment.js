@@ -156,8 +156,15 @@ function getIdentity_(e) {
   try { email = (Session.getActiveUser().getEmail() || '').toLowerCase(); } catch (err) { email = ''; }
   for (let r = 1; r < data.length; r++) {
     const row = data[r];
-    const active = String(row[idx.active]).toLowerCase();
-    if (active === 'false' || active === '0' || active === 'no') continue;
+    // Fail closed: only an affirmative value authenticates. A blank cell is the
+    // most natural way to deactivate someone, so it must NOT read as a default
+    // yes. When the column is absent entirely (a pre-'active' Users sheet) there
+    // is no intent to read, so every row stays active — upgrading can't lock the
+    // operator out of their own tool.
+    if (idx.active !== undefined) {
+      const active = String(row[idx.active]).trim().toLowerCase();
+      if (active !== 'true' && active !== '1' && active !== 'yes' && active !== 'active') continue;
+    }
     if (token && row[idx.token] && String(row[idx.token]) === String(token)) {
       return { email: row[idx.email], role: row[idx.role], name: row[idx.name] };
     }
@@ -222,9 +229,11 @@ function whoami(e) {
   }
 }
 
-// Pull recent Poscake orders → upsert Orders mirror (idempotent, preserves CS fields). Admin/CS.
+// Pull recent Poscake orders → upsert Orders mirror (idempotent, preserves CS fields).
+// Admin only: the dashboard hides the sync button for cs, so accepting cs here left a
+// capability the UI advertises as closed reachable by a direct request.
 function syncOrders_(e, editorRole) {
-  requireRole_(e, ['admin', 'cs'], editorRole);
+  requireRole_(e, ['admin'], editorRole);
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { success: false, error: 'sync busy, retry' };
   try {
@@ -292,8 +301,11 @@ function syncOrders_(e, editorRole) {
     // Self-clean: drop rows that are no longer in the synced statuses AND untouched by CS
     // (fulfill_status still 'synced'). CS-in-progress rows (reconciling/ready/batched) are kept.
     // Skip on a partial sync so a failed page-fetch never deletes orders it just didn't see.
+    // `truncated` is the same hazard from the other direction: hitting the 30-page cap means
+    // whole pages of live orders were never fetched, so seenKeys is incomplete and every
+    // unseen row would be deleted. Prune only from a provably complete pass.
     stats.pruned = 0;
-    if (!partial) {
+    if (!partial && !truncated) {
       const toDelete = [];
       for (let r = 1; r < data.length; r++) {
         const k = String(data[r][idx.poscake_order_id]) + '#' + String(data[r][idx.line_index]);
@@ -690,6 +702,11 @@ function phonePoolPhotos_(phoneNorm) {
   const headers = data[0];
   const nameIdx = headers.indexOf('Name');
   const itemsIdx = headers.indexOf('Items');
+  // Rows written before the Items/SchemaVersion=2 migration carry their photo URLs in
+  // image-1 / image-2 instead. Reading only Items returned zero photos for exactly the
+  // old orders this fallback exists to rescue.
+  const legacyIdx = ['image-1', 'image-2'].map(function (h) { return headers.indexOf(h); })
+                                          .filter(function (i) { return i !== -1; });
   if (nameIdx === -1) return [];
   const out = [];
   for (let i = 1; i < data.length; i++) {
@@ -702,11 +719,19 @@ function phonePoolPhotos_(phoneNorm) {
     const startM = clean.length >= rowPhone.length && clean.slice(-rowPhone.length) === rowPhone && (clean.length - rowPhone.length) <= 3;
     if (!(exact || endM || startM)) continue;
     const items = itemsIdx !== -1 ? parseJsonArr_(data[i][itemsIdx]) : [];
+    let added = 0;
     items.forEach(function (it) {
       if (it && (it.fileUrl || it.fileId)) {
         out.push({ label: it.name || '', photo_file_id: it.fileId || '', photo_url: it.fileUrl || '', filename: it.filename || '' });
+        added++;
       }
     });
+    if (!added) {  // pre-v2 row: URLs only, no label/fileId to recover
+      legacyIdx.forEach(function (ci) {
+        const url = String(data[i][ci] || '').trim();
+        if (url) out.push({ label: '', photo_file_id: '', photo_url: url, filename: '' });
+      });
+    }
   }
   return out;
 }
@@ -863,7 +888,17 @@ function writePhotoMap_(orderId, lines, o) {
 }
 
 // ---- writeback to the EXISTING Poscake order (order-UPDATE, never create) ----
-function canWriteback_(status) { const s = parseInt(status, 10); return !isNaN(s) && s < 2; } // status>=2 = sent to carrier
+// Poscake status codes are CATEGORICAL, not ordinal (0=new, 1=submitted, 3=delivered,
+// 6=canceled, 8=packing, 9=pending, 11=waitting), so the old `s < 2` test was meaningless
+// as a "not yet shipped" check: it excluded 11 (waitting) — a pre-fulfilment state we sync
+// by default — while 11 sorts above 3 (delivered). Allow-list the states that are still
+// editable instead. Kept in step with SYNC_STATUSES: we only ever write back to an order we
+// pulled. A PUT rejected anyway is handled by the caller, not by widening this list.
+const WRITEBACK_STATUSES = [0, 1, 11]; // new, submitted, waitting
+function canWriteback_(status) {
+  const s = parseInt(status, 10);
+  return !isNaN(s) && WRITEBACK_STATUSES.indexOf(s) !== -1;
+}
 function mergeTagIds_(currentIds, addId) {
   const seen = {}, out = [];
   (currentIds || []).forEach(function (id) { const k = String(id); if (!seen[k]) { seen[k] = 1; out.push(parseInt(id, 10)); } });
@@ -892,11 +927,21 @@ function writebackToPoscake_(orderId, opts) {
   const result = { status: status, note: false, tag: false, skipped: false };
   // Distinguish a real shipped order (status>=2) from a misread response, so writeback_state is debuggable.
   if (status == null) { result.skipped = true; result.reason = 'unexpected order shape (status missing)'; return result; }
-  if (!canWriteback_(status)) { result.skipped = true; result.reason = 'status>=2 (đã gửi vận chuyển)'; return result; }
+  if (!canWriteback_(status)) { result.skipped = true; result.reason = 'trạng thái ' + status + ' không cho sửa đơn'; return result; }
   const body = {};
   if (opts.note) { body.note_print = String(opts.note_print || '').slice(0, 1500); result.note = true; }
   if (opts.tag) { body.tags = mergeTagIds_((order.tags || []).map(function (t) { return t.id; }), PRODUCTION_TAG_ID); result.tag = true; }
-  if (Object.keys(body).length) pancakePut_('/orders/' + encodeURIComponent(orderId), body);
+  if (Object.keys(body).length) {
+    try {
+      pancakePut_('/orders/' + encodeURIComponent(orderId), body);
+    } catch (err) {
+      // Poscake's real edit window per status isn't live-verified. If it rejects the PUT,
+      // that must not fail the whole markReady — the CS work is already saved. Degrade to
+      // skipped so writeback_state records exactly why the note never landed.
+      result.skipped = true; result.note = false; result.tag = false;
+      result.reason = 'Poscake từ chối cập nhật: ' + String(err.message || err);
+    }
+  }
   return result;
 }
 
@@ -913,7 +958,25 @@ function buildPrintNote_(o, pmByLine) {
       slotIdx++;
     });
   });
-  return lines.join('\n').slice(0, 1500);
+  // Poscake caps note_print at 1500 chars. Slicing the joined string cut the last line
+  // mid-URL, handing the supplier a broken link that still looked like a success. Drop
+  // whole lines instead and say how many are missing, so a too-large order is visibly
+  // incomplete rather than silently corrupt.
+  const LIMIT = 1500;
+  const kept = [];
+  let used = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const cost = lines[i].length + (kept.length ? 1 : 0); // +1 for the joining newline
+    if (used + cost > LIMIT) break;
+    kept.push(lines[i]); used += cost;
+  }
+  if (kept.length < lines.length) {
+    const omitted = lines.length - kept.length;
+    const warn = '⚠ THIẾU ' + omitted + ' ảnh — xem đơn trên dashboard';
+    while (kept.length && used + 1 + warn.length > LIMIT) { used -= kept.pop().length + 1; }
+    kept.push(warn);
+  }
+  return kept.join('\n');
 }
 
 // ---- mark ready (validate → ready → writeback note → clear claim) ----
