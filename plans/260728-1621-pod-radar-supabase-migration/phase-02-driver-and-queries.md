@@ -254,6 +254,53 @@ of 325 would have made every later write raise and the terminal commit discard
 the 39 that had succeeded. The enrich harvest loops now take a savepoint per
 brand.
 
+### What the second review caught: fixes applied to the site, not the class
+
+A second pass found that three of the first round's fixes had been applied
+exactly where the defect was reported and nowhere else — and that one of the
+new tests was structurally unable to notice.
+
+- **Savepoints existed only in the two harvest loops.** Stage A and Stage B ran
+  one transaction across all 325 brands. `active_ads` is `int4` now, so one
+  mis-scraped ad count — a value SQLite simply stored — aborts the transaction
+  and discards every brand already written in that stage. Both loops are
+  savepointed now, and `run_enrichment` has a wrapper that closes the run row
+  and the connection on the failure path. Without it an escaping exception left
+  `finished_at` NULL forever, so `new_designs_feed` and `is_new` kept reading
+  the previous week's window.
+- **`_clean` guarded one writer of four.** `upsert_brand` takes user-uploaded
+  CSV cells; `upsert_design_ad` takes handles off the browser-eval chain. Worse
+  than the crash risk: the ad path wrote the *raw* handle while the design path
+  wrote the *cleaned* one, so any handle `_clean` altered left `design_ads` and
+  `designs` unable to join and the design silently lost its ad evidence in the
+  winner feed. Cleaning now happens once, at the source.
+- **The batch entry points still leaked connections** on every error path —
+  the unattended weekly ones, against a session pooler where each leak pins a
+  slot until TCP timeout.
+
+**The test that could not fail.** `test_a_failed_write_scopes_to_one_brand`
+reimplemented the loop and asserted *psycopg's* savepoint semantics, so it
+passed with zero `conn.transaction()` calls in `enrich.py` — which is exactly
+why Stage A and B went unnoticed. Four other tests had the same shape: they
+restated production SQL instead of calling it. All five now execute the real
+code, and each is mutation-checked — reverting its fix makes it fail:
+
+```
+CAUGHT  shortlist keeps unranked designs      CAUGHT  ad handles clean identically
+CAUGHT  design brief reports no fake ad-days  CAUGHT  enrich loops are savepointed
+CAUGHT  never-enriched brands sort first      CAUGHT  unranked designs lead the feed
+```
+
+**And a suite that tested nothing.** The autouse safety fixture depended on the
+DSN fixture, and an autouse fixture requesting a skipping fixture skips the
+*entire session*: with no DSN the suite reported `85 skipped`, exit 0 —
+including the 27 tests that never touch a database, the auth gate among them.
+Since the DSN lives in a gitignored file, that was the default state on every
+machine but this one. Now: 45 pass / 42 skip without a DSN.
+
+`init_db` was a no-op called from eleven sites; its last caller is gone, so it
+is deleted rather than left as permanent scaffolding.
+
 ### The test harness reached production once
 
 `dashboard/data_access.py` does `from pod_radar.db import get_conn`, which binds
