@@ -1,11 +1,14 @@
 # POD Radar — SQLite → Supabase Postgres (Phase 1 of hosted multi-user)
 
-**Status:** Phases 01–03 ✅ complete 2026-07-29. All 9,158 rows live in Supabase
-(`afcjfcroktlnelmhiyus`, ap-southeast-1), and the app now **runs on Postgres** —
-87 tests green against a real schema, every dashboard view rendering, and a
-value-level differential matching the SQLite baseline. Phase 03 was absorbed
-into 02. Phase 04 (cutover + soak) is next: the weekly task still has to prove
-itself unattended, and the SQLite file is still the rollback artifact.
+**Status:** Phases 01–03 and **04a** ✅ complete 2026-07-29. All 9,158 rows live
+in Supabase (`afcjfcroktlnelmhiyus`, ap-southeast-1); the app **runs on
+Postgres** — 101 tests green against a real schema, every view rendering, a
+value-level differential matching the SQLite baseline, and the weekly task
+fixed and proven end-to-end via `--stage score` (run #25).
+
+**04b (soak) is open and closes itself:** the scheduled cycle on
+**Mon 2026-08-03 09:00** is the first time the browser stages touch Postgres.
+Nothing to implement — see phase 04 for exactly what to check afterwards.
 **Code:** `D:/github local/pod-research` (remote `lythanhbinh93/pod-radar`)
 **Plans:** this repo, per README convention
 
@@ -53,7 +56,8 @@ planned here.
 | 01 | Schema + data migration ✅ | — | [phase-01-schema-and-migration.md](phase-01-schema-and-migration.md) |
 | 02 | Driver + query port ✅ | 01 | [phase-02-driver-and-queries.md](phase-02-driver-and-queries.md) |
 | 03 | ~~Postgres test harness~~ — absorbed into 02 | — | [phase-03-test-harness.md](phase-03-test-harness.md) |
-| 04 | Cutover + soak | 03 | [phase-04-cutover.md](phase-04-cutover.md) |
+| 04a | Cutover readiness ✅ | 02 | [phase-04-cutover.md](phase-04-cutover.md) |
+| 04b | Soak ⏳ (elapsed time) | 04a | [phase-04-cutover.md](phase-04-cutover.md) |
 
 ## Accepted decisions
 
