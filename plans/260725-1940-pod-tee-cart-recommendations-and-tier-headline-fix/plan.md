@@ -1,0 +1,179 @@
+---
+title: "pod-tee Cart Recommendations and Tier Headline Fix"
+description: >-
+  Fix the cart-drawer tier headline to match what checkout actually charges
+  (two live under-reporting bugs), then add a UpCart-style recommendation strip
+  in both the items and empty cart states. Native theme work, no app. Cards link
+  to PDP; no inline variant selection.
+status: pending
+priority: P1
+effort: "1-1.5d"
+repo: D:\github local\pod-tee-theme
+plans_repo: D:\github local\crushroom-form
+branch: TBD
+store: dopamiles.co / rfeixb-dd.myshopify.com (live theme #158620516604)
+blockedBy: []
+blocks: [260520-1010-pod-tee-cart-drawer-offer-revamp]
+related:
+  - advice: ./advice.md (confirmed requirements, verified evidence, locked decisions)
+  - overlaps: plans/260520-1010-pod-tee-cart-drawer-offer-revamp (phases 01-04 complete; built the bar + Shipping Protection this plan corrects; phase 05 QA never ran)
+  - overlaps: plans/260725-1737-pod-tee-stack-and-save-effective-per-unit-price (same tiers metafield, PDP-side)
+  - not-live: dopamiles-bundle-app/extensions/bundle-discount (Rust Function, tag-gated, NOT deployed)
+  - reference: https://docs.aftersell.com/upcart/upsells_module (feature model only; app not installed)
+tags: [shopify, theme, pod-tee, dopamiles, cart-drawer, upsell, recommendations, bundle, stack-save]
+created: 2026-07-25
+---
+
+# pod-tee Cart Recommendations and Tier Headline Fix
+
+Full advisory context, verified evidence, and locked decisions: [advice.md](./advice.md).
+
+## Overview
+
+Two jobs, in strict order.
+
+**First, fix what is already wrong.** The cart drawer's tier headline and progress
+bar have been live since 2026-05-20 and under-report the discount on two
+independent axes. Both are arithmetic, both are customer-visible, and both
+under-promise — so no shopper has complained, but the store's strongest offer is
+being hidden from the people most likely to take it.
+
+**Then add the recommendation strip.** 2-3 cards below the line items and a
+curated strip in the empty state, so the drawer stops being a dead end. Cards
+link to their PDP; no inline variant selection.
+
+The order matters. The strip's entire value is driving shoppers toward a tier
+whose savings the headline currently states incorrectly. Shipping the strip first
+would amplify a wrong number.
+
+## The two live bugs
+
+### Bug 1 — savings multiplied by the tier threshold, not the actual count
+
+`snippets/dopamiles-bundle-cart-headline.liquid` computes
+`bundle_tier_N_total = amount × N`, where `N` is the tier *threshold* (2/3/5).
+The live discounts are `appliesOnEachItem: true`, so the true saving is
+`amount × actual eligible quantity`.
+
+| Eligible qty | Headline says | Checkout charges | Gap |
+|---|---|---|---|
+| 2 | Saved $4 | $4 | correct |
+| 3 | Saved $9 | $9 | correct |
+| **4** | **Saved $9** | **$12** | **−$3** |
+| 5 | Saved $25 | $25 | correct |
+| **6** | **Saved $25+** | **$30** | **−$5, hedged by "+"** |
+
+Correct at tier boundaries, wrong between them.
+
+### Bug 2 — tier selected by eligible count, but the discount counts all cart lines
+
+The snippet selects the tier from `eligible_qty` (bundle-eligible items only,
+Shipping Protection excluded). The live discounts use
+`minimumRequirement.greaterThanOrEqualToQuantity` against **all** cart lines.
+
+Shipping Protection auto-adds by default (`shipping_protection_default_checked`,
+once per session — see the overlapping plan's Phase 04). **So the default cart
+state has SP in it**, which means:
+
+| Cart | Bar shows | Actually charged |
+|---|---|---|
+| 1 tee + SP | 20% fill, 0 markers hit, "Add 1 more · save $4" | **$2 already off** |
+| 2 tees + SP | tier 2 hit, "Saved $4" | **$6** ($3 × 2) |
+| 4 tees + SP | tier 3 hit, "Saved $9" | **$20** ($5 × 4) |
+
+This is not an edge case. It is the default path for every shopper who does not
+opt out of Shipping Protection.
+
+> **Gate.** Bug 2 rests on the counting semantic being order-wide. The user
+> confirmed this from observation; it is not empirically verified in this plan.
+> Phase 01 Step 1 verifies it with a live test cart **before** any copy changes.
+> If the semantic turns out to be eligible-items-only, Bug 2 does not exist,
+> Bug 1 still does, and Phase 01 narrows accordingly.
+
+## Goals
+
+| # | Goal | Priority |
+|---|------|----------|
+| 1 | Headline and bar state exactly what checkout charges, at every quantity, with and without Shipping Protection | P1 |
+| 2 | Recommendation strip renders in both cart states, cards link to PDP | P1 |
+| 3 | Merchant upsell picks survive a cart mutation (they currently do not) | P1 |
+| 4 | Recommendation source swappable between curated collection and Shopify `related` | P2 |
+| 5 | No regression to tier selection, cart recount, Shipping Protection, or the PDP Stack & Save CTA | P1 |
+
+## Phases
+
+| # | Phase | Status |
+|---|-------|--------|
+| 1 | [Tier counting truth](./phase-01-tier-counting-truth.md) | Complete — Step 1 NOT VERIFIED, shipped on safe default |
+| 2 | [Recommendation strip](./phase-02-recommendation-strip.md) | Complete — B-arm source setting built 2026-07-29, no longer deferred |
+| 3 | [Migrate manual pickers](./phase-03-migrate-manual-pickers.md) | Complete — 2026-07-29. Zero `upsell_product` blocks existed on live or preview, so the irreversible-loss risk was empty; blocks, render loop, 97 lines of CSS and the JS handler removed |
+| 4 | [QA and ship](./phase-04-qa-and-ship.md) | Partial — steps 1-3, 6-8 done 2026-07-29; 4-5 need a browser/checkout; 9-12 blocked on the human gate |
+| 5 | [Drawer redesign and money single-source](./phase-05-drawer-redesign-and-money-single-source.md) | Built, on preview. Doc written retroactively 2026-07-29 — money resolver + 24-case equality suite, carousel, cards-per-view, compact line items, related-products arm, end-card destination, mockup diff. **Supersedes** Phase 02's zero-JS and 3-card criteria and voids two Phase 04 arguments |
+
+**Uncommitted.** All work sits in the `pod-tee-theme` working tree on branch
+`fix/codebase-audit-batch-260613`. Nothing has been pushed to any theme.
+
+**Dependencies.** Phase 01 is a hard gate on Phase 04 — the strip must not ship
+on top of a wrong number. Phases 02 and 03 may run in parallel with 01; they
+touch different files. Phase 03 depends on Phase 02's settings block existing.
+
+## Locked decisions
+
+Full rationale in [advice.md §5](./advice.md). Summary:
+
+| Item | Decision |
+|---|---|
+| App vs native | Native — no UpCart, no monthly fee |
+| Variant resolution | Cards link to PDP; no inline variant selectors, no inline add-to-cart |
+| Rec source | Swappable: curated collection (default) + Shopify `intent=related` (optional B-arm) |
+| Curated collection | `bundle-eligible` — 579 tees, already BEST_SELLING sorted |
+| Copy | Next **tier boundary**, "save $N" totals phrasing |
+| Strip layout | ~~One row, manual-first, hard cap 3 cards~~ → **superseded by Phase 05**: snap carousel, manual-first, 1/2/3 cards per view, hard cap 16 (user decision 2026-07-27) |
+| Settings location | Theme-global `settings.*` only — never section schema |
+| Free-shipping bar | Already exists, default OFF — leave off |
+| Analytics | Out of scope (user decision) |
+| PDP Stack & Save CTA | Untouched |
+
+## Critical constraint — no section schema
+
+`assets/dopamiles-cart.js:93-110` re-renders the drawer via
+`/cart/change.js?sections=dopamiles-cart-drawer,dopamiles-cart-main`. The Section
+Rendering API rebuilds sections with **schema defaults**, so any section-level
+setting resets on every cart mutation. This is why
+`settings.dop_cart_bundle_cta_url` exists as a theme-global. Every setting this
+plan adds must be theme-global for the same reason.
+
+## Success criteria
+
+- [ ] Headline savings equal the applied checkout discount at eligible qty 1-6, both with and without Shipping Protection in cart
+- [ ] Tier selection matches the verified counting semantic from Phase 01 Step 1
+- [ ] Qty-4 state shows $12 (not $9); qty-6 shows $30 (not "$25+")
+- [ ] Recommendation strip renders in items state and empty state
+- [ ] Strip renders nothing — not an orphan heading — when the source is unset or yields zero results
+- [ ] Manual picks still present in DOM after a quantity change
+- [ ] `upsell_product` block definitions removed from `sections/dopamiles-cart-drawer.liquid`
+- [ ] CHECKOUT button above the fold at 360px with the strip rendered
+- [ ] `shopify theme check` clean; `node --test` green
+- [ ] Live push verified by `shopify theme pull` source diff, not the CLI banner
+- [ ] PDP Stack & Save CTA unchanged
+
+## Risks
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Counting semantic assumed wrong | Headline promises money checkout won't pay — worse than the current under-promise | Phase 01 Step 1 test cart is a hard gate before any copy change |
+| Over-promising after the fix | Under-promising is safe; over-promising is a trust and chargeback problem | Every state verified against a real checkout total, not arithmetic on paper |
+| Section Rendering API eats a setting | Strip or picks silently vanish mid-session | Theme-global only; explicit mutation-survival test in Phase 04 |
+| Strip pushes CHECKOUT below fold | Direct conversion loss on 65-75% of traffic | Phase 05 moved the strip inside the scroller, so the cap no longer bounds drawer height. Measured at 360px: CHECKOUT above fold with 49px headroom. Still a ship gate |
+| `bundle-eligible` collection empty or repointed | Strip renders nothing | Guard on `products_count == 0`; render nothing rather than an orphan heading |
+| Live pushes hit production | Customer-visible breakage | `--allow-live` + single `--only` per file; verify by pulled-source diff |
+| Overlapping plan 260520-1010 Phase 05 QA still open | Two plans QA-ing the same drawer | Phase 04 covers the drawer states this plan touches; 260520-1010 Phase 05 remains separately owned |
+
+## Open questions
+
+1. **Counting semantic is asserted, not tested.** Resolved by Phase 01 Step 1.
+   Everything downstream branches on the result.
+2. **Whether the strip earns its space is unanswerable** under current scope —
+   analytics excluded by decision. Revisit only if measurement is added.
+
+<!-- slug: pod-tee-cart-recommendations-and-tier-headline-fix -->
