@@ -1,6 +1,8 @@
 # POD Radar — SQLite → Supabase Postgres (Phase 1 of hosted multi-user)
 
-**Status:** planned · not started
+**Status:** Phase 01 ✅ complete 2026-07-29 — all 9,158 rows live in Supabase
+(`afcjfcroktlnelmhiyus`, ap-southeast-1), every count matching baseline.
+Phase 02 (driver + query port) is next. The app still reads SQLite.
 **Code:** `D:/github local/pod-research` (remote `lythanhbinh93/pod-radar`)
 **Plans:** this repo, per README convention
 
@@ -45,7 +47,7 @@ planned here.
 
 | # | Phase | Depends on | File |
 |---|-------|-----------|------|
-| 01 | Schema + data migration | — | [phase-01-schema-and-migration.md](phase-01-schema-and-migration.md) |
+| 01 | Schema + data migration ✅ | — | [phase-01-schema-and-migration.md](phase-01-schema-and-migration.md) |
 | 02 | Driver + query port | 01 | [phase-02-driver-and-queries.md](phase-02-driver-and-queries.md) |
 | 03 | Postgres test harness | 02 | [phase-03-test-harness.md](phase-03-test-harness.md) |
 | 04 | Cutover + soak | 03 | [phase-04-cutover.md](phase-04-cutover.md) |

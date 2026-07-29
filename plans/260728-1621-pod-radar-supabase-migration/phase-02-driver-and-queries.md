@@ -35,15 +35,33 @@ through `pod_radar.db.get_conn()`. That single seam is why this phase is bounded
 Once dates are real types (Phase 01), `a - b` yields an integer day count
 directly, so the `julianday` wrapper disappears rather than being translated.
 
+### Plus three int-into-boolean writers (found reviewing Phase 01)
+
+Postgres has no implicit `boolean = integer` cast, so these raise
+`column "x" is of type boolean but expression is of type integer` on click.
+SQLite accepted them silently for the life of the project.
+
+| Site | Current | Becomes |
+|---|---|---|
+| `data_access.py:273` `set_star` | `SET starred = ?`, binds `int(starred)` | bind the `bool` |
+| `data_access.py:308` `set_favorite` | `favorited=int(favorited)` | bind the `bool` |
+| `db.py:210` `upsert_design_ad` | `MIN(a, b)` / `MAX(a, b)` — two-arg scalar | `LEAST` / `GREATEST` |
+
+`filters.py:31` compares `df["starred"] == 1`; pandas keeps that working against
+a bool dtype, but it should read `== True` once the column is genuinely boolean.
+
 ## Files
 
 **Modify**
 - `pod_radar/db.py` — `get_conn`, `init_db`, `ensure_column`, 6 upsert helpers,
   `start_run`/`finish_run`
-- `dashboard/data_access.py` — 7 rewritten SQL sites + placeholders
+- `dashboard/data_access.py` — 7 rewritten SQL sites + `set_star` / `set_favorite`
+  bool binding + placeholders
 - `pod_radar/export_design_brief.py` — 1 SQL site
-- `requirements.txt` — add `psycopg[binary]`
 - every `?` placeholder → `%s` across the 59 call sites
+
+`requirements.txt` already carries `psycopg[binary]` — added in Phase 01 for the
+loader.
 
 **Watch:** `start_run()` (`db.py:256`) uses `lastrowid` to get the new run id.
 Postgres needs `RETURNING id`.
@@ -53,7 +71,7 @@ Postgres needs `RETURNING id`.
 1. Add `psycopg[binary]` to `requirements.txt`.
 2. Rewrite `get_conn()` to read `POD_RADAR_DB_URL`; when unset, fall back to
    SQLite so the rollback path stays alive through Phase 03.
-3. Port `init_db` to apply `migrations/0001_initial_schema.sql`; port
+3. Port `init_db` to apply `supabase/migrations/0001_initial_schema.sql`; port
    `ensure_column` to `information_schema`.
 4. Convert `?` → `%s` mechanically, then read every diff hunk — a stray `?` inside
    a LIKE pattern or a URL string must not be rewritten.
@@ -66,7 +84,10 @@ Postgres needs `RETURNING id`.
 
 - `grep -rn "sqlite3" pod_radar/ dashboard/` returns nothing but the fallback path.
 - `python -c "import data_access"` clean; every dashboard view renders.
-- The 113-day design still shows `113d`; Data health still shows 96.1%.
+- `brookeandbelle.com|scatterkindness` shows the same ad-day count Postgres and
+  SQLite both report (116 as of 2026-07-28, and it moves every enrich run — read
+  it, don't assume it); Data health still shows 96.1%.
+- Star a brand and favorite a design — both write without a type error.
 - Spot-check a `GREATEST` query returns identical numbers to the SQLite baseline.
 
 ## Risks
