@@ -31,9 +31,14 @@ about enrichment moves or changes.
 
 ## Non-goals
 
-- **No real accounts.** One shared password, one shared mood board — decided
-  2026-07-29. `design_state.owner` stays unused; per-user boards are a later
-  phase and this deploy must not pre-empt its schema.
+- ~~**No real accounts.**~~ **Overturned 2026-07-29, same day.** The app
+  deployed fine but is **invite-only**: an app from a private repo inherits the
+  repo's privacy, so an anonymous visitor is bounced to Streamlit's own sign-in
+  wall and never reaches our gate. Making it public means our auth is the only
+  barrier, and the decision was to build real accounts rather than rely on one
+  shared password. See
+  [accounts and roles](../260729-1826-pod-radar-accounts-and-roles/plan.md);
+  phase 02 step 5 of this plan (going public) is now gated behind it.
 - No UI redesign, no new views, no scoring changes.
 - No connection pooling work unless the soak shows it is needed (see Risks).
 
