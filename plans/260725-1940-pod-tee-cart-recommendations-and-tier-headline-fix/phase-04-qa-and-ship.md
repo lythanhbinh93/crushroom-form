@@ -82,6 +82,8 @@ Bug 2 and depend on the Step 1 result.
 | Two consecutive quantity changes | manual picks still present (the Phase 03 fix) |
 | Opt out of SP | tier and savings recompute per the verified basis |
 | Re-check SP | tier and savings recompute back |
+| Quick-view open, then a cart mutation behind it | panel survives and keeps its selection. It is a SIBLING of `#dop-cart-drawer-content`, which `applyCartMutation` replaces wholesale — this row exists to prove that placement holds under a real swap, not just in the source |
+| SP auto-add arriving mid-session | headline, bar and strip all recompute. An app-initiated line add is a different path into the same re-render than a user-initiated one |
 
 ### Push discipline
 
