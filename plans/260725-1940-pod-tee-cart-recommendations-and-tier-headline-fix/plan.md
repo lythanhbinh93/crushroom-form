@@ -109,10 +109,12 @@ opt out of Shipping Protection.
 | 3 | [Migrate manual pickers](./phase-03-migrate-manual-pickers.md) | Complete — 2026-07-29. Zero `upsell_product` blocks existed on live or preview, so the irreversible-loss risk was empty; blocks, render loop, 97 lines of CSS and the JS handler removed |
 | 4 | [QA and ship](./phase-04-qa-and-ship.md) | Partial — steps 1-3, 6-8 done 2026-07-29; 4-5 need a browser/checkout; 9-12 blocked on the human gate |
 | 5 | [Drawer redesign and money single-source](./phase-05-drawer-redesign-and-money-single-source.md) | Built, on preview. Doc written retroactively 2026-07-29 — money resolver + 24-case equality suite, carousel, cards-per-view, compact line items, related-products arm, end-card destination, mockup diff. **Supersedes** Phase 02's zero-JS and 3-card criteria and voids two Phase 04 arguments |
-| 6 | Add-control on rec cards — **exploratory, no phase doc** | `dop_cart_recs_atc` ships 4 placements (icon / A / B / C) behind an `off` default so they can be compared on the storefront; the control links to the PDP until the size-colour picker exists. Committed 2026-07-29 `d305f8e` + `842e28e`, preview only. Decisions and evidence in [advice](./reports/260729-advise-atc-button-placement.md) + [quick-view advice](./reports/260729-advise-quickview-atc-size-color.md); mockups in the same folder. **B is the accepted design** — icon/A/C exist only for the comparison and are expected to be deleted after it |
+| 6 | Add-control on rec cards — **exploratory, no phase doc** | `dop_cart_recs_atc` ships 4 placements (icon / A / B / C) behind an `off` default so they can be compared on the storefront. The control now opens a quick-view slide-over inside the drawer for size and colour rather than the PDP. Committed 2026-07-29 `d305f8e` + `842e28e` + `837a6f1` (quick-view) + `deb7adb` (product-page button identity) + `c92a99d` (`dop_cart_recs_atc_color`, accent or black, one lever for both buttons), preview only. Decisions and evidence in [advice](./reports/260729-advise-atc-button-placement.md) + [quick-view advice](./reports/260729-advise-quickview-atc-size-color.md); mockups in the same folder. **B is the accepted design** — icon/A/C exist only for the comparison and are expected to be deleted after it |
 
-**Uncommitted.** All work sits in the `pod-tee-theme` working tree on branch
-`fix/codebase-audit-batch-260613`. Nothing has been pushed to any theme.
+**Committed, preview only.** All work sits in `pod-tee-theme` on branch
+`feat/cart-recs-and-tier-truth-260729`, not pushed to any git remote. Theme
+pushes have gone to the preview theme `#160174997756` only; live
+`#158620516604` is untouched and stays that way until the Phase 04 human gate.
 
 **Dependencies.** Phase 01 is a hard gate on Phase 04 — the strip must not ship
 on top of a wrong number. Phases 02 and 03 may run in parallel with 01; they
