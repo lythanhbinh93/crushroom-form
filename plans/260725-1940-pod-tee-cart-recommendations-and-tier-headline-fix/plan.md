@@ -84,11 +84,20 @@ state has SP in it**, which means:
 This is not an edge case. It is the default path for every shopper who does not
 opt out of Shipping Protection.
 
-> **Gate.** Bug 2 rests on the counting semantic being order-wide. The user
-> confirmed this from observation; it is not empirically verified in this plan.
-> Phase 01 Step 1 verifies it with a live test cart **before** any copy changes.
-> If the semantic turns out to be eligible-items-only, Bug 2 does not exist,
-> Bug 1 still does, and Phase 01 narrows accordingly.
+> **RESOLVED 2026-07-30 — Bug 2 does not exist.** The gate below asked whether
+> the counting semantic is order-wide. It is not: three discriminating carts,
+> read against Shopify's own applied `total_discount`, all say
+> **bundle-eligible items only**. A 1 tee + SP cart pays $0, not the $2 the
+> table above predicts; 3 tees + 3 SP pays $9, not the 5-tier's $25. Shipping
+> Protection never counts toward the tier, so the whole table above is wrong and
+> the live drawer was right on this axis all along. Evidence in
+> [phase-01](./phase-01-tier-counting-truth.md). **Bug 1 is real and is fixed.**
+>
+> *Original gate:* Bug 2 rests on the counting semantic being order-wide. The
+> user confirmed this from observation; it is not empirically verified in this
+> plan. Phase 01 Step 1 verifies it with a live test cart **before** any copy
+> changes. If the semantic turns out to be eligible-items-only, Bug 2 does not
+> exist, Bug 1 still does, and Phase 01 narrows accordingly.
 
 ## Goals
 
@@ -104,10 +113,10 @@ opt out of Shipping Protection.
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | [Tier counting truth](./phase-01-tier-counting-truth.md) | Complete — Step 1 NOT VERIFIED, shipped on safe default |
+| 1 | [Tier counting truth](./phase-01-tier-counting-truth.md) | **Complete — Step 1 ANSWERED 2026-07-30: the basis is `eligible`.** Three discriminating carts read against Shopify’s applied discount. Bug 2 does not exist; the shipped default was already correct and must never be flipped to `total` on this store |
 | 2 | [Recommendation strip](./phase-02-recommendation-strip.md) | Complete — B-arm source setting built 2026-07-29, no longer deferred |
 | 3 | [Migrate manual pickers](./phase-03-migrate-manual-pickers.md) | Complete — 2026-07-29. Zero `upsell_product` blocks existed on live or preview, so the irreversible-loss risk was empty; blocks, render loop, 97 lines of CSS and the JS handler removed |
-| 4 | [QA and ship](./phase-04-qa-and-ship.md) | Partial — steps 1-3, 6-8 done 2026-07-29; 4-5 need a browser/checkout; 9-12 blocked on the human gate |
+| 4 | [QA and ship](./phase-04-qa-and-ship.md) | Partial — steps 1-3, 6-8 done 2026-07-29; **step 5 mutation matrix run 2026-07-30, all rows pass**; step 4 money rows cross-checked against Shopify’s applied discount on 4 carts; 9-12 still blocked on the human gate |
 | 5 | [Drawer redesign and money single-source](./phase-05-drawer-redesign-and-money-single-source.md) | Built, on preview. Doc written retroactively 2026-07-29 — money resolver + 24-case equality suite, carousel, cards-per-view, compact line items, related-products arm, end-card destination, mockup diff. **Supersedes** Phase 02's zero-JS and 3-card criteria and voids two Phase 04 arguments |
 | 6 | Add-control on rec cards — **exploratory, no phase doc** | `dop_cart_recs_atc` ships 4 placements (icon / A / B / C) behind an `off` default so they can be compared on the storefront. The control now opens a quick-view slide-over inside the drawer for size and colour rather than the PDP. Committed 2026-07-29 `d305f8e` + `842e28e` + `837a6f1` (quick-view) + `deb7adb` (product-page button identity) + `c92a99d` (`dop_cart_recs_atc_color`, accent or black, one lever for both buttons), preview only. Decisions and evidence in [advice](./reports/260729-advise-atc-button-placement.md) + [quick-view advice](./reports/260729-advise-quickview-atc-size-color.md); mockups in the same folder. **B is the accepted design** — icon/A/C exist only for the comparison and are expected to be deleted after it |
 

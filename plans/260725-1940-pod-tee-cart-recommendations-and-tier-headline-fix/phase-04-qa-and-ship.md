@@ -15,8 +15,10 @@ Verify every headline state against a real checkout total, confirm the strip
 survives cart mutations in both states, then push to the live theme with
 pulled-source verification.
 
-**Hard gate:** Phase 01 must be complete and its Step 1 verification recorded.
-The strip must not ship on top of a wrong savings number.
+**Gate — discharged 2026-07-30.** Phase 01 Step 1 is answered: the basis is
+`eligible`, confirmed by three discriminating carts read against Shopify's own
+applied discount. The strip is not shipping on top of a wrong savings number,
+and the shipped default was already the right one.
 
 ## STOP — human gate before the live push
 
@@ -190,8 +192,12 @@ recorded results were **stale and had to be re-derived**, noted below.
       headline figure and the strip figure are the same number at eligible
       qty 1-6, with and without SP, on both bases. That is arithmetic
       agreement, NOT checkout parity. Rows 2, 4, 7 remain gated on Step 1.
-- [ ] 5 — mutation-survival matrix: not run. Needs a real cart session in a
-      browser; no store session available to this run.
+- [x] 5 — mutation-survival matrix: **run 2026-07-30**, all rows pass. Full
+      results at the end of this file, including the empirical proof that the
+      quick-view panel's sibling placement is load-bearing, and one finding
+      (an SP-only cart shows "Bag · empty" beside an enabled "Checkout ·
+      $2.95"). The earlier note that this needed a human was wrong —
+      agent-browser carries the store session.
 - [x] 6 — **360px viewport: measured, not reasoned.** The previous entry's
       static argument is void — it assumed the strip was a `flex-shrink: 0`
       sibling above the footer, and Phase 05 moved it INSIDE `.dop-cart-lines`.
