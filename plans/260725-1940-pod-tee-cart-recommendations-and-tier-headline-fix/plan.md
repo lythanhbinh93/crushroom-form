@@ -116,9 +116,28 @@ opt out of Shipping Protection.
 pushes have gone to the preview theme `#160174997756` only; live
 `#158620516604` is untouched and stays that way until the Phase 04 human gate.
 
-**Dependencies.** Phase 01 is a hard gate on Phase 04 — the strip must not ship
-on top of a wrong number. Phases 02 and 03 may run in parallel with 01; they
-touch different files. Phase 03 depends on Phase 02's settings block existing.
+**Dependencies.** Phases 02 and 03 may run in parallel with 01; they touch
+different files. Phase 03 depends on Phase 02's settings block existing.
+
+**Phase 01 Step 1 is a settings gate, not a ship gate** (reclassified
+2026-07-30). It was written as a hard gate on Phase 04 so the strip could not
+ship on top of a wrong number. That rationale no longer reaches the push: live's
+`settings_data.json` holds none of the new keys, so the strip renders hidden and
+the quick-view is not rendered at all — verified by reading live's settings on
+2026-07-30. What Step 1 now blocks is one theme-editor toggle, flipped after the
+push and instantly revertible.
+
+The headline number does ship visible. It ships on `eligible`, which
+under-promises, which this plan's own risk table classes as the safe direction —
+and live today carries Bug 1, a larger under-promise ($9 for $12, "$25+" for
+$30). Holding the push to avoid under-promising keeps a worse one live. The
+unsafe direction — promising money checkout will not pay — requires flipping to
+`total`, which the settings gate still guards.
+
+Step 1 is still owed and still needs a real checkout. Intended discharge is one
+batched human session alongside the phone placement comparison and the device
+check, before the push. This reclassification is insurance for the case where
+that session slips, not permission to skip it.
 
 ## Locked decisions
 
@@ -149,7 +168,7 @@ plan adds must be theme-global for the same reason.
 ## Success criteria
 
 - [ ] Headline savings equal the applied checkout discount at eligible qty 1-6, both with and without Shipping Protection in cart
-- [ ] Tier selection matches the verified counting semantic from Phase 01 Step 1
+- [ ] Tier selection matches the verified counting semantic from Phase 01 Step 1 — required before flipping the setting to `total`, not before the push
 - [ ] Qty-4 state shows $12 (not $9); qty-6 shows $30 (not "$25+")
 - [ ] Recommendation strip renders in items state and empty state
 - [ ] Strip renders nothing — not an orphan heading — when the source is unset or yields zero results
@@ -164,7 +183,7 @@ plan adds must be theme-global for the same reason.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Counting semantic assumed wrong | Headline promises money checkout won't pay — worse than the current under-promise | Phase 01 Step 1 test cart is a hard gate before any copy change |
+| Counting semantic assumed wrong | Headline promises money checkout won't pay — worse than the current under-promise | Step 1's test cart gates the `total` setting, not the push. Shipping on `eligible` can only under-promise, and the copy already shipped on that default |
 | Over-promising after the fix | Under-promising is safe; over-promising is a trust and chargeback problem | Every state verified against a real checkout total, not arithmetic on paper |
 | Section Rendering API eats a setting | Strip or picks silently vanish mid-session | Theme-global only; explicit mutation-survival test in Phase 04 |
 | Strip pushes CHECKOUT below fold | Direct conversion loss on 65-75% of traffic | Phase 05 moved the strip inside the scroller, so the cap no longer bounds drawer height. Measured at 360px: CHECKOUT above fold with 49px headroom. Still a ship gate |
