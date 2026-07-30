@@ -11,9 +11,46 @@ dependencies: []
 
 ## Step 1 verification result
 
-**Step 1: NOT VERIFIED — shipped on safe default.**
+**Step 1: ANSWERED 2026-07-30 — the basis is `eligible`. Bug 2 does not exist.**
 
-Run on 2026-07-25 was unattended. Building a live cart and reading the applied
+Observed on preview `#160174997756` by building real carts in a browser session
+and reading Shopify's own applied `total_discount` from `/cart.js`. The tiers
+are enforced by native automatic discounts, so the cart already carries the
+applied amount — the discount does not wait for checkout to exist.
+
+Three carts, each chosen so the two candidate semantics predict *different*
+amounts. Tiers are 2 → $4, 3 → $9, 5 → $25.
+
+| Cart | eligible | total incl. SP | `total_discount` | `eligible` predicts | `total` predicts |
+|---|---|---|---|---|---|
+| 1 tee + 1 SP | 1 | 2 | **$0** | $0 ✓ | $4 ✗ |
+| 2 tees + 1 SP | 2 | 3 | **$4** | $4 ✓ | $9 ✗ |
+| 3 tees + 3 SP | 3 | 6 | **$9** | $9 ✓ | $25 ✗ |
+
+All three agree and all three discriminate. The third is decisive on its own: at
+six units in cart the order-wide reading would have paid the 5-tier's $25 and it
+paid $9. Shipping Protection does not count toward the tier.
+
+**Consequences.** `dop_bundle_tier_basis` stays on its `eligible` default —
+which is now the *verified* value, not the safe guess. It must never be flipped
+to `total` on this store; doing so would over-promise on exactly the default
+path, since SP auto-adds to most carts. The headline "Add 1 more · save $4" on a
+1-tee + SP cart was observed and is truthful: one more **tee** is what reaches
+the tier.
+
+The `total` option is retained rather than deleted because BeachNapClub runs the
+inverse semantic, and a store-specific constant hardcoded here is how the two get
+cross-contaminated later.
+
+**Residual.** This is cart-level, not checkout-level. The same automatic
+discounts drive both, so a checkout read is now confirmation rather than
+discovery — worth one minute the next time someone is in a checkout anyway, not
+worth a scheduled session.
+
+---
+
+**Superseded — original entry, 2026-07-25:** *NOT VERIFIED, shipped on safe
+default.* Run on 2026-07-25 was unattended. Building a live cart and reading the applied
 discount off a real checkout is a manual observation an agent cannot make
 reliably, and inferring it from Admin API config alone was explicitly ruled out.
 

@@ -291,3 +291,82 @@ recorded results were **stale and had to be re-derived**, noted below.
   `plans/260520-1010-pod-tee-cart-drawer-offer-revamp` Phase 05 is a pending manual
   QA of this same drawer. This phase covers the states this plan touches; it does
   not discharge that phase.
+
+---
+
+## Mutation-survival matrix — run 2026-07-30, preview #160174997756
+
+Driven through the real UI controls in a browser session, not raw fetches, so
+the app's own mutation path is what was exercised. `window.Shopify.theme.id`
+checked before and after: the session silently jumped to another store
+mid-run (beachnapclub.com, theme #143719432276) and one step executed against
+it. Every step now guards on `Shopify.shop` before touching anything.
+
+| Row | Result |
+|---|---|
+| Add item | headline, strip, 8 cards + end card, manual picks all render |
+| Quantity + | recomputes; `$4` at 2 tees, `$9` at 3 |
+| Quantity − | recomputes back to `$4` |
+| Two consecutive quantity changes | same 8 card handles in the same order across all four snapshots — the Phase 03 fix holds |
+| Remove to empty | **see finding below** — clean on a truly empty cart, wrong on an SP-only cart |
+| Opt out of SP | SP line removed, headline unchanged at `Saved $9`, applied discount unchanged at `$9` |
+| Re-check SP | SP line back, total returns to `$83.92`, discount still `$9` |
+| Quick-view open, cart mutation behind it | panel survives; see the sibling proof below |
+| SP auto-add mid-session | fires on drawer open; headline, strip and subtotal all recompute |
+
+Steppers carry `data-bound="1"` on the fresh nodes after every swap, and the
+panel keeps `data-bound="1"` throughout — nothing double-binds, nothing goes
+dead.
+
+### The sibling placement is load-bearing, proven not argued
+
+A probe element was appended INSIDE `#dop-cart-drawer-content`, then a real
+stepper click was fired:
+
+- `probeDestroyed: true` and the `.dop-li` node identity changed — the wrap's
+  contents really are replaced on every mutation.
+- `panelSameNode: true`, still `data-bound="1"` — the panel, being a sibling,
+  is untouched.
+
+A panel rendered inside that wrap would have been destroyed mid-interaction by
+the shopper's own Add. This is the first empirical confirmation; before it, the
+claim rested on reading the source.
+
+### Money truth, cross-checked against Shopify
+
+The headline was compared against `/cart.js` `total_discount` rather than
+against arithmetic on paper:
+
+| Cart | headline states | Shopify applied |
+|---|---|---|
+| 2 tees + SP | Saved $4 | `total_discount: 400` |
+| 3 tees + SP | Saved $9 | `total_discount: 900` |
+| 3 tees + 3 SP | Saved $9 | `total_discount: 900` |
+| 1 tee + SP | Add 1 more · save $4 | `total_discount: 0` |
+
+Exact agreement in every case. These same carts answer Phase 01 Step 1 — see
+that phase file.
+
+### Finding: an SP-only cart is a self-contradicting drawer
+
+Reachable by the ordinary path — SP auto-adds on drawer open, then the shopper
+removes their only tee. State observed:
+
+- header reads **"Bag · empty"** (the customer-facing count correctly excludes SP)
+- zero line items, no headline, and **no empty-state message**
+- the recommendation strip stays in `--items` mode rather than `--empty`
+- **CHECKOUT is enabled and reads "Checkout · $2.95"**
+
+So the drawer says the bag is empty and simultaneously offers to charge $2.95
+for Shipping Protection on nothing.
+
+A genuinely empty cart is correct: empty-state copy renders and the strip
+switches to `--empty`.
+
+Attribution: the "empty" label and the SP widget both predate this plan and are
+live today, so the contradiction is very likely pre-existing; the strip staying
+in `--items` mode is new. Not fixed here — the sensible repair is a product
+decision (drop SP automatically when the last eligible item goes, disable
+checkout, or render the empty state), and it reaches
+`snippets/dopamiles-cart-shipping-protection.liquid`, which this plan has
+otherwise left untouched.
