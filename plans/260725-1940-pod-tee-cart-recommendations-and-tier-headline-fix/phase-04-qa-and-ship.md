@@ -376,3 +376,110 @@ decision (drop SP automatically when the last eligible item goes, disable
 checkout, or render the empty state), and it reaches
 `snippets/dopamiles-cart-shipping-protection.liquid`, which this plan has
 otherwise left untouched.
+
+---
+
+## Live push — 2026-07-30
+
+Pushed to **live `#158620516604`**, `--allow-live` with an explicit `--only`
+per file. Rollback snapshot taken first: **`#160300302588
+rollback-pre-cart-recs-260730`**, unpublished, a server-side duplicate of live
+as it stood.
+
+### Manifest — 16 files, re-derived from a fresh live pull
+
+The manifest was NOT reused from the pre-live review. Live was pulled again
+(450 files) and diffed with line endings normalised, which surfaced two things
+the earlier list had wrong:
+
+- `snippets/dopamiles-cart-shipping-protection.liquid` had since been modified
+  and was missing from the 15-file list.
+- `locales/en.default.schema.json` differed, but a key-level diff showed
+  **0 lost / 0 changed / 0 added** — Shopify's auto-generated banner only.
+  Excluded.
+
+`snippets/dopamiles-icon.liquid` was confirmed **purely additive** before
+pushing — live carried 4 icons, the repo 7, and nothing was removed. It had to
+ship: live lacked `chevron-left`, which both the quick-view back button and the
+carousel arrows render.
+
+**Excluded deliberately:** `assets/dopamiles-pdp.css`, `assets/dopamiles-pdp.js`
+and `snippets/dopamiles-size-guide-modal.liquid` — all three carry the dormant
+size-guide work from `260522-1302`, not this plan. Plus every other locale, and
+every merchant-owned JSON (`.shopifyignore` covers those).
+
+**Batch 1 (10 files)** — net-new to live, or purely additive. Cannot change what
+a shopper sees. Ordered first so that `dopamiles-bundle-cart-headline.liquid`,
+which live already renders, never lands before the two snippets it now
+renders. Verified **10/10** by pulled source.
+
+**Batch 2 (6 files)** — the files live actually serves:
+`dopamiles-cart.css`, `dopamiles-cart.js`, `dopamiles-stack-save.js`,
+`dopamiles-cart-shipping-protection.liquid`,
+`dopamiles-bundle-cart-headline.liquid`, `dopamiles-cart-drawer.liquid`.
+Verified **6/6** by pulled source.
+
+### Money truth, closed against live Shopify
+
+Rows 6, 8 and 9 were the last unverified ones, and they are the Bug 1
+regression proofs. Built with curl and a cookie jar — one cart, decremented,
+rather than a loop that re-trips the per-IP rate limit:
+
+| tees | live `total_discount` | expected |
+|---|---|---|
+| 6 | **3000** ($30.00) | $30 — was rendering "$25+" |
+| 5 | **2500** ($25.00) | $25 |
+| 4 | **1200** ($12.00) | $12 — was rendering $9 |
+
+**This also closes the one claim nothing had ever observed:** the Tier 5
+discount fires at runtime. Config said it existed and was shaped correctly;
+6 × $5 = $30 is the first evidence it actually applies.
+
+Combined with the earlier 1/2/3-tee readings, all six quantities now agree
+with Shopify's applied discount.
+
+### Display equals charge
+
+Live drawer rendered at 4 tees:
+
+```
+HEADLINE : Saved $12 · Add 1 more to save $25
+SUBTOTAL : Subtotal · 4 items  $107.96
+```
+
+$119.96 − **$12** = $107.96, against Shopify's `total_discount: 1200`. The
+drawer states what checkout charges.
+
+### Smoke checks
+
+- Section render: **200, zero Liquid errors, zero "translation missing"**.
+- **Ships dark as predicted** — with the settings absent from live's
+  `settings_data.json`, the recommendation strip and the quick-view shell do
+  not render at all. The visible change is the drawer redesign and the money
+  headline.
+- SP row renders on a cart holding a product and is absent on an empty one —
+  the new gate behaving correctly on live.
+- **CDN minifier verified**, because a `*/` in a comment has silently zeroed a
+  stylesheet on this store before. The current asset is 174 rule blocks,
+  matching local exactly, with `.dop-rec-add`, `.dop-qv-add` and `dark-atc`
+  present and `atc-icon` gone. A first read showed 82 blocks and none of the
+  new classes — that was the *cached homepage* still referencing the old asset
+  version, not a truncation; confirmed by matching the pre-push file's block
+  count exactly.
+- Live `dopamiles-cart.js` confirmed to carry all of today's fixes:
+  `dropOrphanSP`, `bindQuickViewDocument`, `qvDocBound`, `shopperMessage`,
+  `fallbackHref`.
+
+### Not done
+
+A browser-driven interaction on live (open drawer, step quantity, open the
+quick-view) was **not** completed — the storefront rate-limited the browser
+session. Everything above was obtained via curl and the Section Rendering API.
+The quick-view cannot be exercised on live anyway until the settings are
+switched on.
+
+- [x] 9 — push to live, `--allow-live`, explicit `--only` per file
+- [x] 10 — pulled-source verification, 16/16
+- [x] 11 — new settings present; no merchant settings reset (`settings_data.json`
+      is in `.shopifyignore` and was never in the manifest)
+- [ ] 12 — real-device spot check. Outstanding.
