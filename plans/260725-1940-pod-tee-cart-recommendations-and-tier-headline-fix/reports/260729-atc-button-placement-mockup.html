@@ -1,0 +1,138 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATC button placement — real card widths</title>
+<style>
+  :root{
+    --ink:#1A1A1A;--ink2:#3A3A3A;--ink3:#737373;--accent:#F26419;
+    --line:#E8E8E8;--ph:#ECECEC;
+    --sans:'General Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:26px 22px 60px;font-family:var(--sans);color:var(--ink);background:#f4f4f4;-webkit-font-smoothing:antialiased}
+  h1{font-size:20px;margin:0 0 5px;letter-spacing:-.01em}
+  .lede{color:var(--ink3);font-size:13px;margin:0 0 6px;max-width:84ch;line-height:1.55}
+  .lede b{color:var(--ink)}
+
+  .row4{display:flex;gap:18px;flex-wrap:wrap;margin-top:24px;align-items:flex-start}
+  .opt{width:404px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:15px 16px 16px;flex:0 0 auto}
+  .opt .k{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.09em;color:#fff;background:var(--ink);padding:3px 7px;border-radius:4px}
+  .opt h2{font-size:15px;margin:8px 0 4px;letter-spacing:-.01em}
+  .opt .d{font-size:12px;line-height:1.5;color:var(--ink3);margin:0 0 14px;min-height:50px}
+  .opt .d b{color:var(--ink2)}
+
+  .sim{background:#fff;border:1px dashed #d4d4d4;border-radius:8px;padding:12px}
+  .simlbl{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#a6a6a6;margin-bottom:9px}
+  .strip{display:flex;gap:12px;overflow:hidden}
+  .slide{position:relative;flex:0 0 auto;width:144.5px}
+  .slide.one{width:296px}
+
+  .card{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:inherit}
+  .im{position:relative;width:100%;aspect-ratio:1/1;border-radius:6px;overflow:hidden;background:var(--ph);box-shadow:inset 0 0 0 1px var(--line)}
+  .im img{width:100%;height:100%;object-fit:cover;display:block}
+  .tt{font-size:13px;font-weight:500;line-height:1.28;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pp{font-size:12px;line-height:1;color:var(--ink3)}
+
+  /* A — overlay pill, bottom right of artwork */
+  .a-pill{
+    position:absolute;right:8px;bottom:8px;height:30px;padding:0 13px;border-radius:15px;
+    border:1px solid rgba(0,0,0,.08);background:rgba(255,255,255,.95);backdrop-filter:blur(4px);
+    font-family:inherit;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer;
+    box-shadow:0 1px 5px rgba(0,0,0,.16);
+  }
+  /* B — full-width below price */
+  .b-btn{
+    width:100%;height:34px;margin-top:9px;border-radius:7px;border:1px solid var(--ink);
+    background:#fff;font-family:inherit;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer;
+  }
+  .b-btn:hover{background:var(--ink);color:#fff}
+  /* C — inline with price */
+  .c-line{display:flex;align-items:center;gap:8px;margin-top:1px}
+  .c-line .pp{flex:1 1 auto;min-width:0}
+  .c-btn{
+    flex:0 0 auto;height:26px;padding:0 11px;border-radius:13px;border:1px solid var(--line);
+    background:#fff;font-family:inherit;font-size:11px;font-weight:700;color:var(--ink);cursor:pointer;
+  }
+  .c-btn:hover{border-color:var(--ink)}
+  /* D — full-width bar across artwork bottom */
+  .d-bar{
+    position:absolute;left:0;right:0;bottom:0;height:34px;border:0;
+    background:rgba(26,26,26,.86);backdrop-filter:blur(3px);
+    font-family:inherit;font-size:12px;font-weight:700;color:#fff;cursor:pointer;
+  }
+
+  .verd{margin-top:12px;font-size:12px;line-height:1.55;color:var(--ink2);border-left:3px solid var(--accent);padding-left:10px}
+  .verd .no{color:#a83a13}
+  .verd .yes{color:#1E8E5A}
+
+  .foot{margin-top:32px;border-top:1px solid #ddd;padding-top:14px;font-size:12px;color:var(--ink3);line-height:1.6;max-width:92ch}
+  .foot code{background:#e9e9e9;padding:1px 5px;border-radius:3px;font-size:11px}
+
+  @media (prefers-color-scheme:dark){
+    body{background:#17181a}h1{color:#fff}.lede,.foot{color:#9b9b9b}.lede b{color:#ededed}
+    .opt{background:#212225;border-color:#303236}.opt h2{color:#fff}.opt .d{color:#9b9b9b}.opt .d b{color:#cfcfcf}
+    .opt .k{background:#ededed;color:#17181a}
+    .sim{background:#1b1c1f;border-color:#3a3d42}
+    .tt{color:#ededed}.verd{color:#cfcfcf}.foot code{background:#2a2c30}
+  }
+</style>
+
+<h1>ATC control — placement at real card widths</h1>
+<p class="lede">
+  Card is <b>144.5px</b> at 2-up in your 400px drawer — measured on the live preview, not guessed.
+  Each option is shown at 2-up (what your screenshot shows) and again at <b>1-up, 296px</b>, because
+  cards-per-view is a merchant setting and the control has to survive all three densities.
+</p>
+<p class="lede">Label is <b>“Add”</b> throughout, as decided.</p>
+
+<div class="row4" id="grid"></div>
+
+<p class="foot">
+  Vertical space below a card is free: the strip lives inside <code>.dop-cart-lines</code>, which scrolls,
+  so a taller card does not push CHECKOUT below the fold. Verified on the live preview
+  (<code>recsInsideLines: true</code>). Rendered in a system sans, not General Sans.
+</p>
+
+<script>
+const IMG='https://cdn.shopify.com/s/files/1/0722/4505/1644/files/am-i-fast-navy-10638e9f-6910-4693-b432-37856d2dcb03.webp?v=1783413737';
+const IMG2='https://cdn.shopify.com/s/files/1/0722/4505/1644/files/pheidippides-one-star-review-sport-grey-8a932a6d-6895-4eef-8729-99d96cd04a9f.webp?v=1784638036';
+
+const OPTS=[
+  {k:'A',n:'Overlay pill, bottom-right',
+   d:'Your instinct, and it matches <b>.dop-pcard-quick</b> on your collection cards (right:12px, bottom:12px). Sits on the artwork.',
+   v:'<span class="no">Covers the graphic</span> — the thing you are selling. At 2-up the pill eats ~30% of the card\'s bottom edge. Thumb-reachable, matches existing pattern.',
+   build:(s)=>`<div class="im"><img src="${s.img}"><button class="a-pill">Add</button></div>
+     <div class="tt">${s.t}</div><div class="pp">From $29.99</div>`},
+
+  {k:'B',n:'Full-width button below the price',
+   d:'Costs ~43px of card height, which is <b>free</b> here — the strip scrolls, so CHECKOUT does not move.',
+   v:'<span class="yes">Zero artwork covered.</span> Biggest tap target. Reads as a deliberate control, not a floating default. Card gets taller — only a cost if the strip were pinned, and it is not.',
+   build:(s)=>`<div class="im"><img src="${s.img}"></div>
+     <div class="tt">${s.t}</div><div class="pp">From $29.99</div><button class="b-btn">Add</button>`},
+
+  {k:'C',n:'Inline, on the price row',
+   d:'Price left, compact pill right. Costs almost no height and covers no artwork.',
+   v:'<span class="yes">Cheapest in space.</span> But at 144px it crowds the price, and the title above is already clamped to one line — three competing elements in a narrow column. Small tap target on mobile.',
+   build:(s)=>`<div class="im"><img src="${s.img}"></div>
+     <div class="tt">${s.t}</div>
+     <div class="c-line"><span class="pp">From $29.99</span><button class="c-btn">Add</button></div>`},
+
+  {k:'D',n:'Full-width bar across artwork bottom',
+   d:'Anchored to the image, spans its width. Big target without adding card height.',
+   v:'<span class="no">Covers the hem of every mockup</span> — consistently, on every card. Strong affordance, but it is a permanent crop on your product photography.',
+   build:(s)=>`<div class="im"><img src="${s.img}"><button class="d-bar">Add</button></div>
+     <div class="tt">${s.t}</div><div class="pp">From $29.99</div>`},
+];
+
+const grid=document.getElementById('grid');
+OPTS.forEach(o=>{
+  const two=[{img:IMG,t:'Am I Fast'},{img:IMG2,t:'Pheidippides One Star Review'}]
+    .map(s=>`<div class="slide">${o.build(s)}</div>`).join('');
+  const one=`<div class="slide one">${o.build({img:IMG,t:'Am I Fast'})}</div>`;
+  const el=document.createElement('div');
+  el.className='opt';
+  el.innerHTML=`<span class="k">${o.k}</span><h2>${o.n}</h2><p class="d">${o.d}</p>
+    <div class="sim"><div class="simlbl">2-up · 144.5px</div><div class="strip">${two}</div></div>
+    <div class="sim" style="margin-top:10px"><div class="simlbl">1-up · 296px</div><div class="strip">${one}</div></div>
+    <div class="verd">${o.v}</div>`;
+  grid.appendChild(el);
+});
+</script>

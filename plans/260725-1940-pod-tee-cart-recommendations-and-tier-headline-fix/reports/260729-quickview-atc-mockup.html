@@ -1,0 +1,319 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cart drawer quick-view — default-state options</title>
+<style>
+  :root {
+    --ink: #1A1A1A;
+    --ink2: #3A3A3A;
+    --ink3: #737373;
+    --accent: #F26419;
+    --line: #E8E8E8;
+    --ph: #ECECEC;
+    --sans: 'General Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 28px 20px 60px;
+    font-family: var(--sans);
+    color: var(--ink);
+    background: #f4f4f4;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 21px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .sub { color: var(--ink3); font-size: 13px; margin: 0 0 4px; max-width: 78ch; line-height: 1.5; }
+  .sub b { color: var(--ink); font-weight: 600; }
+  .grid {
+    display: flex; flex-wrap: wrap; gap: 22px;
+    align-items: flex-start; margin-top: 26px;
+  }
+  .col { width: 340px; flex: 0 0 auto; }
+
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #fff; background: var(--ink);
+    padding: 3px 8px; border-radius: 4px; margin-bottom: 8px;
+  }
+  .col h2 { font-size: 15px; margin: 0 0 5px; letter-spacing: -.01em; }
+  .note { font-size: 12px; line-height: 1.5; color: var(--ink3); margin: 0 0 12px; min-height: 54px; }
+  .note b { color: var(--ink2); font-weight: 600; }
+
+  /* ── the drawer ─────────────────────────────────────────── */
+  .drawer {
+    width: 340px; height: 620px; background: #fff;
+    border-radius: 10px; overflow: hidden; position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,.10), 0 10px 30px rgba(0,0,0,.09);
+    display: flex; flex-direction: column;
+  }
+  .dhead {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--line); flex: 0 0 auto;
+  }
+  .back {
+    width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 6px;
+    background: #fff; display: grid; place-items: center; cursor: pointer; color: var(--ink);
+  }
+  .dhead .t { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .dhead .x { margin-left: auto; color: var(--ink3); font-size: 18px; line-height: 1; }
+
+  .body { flex: 1 1 auto; overflow-y: auto; padding: 14px 16px 8px; }
+
+  .shot {
+    width: 100%; aspect-ratio: 1/1; border-radius: 8px; overflow: hidden;
+    background: var(--ph); box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity .16s ease; }
+
+  .ptitle { font-size: 15px; font-weight: 600; margin: 10px 0 2px; letter-spacing: -.005em; }
+  .prange { font-size: 13px; color: var(--ink3); }
+
+  .lbl {
+    display: flex; align-items: baseline; gap: 6px;
+    font-size: 12px; font-weight: 600; letter-spacing: .02em;
+    text-transform: uppercase; color: var(--ink2); margin: 16px 0 8px;
+  }
+  .lbl .v { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--ink3); }
+  .lbl .hint {
+    text-transform: none; letter-spacing: 0; font-weight: 500;
+    font-size: 11px; color: var(--accent); margin-left: auto;
+  }
+
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sw {
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer; padding: 0;
+    border: 1px solid rgba(0,0,0,.18); position: relative; background-clip: padding-box;
+  }
+  .sw[aria-checked="true"] { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
+  .sw:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .sizes { display: flex; flex-wrap: wrap; gap: 7px; }
+  .sz {
+    min-width: 46px; height: 38px; padding: 0 9px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 7px; background: #fff;
+    font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink2);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .sz[aria-checked="true"] { border-color: var(--ink); background: var(--ink); color: #fff; }
+  .sz:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* the "nudge without a default" treatment */
+  .sz.nudge { border-color: var(--ink); color: var(--ink); }
+  .sz.nudge::after {
+    content: ''; position: absolute; margin-top: 30px;
+    width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
+  }
+  .sz { position: relative; }
+
+  .guide {
+    margin-top: 9px; font-size: 12px; color: var(--ink3);
+    text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+  }
+
+  .foot { flex: 0 0 auto; padding: 12px 16px 16px; border-top: 1px solid var(--line); background: #fff; }
+  .add {
+    width: 100%; height: 48px; border: 0; border-radius: 8px; cursor: pointer;
+    font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: -.01em;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .add[disabled] { background: #E4E4E4; color: #9A9A9A; cursor: not-allowed; }
+  .add .why { font-weight: 500; }
+
+  .verdict {
+    margin-top: 12px; font-size: 12px; line-height: 1.55; color: var(--ink2);
+    background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 6px; padding: 10px 12px;
+  }
+  .verdict b { font-weight: 700; }
+
+  .foot-note {
+    margin-top: 34px; font-size: 12px; color: var(--ink3); line-height: 1.6; max-width: 90ch;
+    border-top: 1px solid #ddd; padding-top: 14px;
+  }
+  .foot-note code { background: #e9e9e9; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+
+  @media (prefers-color-scheme: dark) {
+    body { background: #17181a; color: #ededed; }
+    h1 { color: #fff; }
+    .sub, .note, .foot-note { color: #9b9b9b; }
+    .sub b { color: #ededed; }
+    .note b { color: #cfcfcf; }
+    .tag { background: #ededed; color: #17181a; }
+    .col h2 { color: #fff; }
+    .verdict { background: #212225; border-color: #303236; color: #cfcfcf; }
+    .foot-note code { background: #2a2c30; }
+  }
+</style>
+
+<h1>Cart-drawer quick-view — pick the opening state</h1>
+<p class="sub">
+  Slide-over inside the drawer, as chosen. Real data from <b>Am I Fast</b>: 8 colourways with their own
+  photo, 6 sizes, and a real price ladder — <b>S/M/L $29.99 · XL $30.99 · 2XL $31.99 · 3XL $33.99</b>.
+</p>
+<p class="sub">
+  <b>All four are live.</b> Tap a swatch and the artwork swaps; tap a size and the button price moves.
+  That is the behaviour, not a picture of it.
+</p>
+
+<div class="grid" id="grid"></div>
+
+<p class="foot-note">
+  Swatch colours are hand-matched to the garment names — the storefront JSON exposes no swatch hex, so the
+  real build reads <code>cv.swatch.color</code> / <code>cv.swatch.image</code> exactly as
+  <code>dopamiles-product-card.liquid</code> already does. Rendered in a system sans, not General Sans, so
+  spacing here is indicative only. Photos load from your live Shopify CDN.
+</p>
+
+<script>
+const COLORS = [
+  ['Navy',           '#2A3550', 'am-i-fast-navy-10638e9f-6910-4693-b432-37856d2dcb03.webp?v=1783413737'],
+  ['Royal',          '#2C4CA6', 'am-i-fast-royal-2b3700c7-7abb-4b3e-a9af-6115dd695f46.webp?v=1783404134'],
+  ['Black',          '#1B1B1B', 'am-i-fast-black-703f55ed-4a88-43c7-86d5-3bced1397e04.webp?v=1780641703'],
+  ['Military Green', '#4E5544', 'am-i-fast-military-green-1cc3690d-c5d9-4a24-89b6-d8d0fe5a63a6.webp?v=1780641675'],
+  ['Dark Heather',   '#59595C', 'am-i-fast-dark-heather-9f89341b-ca3e-4644-ab61-7c0c314169c6.webp?v=1780641642'],
+  ['Coral Silk',     '#E8837A', 'am-i-fast-coral-silk-50031496-6d1c-4ffc-b0ee-c8d364e65248.webp?v=1783404103'],
+  ['Heather Maroon', '#77363E', 'am-i-fast-heather-maroon-39fafb1b-731d-4162-815a-7f9a9c6eb2a3.webp?v=1780641614'],
+  ['Sage',           '#9FAE94', 'am-i-fast-sage-00860b29-dac7-4cee-b9c8-ce69a28f6b98_9eeeff46-1e47-48de-9401-7f9170a01d8c.webp?v=1783404074'],
+];
+const BASE = 'https://cdn.shopify.com/s/files/1/0722/4505/1644/files/';
+const SIZES = [['S',2999],['M',2999],['L',2999],['XL',3099],['2XL',3199],['3XL',3399]];
+const CART_SIZE = 'L';   // what they already have in the bag
+
+const money = (c) => '$' + (c/100).toFixed(2).replace(/\.00$/, '');
+
+const VARIANTS = [
+  {
+    tag: 'A', name: 'Nothing selected',
+    note: 'Add stays disabled until both are chosen. <b>Two taps minimum, zero guessed sizes.</b> The button does the teaching — it names what is missing.',
+    color: null, size: null, nudge: false,
+    verdict: 'Safest. Every add is deliberate. Costs you the impulse.'
+  },
+  {
+    tag: 'B', name: 'Size prefilled from cart',
+    note: 'They already have an <b>L</b> in the bag, so L is preselected and <b>labelled as inherited</b>. Colour stays deliberate because the artwork changes with it.',
+    color: null, size: CART_SIZE, nudge: false,
+    verdict: 'One tap in the common case, and the inherited size is stated, not hidden.'
+  },
+  {
+    tag: 'C', name: 'Both prefilled',
+    note: 'Size from cart, colour from the card they tapped. <b>Panel opens ready to add.</b> Fastest for AOV — and the only one where a distracted shopper can add without reading either row.',
+    color: 2, size: CART_SIZE, nudge: false,
+    verdict: 'Fastest. Also the one that can ship a size nobody looked at.'
+  },
+  {
+    tag: 'D', name: 'Nothing selected, cart size nudged',
+    note: 'Nothing is preselected, but their cart size is <b>outlined with a dot</b> and named in the hint. A nudge, not a default.',
+    color: null, size: null, nudge: true,
+    verdict: 'Two taps, but the right one is obvious. Nudge without the liability.'
+  },
+];
+
+const grid = document.getElementById('grid');
+
+VARIANTS.forEach((v) => {
+  const col = document.createElement('div');
+  col.className = 'col';
+  col.innerHTML = `
+    <span class="tag">${v.tag}</span>
+    <h2>${v.name}</h2>
+    <p class="note">${v.note}</p>
+    <div class="drawer">
+      <div class="dhead">
+        <button class="back" aria-label="Back to cart">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span class="t">Back to bag</span>
+        <span class="x">&times;</span>
+      </div>
+      <div class="body">
+        <div class="shot"><img alt="Am I Fast tee"></div>
+        <div class="ptitle">Am I Fast</div>
+        <div class="prange">From $29.99</div>
+
+        <div class="lbl">Color <span class="v js-cname">Choose</span></div>
+        <div class="swatches js-sw" role="radiogroup" aria-label="Color"></div>
+
+        <div class="lbl">
+          Size
+          <span class="hint js-hint"></span>
+        </div>
+        <div class="sizes js-sz" role="radiogroup" aria-label="Size"></div>
+        <div class="guide">Size guide</div>
+      </div>
+      <div class="foot">
+        <button class="add js-add"></button>
+      </div>
+    </div>
+    <div class="verdict">${v.verdict}</div>
+  `;
+  grid.appendChild(col);
+
+  const img   = col.querySelector('.shot img');
+  const cname = col.querySelector('.js-cname');
+  const swBox = col.querySelector('.js-sw');
+  const szBox = col.querySelector('.js-sz');
+  const hint  = col.querySelector('.js-hint');
+  const add   = col.querySelector('.js-add');
+
+  const state = { color: v.color, size: v.size };
+
+  COLORS.forEach(([name, hex], i) => {
+    const b = document.createElement('button');
+    b.className = 'sw';
+    b.type = 'button';
+    b.role = 'radio';
+    b.style.background = hex;
+    b.title = name;
+    b.setAttribute('aria-label', name);
+    b.addEventListener('click', () => { state.color = i; paint(); });
+    swBox.appendChild(b);
+  });
+
+  SIZES.forEach(([label]) => {
+    const b = document.createElement('button');
+    b.className = 'sz';
+    b.type = 'button';
+    b.role = 'radio';
+    b.textContent = label;
+    b.addEventListener('click', () => { state.size = label; paint(); });
+    szBox.appendChild(b);
+  });
+
+  function paint() {
+    // artwork follows colour — the whole reason colour cannot be inferred
+    const ci = state.color == null ? 2 : state.color;
+    img.src = BASE + COLORS[ci][2];
+    img.style.opacity = state.color == null ? .38 : 1;
+    cname.textContent = state.color == null ? 'Choose' : COLORS[state.color][0];
+
+    [...swBox.children].forEach((el, i) =>
+      el.setAttribute('aria-checked', String(state.color === i)));
+
+    [...szBox.children].forEach((el, i) => {
+      const label = SIZES[i][0];
+      el.setAttribute('aria-checked', String(state.size === label));
+      el.classList.toggle('nudge', v.nudge && state.size == null && label === CART_SIZE);
+    });
+
+    if (v.nudge && state.size == null)      hint.textContent = 'you bought ' + CART_SIZE;
+    else if (v.size && state.size === v.size) hint.textContent = 'same as your ' + CART_SIZE + ' tee';
+    else                                      hint.textContent = '';
+
+    const cents = state.size ? SIZES.find((s) => s[0] === state.size)[1] : null;
+    if (state.color == null && state.size == null) {
+      add.innerHTML = '<span class="why">Choose a color and size</span>';
+      add.disabled = true;
+    } else if (state.color == null) {
+      add.innerHTML = '<span class="why">Pick a color</span>';
+      add.disabled = true;
+    } else if (state.size == null) {
+      add.innerHTML = '<span class="why">Select a size</span>';
+      add.disabled = true;
+    } else {
+      add.innerHTML = 'Add &middot; ' + money(cents);
+      add.disabled = false;
+    }
+  }
+
+  paint();
+});
+</script>
