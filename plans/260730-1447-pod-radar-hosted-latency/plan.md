@@ -102,6 +102,32 @@ in-session tabs remove it from the common path rather than paying it per click.
 | 03 | In-session tabs ✅ | 02 | [phase-03-in-session-tabs.md](phase-03-in-session-tabs.md) |
 | 04 | Cleanup + region decision ⏳ | 01, 03 | [phase-04-cleanup-and-decision.md](phase-04-cleanup-and-decision.md) |
 
+## The region number — measured 2026-07-30 from the deployed app
+
+Acceptance criterion 3, closed. Streamlit Community Cloud → Supabase
+`ap-southeast-1`:
+
+| | desktop → SG | Cloud → SG | ratio |
+|---|---|---|---|
+| one query on an open connection | 0.055s | **0.196s** | 3.6× |
+| connect + one query | 0.304s | 0.993s | 3.3× |
+| 3 reads, connect each time | 1.114s | 4.335s | 3.9× |
+| 3 reads, pooled | 0.498s | 1.919s | 3.9× |
+
+**196ms per round trip is trans-Pacific.** Per the phase 04 decision table
+(>150ms), a US Supabase project is justified: it would take the floor from
+~196ms to roughly 5-20ms, which is 10-40× on every query rather than the ~2.3×
+pooling bought. Everything else in this plan is now second-order.
+
+Two things the number also exposes:
+
+- **The `check=` liveness probe costs a full round trip per checkout** — ~196ms
+  on Cloud, about half of a pooled read. Correct, but expensive at this
+  latency, and free at US latency.
+- **The 3-read sample includes pool warm-up** (`min_size=1`, so reads 2 and 3
+  may create connections). Steady-state pooled reads are nearer 0.4s than the
+  0.64s the average implies.
+
 ## Measured after (desktop → ap-southeast-1)
 
 | | before | after |
