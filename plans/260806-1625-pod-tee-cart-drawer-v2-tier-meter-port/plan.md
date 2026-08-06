@@ -1,7 +1,7 @@
 ---
 title: "pod-tee cart drawer v2 tier meter port"
 description: "Port the segmented tier meter from the UX team's Cart Drawer v2 into the existing below-items offer band, without adopting the layout reversal or the footer changes."
-status: pending
+status: completed
 priority: P2
 effort: "4h"
 tags: [pod-tee, cart-drawer, design-port]
@@ -68,12 +68,13 @@ green once a tier is earned.
 | 1 | Offer position | **Unchanged.** Stays below the line items. The design's top-mounted tier bar is not adopted |
 | 2 | What is ported | The segmented meter's visual language only: warm tint, green lit segments once a tier is earned, segmented track, right-aligned step counter |
 | 3 | Footer | **Unchanged.** No total-on-button, no protection switch, no trust line, no per-line was/now pricing |
-| 4 | Segment count | One segment per unit up to the highest threshold (`max_min`, default 5), **capped at 10**. Above the cap the meter scales proportionally instead of per-unit. Not one per tier: three segments give a shopper at 1 tee no feedback at all |
+| 4 | Segment count | One segment per unit up to the highest threshold (`max_min`, default 5), **capped at 10**, bounded by the render loop rather than by a separate clamp. Above the cap the meter scales proportionally instead of per-unit. Not one per tier: three segments give a shopper at 1 tee no feedback at all |
 | 5 | `top` layout | Keeps its existing marker bar. Two treatments, deliberately — the meter belongs to the layout that ships |
 | 6 | Ship path | Folds into `260806-1245` Phase 03. This plan has no ship phase |
 | 7 | Green semantics | The **lit segments** turn green once a tier is earned; the band tint stays warm throughout. Green then means what it already means in the copy — money banked — and only one wash token is needed. The design flipped the whole panel; that would put the orange still-on-offer figure on a green ground |
-| 8 | Wash token | `--dop-accent-wash`, computed in Liquid from `settings.dop_accent`, matching every other token in `dopamiles-tokens.liquid`. Not a static hex, which would be pinned to today's default accent rather than to the setting |
+| 8 | Wash token | `--dop-accent-wash`, computed in Liquid from `settings.dop_accent` via `color_modify: 'lightness', 98`, matching every other token in `dopamiles-tokens.liquid`. Not a static hex, which would be pinned to today's default accent rather than to the setting. Not `color_mix` toward white either — see Open Questions |
 | 9 | Segment transition | **Dropped.** `swapSection` is `dst.innerHTML = src.innerHTML`, so every node is destroyed and rebuilt on each mutation and a `background` transition has no prior state to animate from. The `prefers-reduced-motion` guard goes with it |
+| 10 | Counter position | When the band suppresses the strip's heading, the slide counter renders **below** the cards. Not merged into the band: the meter's step counter already owns that corner, and a nav living outside the strip addresses a scroller that `replaceWith` has destroyed |
 
 ## Why the design's layout was not adopted
 
@@ -122,9 +123,14 @@ as their own change, with their own gate.
 - Total on the checkout button (`Checkout · $58.93 →`). Costs no height and
   keeps the amount visible when totals scroll under a mobile keyboard.
 - Shipping Protection as a 34x20 switch rather than a checkbox.
-- Per-line was/now pricing. **Needs money-truth verification first**: Stack &
-  Save runs as automatic discounts, and a per-line net price that checkout does
-  not match is a trust break, not a styling choice.
+- ~~Per-line was/now pricing.~~ **Resolved 2026-08-06: already live.** The
+  three Stack & Save discounts are per-item automatics targeting the
+  `bundle-eligible` collection, so Shopify allocates them per line and
+  `final_line_price` arrives net. `dopamiles-cart-drawer.liquid:261` has
+  rendered `$59.98` struck above `$55.98` since before this plan; the footer's
+  `cart_level_discount_applications` loop draws nothing because that collection
+  is empty. Verified against live `cart.js` and the Section Rendering API. The
+  theme computes no price, so there is no drift to guard against.
 - 148px recommendation cards with one-click Add. The theme ships 96px cards
   with `dop_cart_recs_atc` off by default.
 - Line-item restyle: 64px imagery, serif titles, Remove as a text button.
@@ -133,8 +139,13 @@ as their own change, with their own gate.
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | [Build the meter into the band](./phase-01-start.md) | Pending |
-| 2 | [Cover the meter with tests](./phase-02-cover-the-meter-with-tests.md) | Pending |
+| 1 | [Build the meter into the band](./phase-01-start.md) | **Done** — `0c36b41` |
+| 2 | [Cover the meter with tests](./phase-02-cover-the-meter-with-tests.md) | **Done** — `27d4af2` |
+| 3 | [Move the strip counter below the cards](./phase-03-move-the-strip-counter-below-the-cards.md) | **Done** — `d1efe26` |
+
+**Execute 3 → 1 → 2, not in number order.** Phase 03 is independent of the
+meter and changes the strip's rendered shape; phase 02 asserts that shape.
+Writing those assertions before the move means writing them twice.
 
 Verification and the live push are `260806-1245` Phase 03, which is already
 written, already gated on a browser, and already carries this drawer's other
@@ -157,14 +168,21 @@ outstanding checks.
 1. **Whether the `top` layout should eventually get the meter too.** Decision 5
    says no, on the grounds that it is the rollback path. If it stops being that,
    revisit.
-2. **`color_mix` weight direction.** Shopify's filter takes a weight, and both
-   argument orders appear in circulation. Phase 01 Step 1 requires confirming it
-   with one render before trusting either — a reversed weight yields a wash that
-   is 92% accent, which is loud rather than subtly wrong and will be obvious.
-
 Resolved in validation session 1: segment count at a non-default tier table
 (capped at 10, Decision 4) and green-on-met semantics (segments only,
 Decision 7).
+
+Resolved 2026-08-06 against shopify.dev, closing the `color_mix` question:
+**`color_mix` is the wrong filter, not merely an ambiguous one.** Its weight is
+the percentage of the *piped-in* colour — the docs' own example,
+`'#E800B0' | color_mix: '#00936F', 50` → `#744a90`, is the exact per-channel
+average. But no blend of `#F26419` with white reaches the design's `#FFF8F4`:
+that hex has R=255, and mixing toward white from an R=242 accent only lowers R.
+`#FFF8F4` is a hue-preserving tint — same hue, near-full saturation, 98%
+lightness — not a white mix. `color_modify: 'lightness', 98` yields `#FEF8F4`
+from the default accent: one unit of red off the design, carrying hue and
+saturation, so it tracks the setting rather than only its lightness. Range
+confirmed integer 0–100; only `alpha` converts hex output to `rgba()`.
 
 ## Validation Log
 

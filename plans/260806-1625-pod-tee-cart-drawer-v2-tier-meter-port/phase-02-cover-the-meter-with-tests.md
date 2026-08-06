@@ -1,6 +1,6 @@
 ---
 title: "Phase 2: Cover the meter with tests"
-status: todo
+status: completed
 phase: 2
 priority: P2
 effort: "1.5h"
@@ -69,8 +69,10 @@ threshold 5):
 | 5 | 5 | 5 | yes |
 | 6 | 5 | 5 | yes |
 
-The 6-tee row is the one worth writing carefully: lit must **clamp** at the
-segment count rather than emit a sixth segment or overflow the track.
+The 6-tee row is the one worth writing carefully: lit must not exceed the
+segment count. <!-- Updated during implementation --> The loop bound is what
+enforces that; an explicit clamp on `seg_lit` changes no output and was removed
+after mutation testing showed nothing could detect its absence.
 
 Then the cap, on a tier table whose top threshold exceeds 10. Against a table
 topping out at 50:
@@ -85,7 +87,7 @@ topping out at 50:
 | 60 | 10 | 10 | clamped |
 
 The 1-tee row is the one that fails under truncation, and the 60-tee row is the
-one that fails without the clamp. Both are the point of the cap.
+one that fails if the loop bound stops limiting. Both are the point of the cap.
 
 Also assert the boundary: a table topping out at exactly 10 emits 10 segments
 lit per-unit, identical to the uncapped path. The cap must not change behaviour
@@ -115,9 +117,17 @@ count instead. Assert that arm separately at 5 and at 6.
 
 - zero eligible items: no wrapper, no track, empty `text()`
 - a cart of Shipping Protection alone: same
-- an **absent** tier metafield: same
+- a metafield **present but holding no usable entries**: same
 - a tier table that parses to a top threshold of zero: same, and specifically
   no empty `<div class="dop-bundle-cart-track">`
+
+<!-- Updated during implementation: an absent metafield is NOT one of these -->
+**An absent tier metafield is not a render-nothing state**, contrary to how this
+phase was originally written. `dopamiles-bundle-tier-table.liquid` carries the
+2/3/5 table as a literal fallback for a missing or empty metafield, so an
+unconfigured store gets the default ladder rather than a dead band. Verified by
+rendering it. The state that produces zeros is a metafield that exists and
+parses but yields no entry carrying both a `min` and an `amount`.
 
 The last is the `(1..0)` and `divided_by: 0` guard from Phase 01 Step 3. Assert
 the absence of the track element, not just empty text — an empty track still
@@ -176,32 +186,32 @@ is a signal the copy contract broke, not a test to update.
 
 ## Todo
 
-- [ ] Segment count and lit count across six rows, including the clamp at 6
-- [ ] Cap rows on a 50-threshold table, including round-up at 1 and clamp at 60
-- [ ] Boundary row: a top threshold of exactly 10 behaves per-unit
-- [ ] Met flip asserted from one condition, and the tint asserted constant
-- [ ] Step counter, exact equality, both arms
-- [ ] Four render-nothing states, including the absent track element
-- [ ] CSS contract: column, margins, constant wash, no transition
-- [ ] Token contract: `--dop-accent-wash` reads the setting, not a literal
-- [ ] Fixed-chrome source-shape assertion
-- [ ] Both gates clean
+- [x] Segment count and lit count across six rows, including the bound at 6
+- [x] Cap rows on a 50-threshold table, including round-up at 1 and clamp at 60
+- [x] Boundary row: a top threshold of exactly 10 behaves per-unit
+- [x] Met flip asserted from one condition, and the tint asserted constant
+- [x] Step counter, exact equality, both arms
+- [x] Four render-nothing states, including the absent track element
+- [x] CSS contract: column, margins, constant wash, no transition
+- [x] Token contract: `--dop-accent-wash` reads the setting, not a literal
+- [x] Fixed-chrome source-shape assertion
+- [x] Both gates clean
 
 ## Success Criteria
 
-- [ ] Every ladder row asserted for segment count, lit count and met
-- [ ] Lit count clamps at the top threshold
-- [ ] Cap asserted: 10 segments above a 10-unit threshold, lit rounded up, never zero for a non-empty cart
-- [ ] A top threshold of exactly 10 asserted identical to the uncapped path
-- [ ] Step counter exact at 1, 2, 3, 4, 5, 6
-- [ ] Zero eligible, SP-only, absent metafield and zero top threshold all render nothing
-- [ ] No empty track element in any render-nothing state, and no thrown division
-- [ ] Band margins and the strip join asserted unchanged
-- [ ] Band tint asserted identical in the met and unmet states
-- [ ] No transition and no reduced-motion block asserted, each paired with a positive assertion
-- [ ] `--dop-accent-wash` asserted to read `settings.dop_accent`
-- [ ] **Every pre-existing band test still passes, unedited**
-- [ ] `npm test` 0 failures (baseline 303), `theme check` 0 offenses
+- [x] Every ladder row asserted for segment count, lit count and met
+- [x] Lit count never exceeds the segments that exist
+- [x] Cap asserted: 10 segments above a 10-unit threshold, lit rounded up, never zero for a non-empty cart
+- [x] A top threshold of exactly 10 asserted identical to the uncapped path
+- [x] Step counter exact at 1, 2, 3, 4, 5, 6
+- [x] Zero eligible, SP-only, absent metafield and zero top threshold all render nothing
+- [x] No empty track element in any render-nothing state, and no thrown division
+- [x] Band margins and the strip join asserted unchanged
+- [x] Band tint asserted identical in the met and unmet states
+- [x] No transition and no reduced-motion block asserted, each paired with a positive assertion
+- [x] `--dop-accent-wash` asserted to read `settings.dop_accent`
+- [x] **Every pre-existing band test still passes, unedited**
+- [x] `npm test` 0 failures (baseline 303), `theme check` 0 offenses
 
 ## Risk Assessment
 

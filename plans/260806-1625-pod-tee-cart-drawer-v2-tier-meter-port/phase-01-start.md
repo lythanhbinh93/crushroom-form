@@ -1,6 +1,6 @@
 ---
 title: "Phase 1: Build the meter into the band"
-status: todo
+status: completed
 phase: 1
 priority: P2
 effort: "2.5h"
@@ -123,20 +123,24 @@ shape every line there already uses — setting first, literal only as fallback:
 
 ```liquid
 --dop-accent-wash: {%- if settings.dop_accent != blank -%}
-  {{ settings.dop_accent | color_mix: '#FFFFFF', 8 }}
+  {{ settings.dop_accent | color_modify: 'lightness', 98 }}
 {%- else -%}#FFF8F4{%- endif -%};
 ```
 
-**Confirm the weight direction with one render before trusting it.** Shopify's
-`color_mix` takes a weight, and both argument orders circulate. Render the
-snippet and read the emitted hex: the wash should sit within a few points of
-`#FFF8F4`. A reversed weight yields ~92% accent — a saturated orange band, which
-is obvious rather than subtly wrong, so a single look settles it. If the order
-is reversed, use `'#FFFFFF' | color_mix: settings.dop_accent, 8`.
+**Not `color_mix` toward white.** Resolved against shopify.dev on 2026-08-06.
+`color_mix`'s weight is the percentage of the piped-in colour, but no blend of
+`#F26419` with white can reach `#FFF8F4` at all: that hex has R=255, and mixing
+toward white from an R=242 accent only lowers R. The design's wash is a
+hue-preserving tint — same hue, near-full saturation, 98% lightness.
 
-The fallback literal is the design's own `#fff8f4`, which is the correct value
-for the default accent — so a store that has never touched the setting renders
-byte-identically either way.
+`color_modify: 'lightness', 98` yields `#FEF8F4` from the default accent. One
+unit of red off the design, and it carries hue *and* saturation, so a merchant
+who moves the accent to another hue gets a wash in that hue rather than a
+lightness-only approximation. `lightness` takes an integer 0–100; only `alpha`
+turns hex output into `rgba()`, so the value stays a hex.
+
+The fallback literal is the design's own `#FFF8F4`, so a store that has never
+touched the setting renders the design's exact value.
 
 No `--dop-good-wash`. With the tint constant (Decision 7) the green state lives
 on the segments, and `--dop-good` already exists.
@@ -163,9 +167,23 @@ Wrap the existing `<p class="dop-bundle-cart-msg">` in a row with the counter,
 then the track. Do **not** restructure the message itself — the copy, the
 green/accent split and the verb agreement are all locked by tests.
 
-Step counter copy, mono, right-aligned:
-- next tier exists: `{{ eligible_qty }} / {{ next_min }}`
+Step counter copy, right-aligned:
+- next tier exists: `{{ eligible_qty }} / {{ max_min }}`
 - at or past the top: `{{ eligible_qty }} tees`
+
+<!-- Updated during implementation: denominator is max_min, not next_min -->
+**The counter labels the track, so it counts to the track's denominator.**
+Written against `next_min` it produced "2 / 3" beside a track two segments of
+five full — two denominators six pixels apart, with nothing telling the reader
+which one the bar was drawing. The next threshold is not lost: the sentence
+directly above states it in money, which is the form that matters.
+
+<!-- Updated during implementation: not monospace -->
+**Not monospace, despite the design's `var(--code)`.** All four font tokens in
+this theme resolve to General Sans first, so `--dop-code` is
+`'General Sans', ui-monospace, monospace` and the first family wins.
+`font-variant-numeric: tabular-nums` does the job the mono was there for — the
+counter changes on every quantity step and must not reflow the row.
 
 Segments: loop `(1..seg_n)`, marking `on` where the index is `<= lit`.
 
@@ -193,7 +211,7 @@ Three properties worth stating, because the tests in Phase 02 assert them:
 - **It rounds up, not down.** A shopper with 1 eligible tee against a 50-unit
   table lights one segment rather than none. Truncation would show an empty
   meter to someone who has already started.
-- **It clamps.** `eligible_qty` legitimately exceeds `max_min` — 6 tees against
+- **The loop bound is the clamp.** `eligible_qty` legitimately exceeds `max_min` — 6 tees against
   a top threshold of 5 — and the ceiling would otherwise produce a 6th segment
   in a 5-segment track.
 
@@ -242,30 +260,30 @@ Then `npm test` and `npx shopify theme check`, both clean before Phase 02.
 
 ## Todo
 
-- [ ] Add `--dop-accent-wash`, computed from `settings.dop_accent`
-- [ ] Confirm `color_mix` weight direction with one render
-- [ ] Band markup: top row, step counter, segmented track
-- [ ] `seg_n` cap at 10 and ceiling-scaled `lit`, clamped
-- [ ] `met` modifier driven by `current_cents > 0`, recolouring segments only
-- [ ] Guard an absent or zero `max_min` before the division and the range
-- [ ] CSS: column layout, constant wash, track, segment colours
-- [ ] Sweeps and both gates clean
+- [x] Add `--dop-accent-wash`, computed from `settings.dop_accent`
+- [x] Wash uses `color_modify: 'lightness', 98`, not a literal and not `color_mix`
+- [x] Band markup: top row, step counter, segmented track
+- [x] `seg_n` cap at 10 and ceiling-scaled `lit`, bounded by the loop
+- [x] `met` modifier driven by `current_cents > 0`, recolouring segments only
+- [x] Guard an absent or zero `max_min` before the division and the range
+- [x] CSS: column layout, constant wash, track, segment colours
+- [x] Sweeps and both gates clean
 
 ## Success Criteria
 
-- [ ] Meter renders below the message inside the band
-- [ ] At the default table: segment count equals the top threshold, lit count equals eligible quantity
-- [ ] Above a top threshold of 10: exactly 10 segments, lit scaled and rounded up, never zero for a non-empty cart
-- [ ] Lit segments turn green once a tier is earned; the band tint is identical in both states
-- [ ] The wash resolves from `settings.dop_accent`, and equals `#FFF8F4` at the default accent
-- [ ] Step counter correct at 1, 2, 3, 4, 5 and 6 eligible tees
-- [ ] Zero eligible items renders nothing at all
-- [ ] An absent tier table renders nothing rather than an empty track
-- [ ] No transition and no `prefers-reduced-motion` block added
-- [ ] Fixed chrome unchanged — head and footer untouched
-- [ ] `top` layout renders exactly as before, marker bar intact
-- [ ] Band still has no CTA, no eyebrow, no rules, and stays adjacent to the strip
-- [ ] `npm test` 0 failures, `theme check` 0 offenses
+- [x] Meter renders below the message inside the band
+- [x] At the default table: segment count equals the top threshold, lit count equals eligible quantity
+- [x] Above a top threshold of 10: exactly 10 segments, lit scaled and rounded up, never zero for a non-empty cart
+- [x] Lit segments turn green once a tier is earned; the band tint is identical in both states
+- [x] The wash resolves from `settings.dop_accent`, and equals `#FFF8F4` at the default accent
+- [x] Step counter correct at 1, 2, 3, 4, 5 and 6 eligible tees
+- [x] Zero eligible items renders nothing at all
+- [x] A tier table with no usable entries renders nothing rather than an empty track
+- [x] No transition and no `prefers-reduced-motion` block added
+- [x] Fixed chrome unchanged — head and footer untouched
+- [x] `top` layout renders exactly as before, marker bar intact
+- [x] Band still has no CTA, no eyebrow, no rules, and stays adjacent to the strip
+- [x] `npm test` 0 failures, `theme check` 0 offenses
 
 ## Risk Assessment
 
@@ -274,7 +292,7 @@ Then `npm test` and `npx shopify theme check`, both clean before Phase 02.
 | The meter drifts upward into fixed chrome | Stated in Architecture and in the plan's constraints. The band renders after the line-item loop inside `.dop-cart-lines`; moving it is a different change with a different gate |
 | A wide tier table makes segments unreadable, or emits an unbounded loop | Resolved: `seg_n` caps at 10 and `lit` scales into it (Decision 4). The default table is three tiers over a top threshold of 5, giving 5 segments at ~60px on a 375px screen |
 | `max_min` of 0 emits a `(1..0)` range **and a `divided_by: 0`** | Step 3 requires the guard before both, Phase 02 asserts it. An absent or unparseable tier table is already a real state the resolver returns zeros for |
-| `color_mix` weight applied in the wrong direction | Step 1 requires one render before trusting either order. A reversed weight is ~92% accent — a saturated orange band, visible at a glance rather than subtly off |
+| The wash filter is wrong and nobody notices | Resolved before implementation: `color_modify: 'lightness', 98`, verified against shopify.dev including the value range and the hex-vs-rgba output rule. `color_mix` toward white is arithmetically incapable of producing the design's hex and was rejected on that basis, not on preference |
 | The wash is "simplified" back to a literal hex later | Phase 02 Step 5 asserts the token reads `settings.dop_accent`. The literal fallback is the correct value at the default accent, so the drift is invisible on this store until the setting changes — which is exactly why a test, not a comment, guards it |
 
 <!-- Updated: Validation Session 1 - one computed wash token, segments-only green, 10-segment cap, transition dropped -->
