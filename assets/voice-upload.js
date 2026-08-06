@@ -96,19 +96,35 @@ document.addEventListener('DOMContentLoaded', function () {
     progressLabel.textContent = label || (pct + '%');
   }
 
+  /**
+   * Fallback order code for uploads that arrive without one.
+   * Format: AUTO-YYMMDDHHMMSS-XXXX. The random suffix matters — two uploads
+   * from the same phone in the same second would otherwise share a row key,
+   * and finishUpload overwrites a matching row rather than adding one.
+   */
+  function autoOrderCode() {
+    var d = new Date();
+    function p(n) { return String(n).length < 2 ? '0' + n : String(n); }
+    var stamp = String(d.getFullYear()).slice(2) + p(d.getMonth() + 1) + p(d.getDate())
+      + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+    return 'AUTO-' + stamp + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  }
+
   /* ── URL param parse (optional prefill) ────────────────────────────────── */
   // If staff shares link with ?phone=X&order=Y those fields get prefilled.
   // If customer opens bare /voice-upload.html, form still works — they enter
-  // both manually.
+  // the phone manually.
+  //
+  // The order field is hidden from customers this phase, but order_id is still
+  // required by the backend and is half the (phone, order_id) row key, so it is
+  // always filled: the real code when the link carries one, else an auto code.
   (function initFromUrlParams() {
     var params = new URLSearchParams(window.location.search);
     var phone  = params.get('phone') || '';
     var order  = params.get('order') || '';
 
-    if (order) {
-      orderInput.value = order;
-      orderInput.setAttribute('readonly', 'readonly');
-    }
+    orderInput.value = order || autoOrderCode();
+    orderInput.setAttribute('readonly', 'readonly');
 
     // Phone is prefilled after intl-tel-input init (below)
     if (phone) window._prefillPhone = phone;
