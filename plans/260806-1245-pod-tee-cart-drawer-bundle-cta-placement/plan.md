@@ -14,7 +14,15 @@ branch: feat/cart-drawer-chrome-260806
 store: dopamiles.co / rfeixb-dd.myshopify.com
 themes: "preview #160174997756 · live #158620516604"
 blockedBy: []
-blocks: [260725-1940-pod-tee-cart-recommendations-and-tier-headline-fix]
+blocks: [260725-1940-pod-tee-cart-recommendations-and-tier-headline-fix, 260806-1625-pod-tee-cart-drawer-v2-tier-meter-port]
+carries: >-
+  Added 2026-08-06. Plan 260806-1625 ports a segmented tier meter into the band
+  this plan created, and deliberately has no ship phase of its own — its
+  verification and live push ride THIS plan's Phase 03. If 01625 lands before
+  Phase 03 runs, Phase 03's push list gains nothing (same files) but its
+  verification gains the meter: segment count, the green flip, and the fact that
+  none of it reached fixed chrome. Two ship phases for one drawer is how a
+  half-pushed file happens, which is why it has none.
 related:
   - brainstorm: ../reports/pod-tee-cart-drawer-bundle-cta-placement-260806-brainstorm.md (contract, 6 decisions, evidence)
   - mockup: https://claude.ai/code/artifact/72e0b763-a587-4096-a83a-bcd544e8ea4a
