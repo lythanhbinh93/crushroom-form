@@ -51,8 +51,11 @@
           <small class="messages" id="phone-error" style="display:none;"></small>
         </div>
 
-        <!-- ORDER ID -->
-        <div class="form-control">
+        <!-- ORDER ID — hidden from customers; they are matched by phone number.
+             Kept in the DOM (not deleted) because order_id is still required by
+             the backend and forms half the (phone, order_id) row key. It is
+             always populated by voice-upload.js. -->
+        <div class="form-control" id="order-field" style="display:none;">
           <label for="order-input" class="classic-label globo-label">
             <span class="label-content">Mã đơn hàng</span>
             <span class="text-danger text-smaller"> *</span>
