@@ -218,13 +218,52 @@ detail.
 
 | Check | Result |
 |---|---|
-| Offer count, `below_items` | |
-| Offer count, `top` | |
-| Band survives `±` tap | |
-| Band renders with recs off | |
-| `top` matches today's live | |
-| WIP absent from live | |
-| Branch pushed to origin | |
+| **Step 1 — pushed to preview** | **Done 2026-08-06.** 8 files, `--only`, no `--allow-live`. Verified by pulling all 8 back: byte-identical to local, line-ending-agnostic |
+| Offer count, `below_items` | Blocked — needs a browser |
+| Offer count, `top` | Blocked |
+| Band survives `±` tap | Blocked |
+| Band renders with recs off | Blocked |
+| `top` matches today's live | Blocked |
+| WIP absent from live | Not yet applicable — no live push |
+| Branch pushed to origin | **No.** 9 local-only commits |
+
+### Preview state confirmed at push time
+
+`config/settings_data.json` on `#160174997756` holds **126** merchant keys and
+was not touched (`.shopifyignore` blocks it). Three keys relevant here are
+**absent**, so all three resolve through schema defaults:
+
+| Key | Stored | Resolves to |
+|---|---|---|
+| `dop_cart_bundle_cta_position` | absent | `below_items` |
+| `dop_cart_show_stack_save_bar` | absent | `true` |
+| `dop_cart_recs_enabled` | absent | `true` |
+
+This is the absent-key path Step 2 asks for, already in place — no setting needs
+touching to test it, and it is what live will hit.
+
+It also confirms the bar decision was load-bearing rather than theoretical: the
+bar is on by default on this store, so hiding the headline without extracting
+the bar would have removed a live, enabled feature.
+
+### The preview already carried the uncommitted WIP
+
+`sections/dopamiles-collection-grid.liquid` on preview is byte-identical to the
+**working tree**, not to the branch — it contains the uncommitted `new-arrival`
+tag change. This push did not put it there (`--only`, 8 files); an earlier full
+`theme push` did.
+
+So the hazard is not hypothetical, it has already happened on preview. It has
+**not** reached live. Step 7's WIP check stays mandatory, and every push in this
+phase stays `--only`.
+
+### Browser still unavailable
+
+Fourth session. `DevToolsActivePort` is absent — Chrome is not running with
+remote debugging. To unblock, launch Chrome with
+`--remote-debugging-port=9222` and a user-data-dir, then Steps 2-5 can run.
+Do not substitute an offline mockup; that was tried 2026-08-05 and was wrong
+twice.
 
 ## Risk Assessment
 
