@@ -5,7 +5,7 @@ description: >-
   recommendation strip's heading row so it is stated once instead of twice, on a
   theme-global switch that keeps today's top-band layout available. Preview
   first, live once verified.
-status: pending
+status: in-progress
 priority: P1
 effort: "6.5h"
 repo: D:\github local\pod-tee-theme
@@ -92,9 +92,18 @@ Carried from the brainstorm. Numbers match that report.
 
 | # | Phase | Status | Effort |
 |---|-------|--------|--------|
-| 1 | [Build the band and the switch](./phase-01-build-the-band-and-the-switch.md) | Pending | 2.5h |
-| 2 | [Cover both layouts with tests](./phase-02-cover-both-layouts-with-tests.md) | Pending | 1.5h |
+| 1 | [Build the band and the switch](./phase-01-build-the-band-and-the-switch.md) | **Done** 2026-08-06 | 3.5h |
+| 2 | [Cover both layouts with tests](./phase-02-cover-both-layouts-with-tests.md) | Pending | 2h |
 | 3 | [Verify on preview and ship](./phase-03-verify-on-preview-and-ship.md) | Pending | 2.5h |
+
+**Scope added in Phase 01, carried into 02 and 03.** Scouting found the tier
+progress bar living *inside* `dopamiles-bundle-cart-headline.liquid`. Hiding the
+headline under `below_items` would therefore have deleted the bar from the
+default layout, regardless of `dop_cart_show_stack_save_bar` — a merchant
+setting that defaults **on** and is live today. The bar is now its own snippet,
+rendered by whichever surface carries the offer, so the two settings are
+genuinely orthogonal rather than nominally so. Two extra files, and Phase 02
+gains the extraction's byte-identity assertion.
 
 **No browser is needed until Phase 03.** The original Phase 01 was a blocking
 gate on whether a theme-global setting survives a `?sections=` re-render;

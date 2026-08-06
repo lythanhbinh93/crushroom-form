@@ -167,6 +167,17 @@ the quick-view is not rendered at all — verified by reading live's settings on
 2026-07-30. What Step 1 now blocks is one theme-editor toggle, flipped after the
 push and instantly revertible.
 
+> **SUPERSEDED 2026-08-06.** The claim above — that live holds none of the new
+> keys, so the strip is dormant — was true when written and is not true now.
+> Live's `settings_data.json` holds `dop_cart_recs_source`, `_collection`,
+> `_end_collection`, `_per_view`, `_atc` and `_atc_color`; `dop_cart_recs_enabled`
+> is absent with a schema default of **true**. **The strip renders on
+> production.** The reclassification still stands — Step 1 does gate a toggle,
+> not the push — but it no longer rests on the strip being invisible. Anything
+> downstream that treats the strip as dormant on live is reasoning from a stale
+> reading. Original text kept above deliberately; see `CORRECTION-2026-08-06` in
+> this file's frontmatter.
+
 The headline number does ship visible. It ships on `eligible`, which
 under-promises, which this plan's own risk table classes as the safe direction —
 and live today carries Bug 1, a larger under-promise ($9 for $12, "$25+" for

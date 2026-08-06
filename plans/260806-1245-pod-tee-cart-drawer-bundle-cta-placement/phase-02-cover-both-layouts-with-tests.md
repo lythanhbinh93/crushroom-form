@@ -156,6 +156,41 @@ In `tests/cart-recs.test.js`:
 - `suppress_heading: true` with `picked_n == 0` → still renders nothing at all;
   suppression must not resurrect a strip that has no cards
 
+Also the two flex consequences Phase 01 found, neither of which is visible in
+the Liquid — both were verified by smoke render, and neither is locked yet:
+
+- suppressed **and** multi-slide → `.dop-cart-recs-top` survives and carries
+  `--nohead`, so the `1 / N` counter stays right instead of sliding to the left
+  edge of a `space-between` row that lost its other child
+- suppressed **and** single-slide → `.dop-cart-recs-top` is **absent** entirely,
+  rather than an empty flex row still spending its 12px bottom margin
+
+### Step 6b — the bar extraction changed nothing
+
+`dop_cart_show_stack_save_bar` defaults on and is live. Phase 01 moved the bar
+out of the headline into `snippets/dopamiles-bundle-cart-bar.liquid` so the band
+can render it too.
+
+`tests/cart-headline.test.js` already covers marker labels, fill width, hit
+states, `show_bar: false` and out-of-order tier metafields, and all of it passed
+unchanged through the extraction — so byte-identity is already asserted by tests
+that predate the refactor. What is **not** yet covered:
+
+- the band renders the bar when `show_bar` is true, omits it when false
+- headline and band, same cart, produce **identical** bar markup — same markers,
+  same labels, same fill width. That is the whole point of one snippet, and it
+  is the assertion that catches a future edit made to only one caller
+
+### Step 6c — a parse gate, because theme check is not one
+
+Phase 01's defect was `{%- if dop_band | strip != blank -%}` — a filter inside an
+`if`, which Liquid rejects. `theme check` reported **0 offenses** on the file. It
+was caught only by parsing through liquidjs.
+
+Add a test that parses every touched Liquid file and fails on a parse error.
+Register a no-op `schema` tag first; liquidjs does not know Shopify's, and
+without the stub every section file reports a false failure.
+
 ### Step 7 — run
 
 ```bash

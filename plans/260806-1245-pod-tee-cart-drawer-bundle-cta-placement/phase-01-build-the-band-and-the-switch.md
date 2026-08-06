@@ -1,9 +1,9 @@
 ---
 phase: 1
 title: "Build the band and the switch"
-status: pending
+status: completed
 priority: P1
-effort: "2.5h"
+effort: "3.5h"
 dependencies: []
 ---
 
@@ -25,28 +25,36 @@ strip rendering.
 - `top`: today's drawer, unchanged; band not rendered
 - The band renders whenever the resolver has something to say, whether or not
   the recs strip renders
+- `dop_cart_show_stack_save_bar` gates the tier progress bar in **both**
+  layouts — under `below_items` the bar renders inside the band
 
 **Non-functional**
 - The band never renders from inside `dopamiles-cart-recs.liquid`
 - No new locale keys; no new arithmetic
 - No `bnc-` string, no `*/` inside a ported comment
-- `dop_cart_show_stack_save_bar` stays orthogonal and keeps gating the bar
+- The bar's markup and marker arithmetic exist in exactly one place
 
 ## Architecture
 
 Today the drawer renders the headline **above** `.dop-cart-lines`
-(`cart-drawer.liquid:152`) and the recs strip **inside** it. The change:
+(`cart-drawer.liquid:152`; the list opens at `:157`) and the recs strip
+**inside** it (`:278`, immediately before the list's closing tag). The change:
 
 ```
 below_items                            top (today)
 ─────────────────────────────────      ─────────────────────────────────
 head                                   head
-.dop-cart-lines                        .dop-cart-lines
-  line items                             ┌ bundle-cart-headline  ← above
-  ┌ BAND  ← section renders it           line items
-  └ recs cards (heading suppressed)      recs strip (own heading)
+                                       bundle-cart-headline  ← fixed chrome
+.dop-cart-lines  (scrolls)             .dop-cart-lines  (scrolls)
+  line items                             line items
+  ┌ BAND  ← section renders it           recs strip (own heading)
+  └ recs cards (heading suppressed)
 foot                                   foot
 ```
+
+The headline is a sibling **above** the scroller, not a child of it. That is
+what makes `below_items` a fixed-chrome reduction rather than a reshuffle, and
+it is the basis of Phase 03's measurement expectation.
 
 **The band owns the heading slot; the strip does not own the band.** The
 section renders the band, then passes `suppress_heading: true` into the recs
@@ -62,10 +70,15 @@ reducing. Inside the scroll area it costs nothing at short viewports.
 ## Related Code Files
 
 - Create: `snippets/dopamiles-bundle-cart-band.liquid`
+- Create: `snippets/dopamiles-bundle-cart-bar.liquid` — the tier progress bar,
+  extracted so both the headline and the band render one copy
 - Modify: `sections/dopamiles-cart-drawer.liquid`
 - Modify: `snippets/dopamiles-cart-recs.liquid` (accept and honour `suppress_heading`)
+- Modify: `snippets/dopamiles-bundle-cart-headline.liquid` (render the extracted
+  bar instead of holding it inline — no behaviour change)
 - Modify: `config/settings_schema.json`
 - Modify: `assets/dopamiles-bundle.css`
+- Modify: `assets/dopamiles-cart.css` (the `--nohead` recs-top modifier)
 - **Do not modify**: `snippets/dopamiles-bundle-tier-resolve.liquid` — the band
   reads its output, never its logic
 
@@ -134,11 +147,44 @@ applies (that selector was fixed in `a84c6a3` to match the descendant form):
 <div class="dop-bundle-cart-band">
   <span class="dop-bundle-cart-band-eyebrow">Bundle</span>
   <p class="dop-bundle-cart-msg">…</p>
+  {%- comment -%} bar, when show_bar {%- endcomment -%}
 </div>
 ```
 
 Reusing `.dop-bundle-cart-msg` is deliberate: the green/accent split is defined
 once and both surfaces inherit it. Do not fork the colour rules.
+
+**No CTA link in the band, and that is a decision.** All four headline states
+carry `<a class="dop-bundle-cart-cta">`, because the headline sits above the
+list with nothing actionable near it. The band sits directly on top of the
+recommendation cards, which each link to a product — the action is already
+there, twice over. A CTA in the band would be a third call inside ~60px. Phase
+02 asserts the band has **no** `.dop-bundle-cart-cta`, so the omission is
+locked rather than left to look like an oversight.
+
+### Step 2b — extract the tier progress bar
+
+`dop_cart_show_stack_save_bar` defaults to **true** and is live today. The bar
+is rendered inside `dopamiles-bundle-cart-headline.liquid` (its `show_bar` arg),
+so wrapping the headline in `{%- if dop_cta_pos == 'top' -%}` would delete the
+bar from the default layout — a checked merchant setting silently doing nothing.
+The two settings must stay orthogonal, so the band renders the bar too.
+
+Move the bar block out of the headline into
+`snippets/dopamiles-bundle-cart-bar.liquid`, taking the three values it needs as
+render args:
+
+```liquid
+{%- render 'dopamiles-bundle-cart-bar',
+    tier_basis: tier_basis, eligible_qty: eligible_qty, max_min: max_min -%}
+```
+
+Args, not a second resolver call: each surface already resolves once, and a
+snippet that re-resolves would let the bar and the copy above it disagree.
+
+The marker arithmetic moves **verbatim**, including its comments. This is an
+extraction, not a rewrite — Phase 02 asserts the headline's bar output is
+byte-identical to what it rendered before.
 
 ### Step 3 — wire the drawer section
 
@@ -191,6 +237,21 @@ heading.
 **Do not touch the `picked_n > 0` gate or the enabled gate.** They stay exactly
 as they are. The band's independence comes from being rendered by the section,
 not from loosening the strip's conditions.
+
+**`.dop-cart-recs-top` breaks two ways when the heading leaves.** It is
+`display:flex; justify-content: space-between` with `margin-bottom: 12px`
+(`dopamiles-cart.css:656`); the heading is `flex: 1 1 auto` and the `1 / 17`
+nav is `flex: 0 0 auto`. Removing the heading alone therefore:
+
+1. leaves the nav as the only child of a `space-between` row, which slides it
+   to the **left** edge — it sits right today;
+2. on a single-slide strip renders an **empty** flex row that still carries its
+   12px bottom margin, as `recs_slides > 1` already suppresses the nav.
+
+So: add a `.dop-cart-recs-top--nohead { justify-content: flex-end; }` modifier
+for case 1, and skip the wrapper entirely when suppressed **and** `recs_slides
+<= 1` for case 2. Neither is visible in Liquid — both are CSS consequences of
+deleting one child from a flex row.
 
 ### Step 5 — CSS
 
@@ -245,6 +306,10 @@ adds coverage; a failure here is a build error, not a coverage gap.
 - [ ] `dop_cart_bundle_cta_position` in the theme-global Cart drawer widgets block, default `below_items`
 - [ ] `snippets/dopamiles-bundle-cart-band.liquid` exists and renders all four states
 - [ ] No eligible items → band renders **nothing**, not an empty wrapper
+- [ ] The band carries **no** `.dop-bundle-cart-cta` — the cards below it are the action
+- [ ] Bar extracted to one snippet; `dop_cart_show_stack_save_bar` still gates it in **both** layouts
+- [ ] Headline's bar output unchanged by the extraction
+- [ ] Suppressed heading does not strand the nav left or leave an empty 12px row
 - [ ] `top` renders today's drawer with no band
 - [ ] The empty-cart branch (`context: 'empty'`) is untouched — no band, heading intact
 - [ ] `below_items` renders the band below the items with the strip heading suppressed
@@ -257,9 +322,46 @@ adds coverage; a failure here is a build error, not a coverage gap.
 
 | Check | Result |
 |---|---|
-| Commits | |
-| `260725-1940` corrected | |
-| `npm test` / `theme check` | |
+| Commits | 1, local only — branch `feat/cart-drawer-chrome-260806` has no upstream |
+| `260725-1940` corrected | Yes — frontmatter already carried it; the **body** at `plan.md:165` did not, and that is the site people read. Superseded block added inline, original kept |
+| `npm test` / `theme check` | 245 pass / 0 fail · 239 files / 0 offenses (237 before; the two new snippets) |
+| `bnc-` and `*/` sweeps | Both empty |
+| Liquid parse check | All 5 touched files parse. **Found the one real defect** — see below |
+
+**The plan's own Step 3 snippet was invalid Liquid.** `{%- if dop_band | strip != blank -%}`
+is a parse error: Liquid does not accept a filter inside an `if` condition.
+`theme check` reported 0 offenses on it, because it does not evaluate Liquid.
+Caught by parsing the file through liquidjs, not by either standard gate.
+Shipped form assigns the filtered value first, then tests the variable.
+
+**Bar extraction verified, not merely uncontradicted.** `tests/cart-headline.test.js`
+already asserts marker labels, fill width, hit states, `show_bar: false`, and
+out-of-order tier metafields. All of it passes through the extracted snippet
+unchanged, so the extraction is proven output-identical by tests that predate it.
+
+**Band states, rendered:**
+
+| Eligible tees | Copy | Bar | CTA |
+|---|---|---|---|
+| 0 | *renders nothing* | — | — |
+| 1 | `Add 1 more tee — save $4` | yes | none |
+| 2 | `Saved $4 · Add 1 more tee — save $9` | yes | none |
+| 3 | `Saved $9 · Add 2 more tees — save $25` | yes | none |
+| 5 | `Saved $25 · $5 off every extra tee` | yes | none |
+| 6 | `Saved $30 · $5 off every extra tee` | yes | none |
+
+**`suppress_heading`, rendered:**
+
+| Case | `-head` | `-top` row | `--nohead` | nav |
+|---|---|---|---|---|
+| multi-slide, shown | yes | yes | no | yes |
+| multi-slide, suppressed | no | yes | **yes** | yes |
+| single-slide, shown | yes | yes | no | no |
+| single-slide, suppressed | no | **no** | — | no |
+| arg omitted (`top` layout) | yes | yes | no | yes |
+
+Last row is the regression check: with the argument absent the strip renders
+exactly as before, so the `top` layout is untouched.
 
 ## Risk Assessment
 
@@ -270,3 +372,5 @@ adds coverage; a failure here is a build error, not a coverage gap.
 | The full-bleed margin breaks when list padding changes | Step 5 requires a comment naming the dependency. The padding moved 22→18px today, so this is a live hazard, not a hypothetical |
 | The default silently changes the live layout | Called out in Step 1 and in decision 2. Phase 03 pushes to preview first, and the switch itself is the rollback |
 | Copy drifts from the headline's | Both surfaces render the same four states from the same resolver and share `.dop-bundle-cart-msg`. Phase 02 asserts them against each other |
+| The extraction changes the bar's rendered output | The block moves verbatim, comments included, and takes as args the three values it read from enclosing scope. Phase 02 asserts the headline's bar output against the pre-extraction markup |
+| A checked merchant setting silently does nothing | Found while scouting: the bar lives inside the headline, so hiding the headline would have deleted it from the default layout. The bar now renders in both. This is why `--advice` ran before the code |
