@@ -1,0 +1,187 @@
+---
+phase: 3
+title: "Cover both layouts with tests"
+status: pending
+priority: P1
+effort: "1.5h"
+dependencies: [2]
+---
+
+# Phase 3: Cover both layouts with tests
+
+## Overview
+
+Cover the band's four states, both switch positions, and the one property this
+whole design exists to guarantee: that the offer survives when the
+recommendation strip renders nothing.
+
+## Requirements
+
+**Functional**
+- Every band state asserted on rendered output, not source shape
+- Both switch positions asserted, including that `top` is unchanged
+- The recs-absent case asserted for all four conditions that suppress the strip
+- The offer asserted to appear exactly **once** per layout
+
+**Non-functional**
+- No new test dependency — reuse `tests/liquid-harness.js`
+- Assertions falsifiable: each has a control that makes it fail
+
+## Architecture
+
+`tests/cart-headline.test.js` establishes the pattern: render the snippet
+through liquidjs, reduce with `text()`, assert exact strings. The band is a
+sibling snippet with the same resolver contract, so it can be tested the same
+way and — more useful — **against** the headline, since decision 6 says the two
+must state the same thing.
+
+The switch lives in the section, which needs too much Shopify context to render
+whole. Follow `cart-drawer-line-item.test.js`: slice the relevant Liquid and
+render the fragment.
+
+`theme check` parses Liquid without evaluating it and has passed an unclosed
+`{% if %}` in this theme before. Only rendered assertions prove behaviour.
+
+## Related Code Files
+
+- Create: `tests/cart-bundle-band.test.js`
+- Modify: `tests/cart-recs.test.js` (the `suppress_heading` contract)
+- Read-only: `tests/liquid-harness.js`, `tests/cart-headline.test.js`
+
+## Implementation Steps
+
+### Step 1 — the four band states
+
+Render `dopamiles-bundle-cart-band` across the tier ladder. Exact equality, not
+`includes()` — the strings share prefixes and suffixes, and a substring
+assertion passes on the wrong state.
+
+| Tees | Expected |
+|---|---|
+| 0 eligible | renders nothing — assert `text()` is empty **and** no wrapper element |
+| 1 | `Add 1 more tee — save $4` |
+| 2 | `✓ Saved $4 · Add 1 more tee — save $9` |
+| 3 | `✓ Saved $9 · Add 2 more tees — save $25` |
+| 4 | `✓ Saved $12 · Add 1 more tee — save $25` |
+| 5 | `✓ Saved $25 · $5 off every extra tee` |
+| 6 | `✓ Saved $30 · $5 off every extra tee` |
+
+The 0-eligible row needs both assertions: an empty string would also pass if the
+snippet emitted `<div class="dop-bundle-cart-band"></div>`, which is a visible
+bordered band with nothing in it.
+
+### Step 2 — the band and the headline must agree
+
+Decision 6 says both surfaces state the same offer. Assert it directly rather
+than duplicating the expected strings in two files:
+
+```js
+// Same cart, both surfaces. The money and the quantity must match; only the
+// phrasing and the eyebrow differ.
+for (const tees of [1, 2, 3, 4, 5, 6]) {
+  const band = text(renderBand({ tees }));
+  const head = text(renderHeadline({ tees }));
+  for (const fig of moneyFigures(head)) {
+    assert.ok(band.includes(fig), `band must state ${fig} like the headline does at ${tees} tees`);
+  }
+}
+```
+
+This is the test that catches drift when someone edits one snippet and not the
+other — the failure mode that produced the duplicated-but-differently-worded
+strings this plan is fixing.
+
+### Step 3 — the switch
+
+Slice the position assign and the two render guards from the section, render the
+fragment under both settings:
+
+- `top` → headline rendered above the list, band absent, recs heading **not**
+  suppressed
+- `below_items` → band rendered below the list, headline absent, `suppress_heading`
+  passed true
+- setting absent entirely → behaves as `below_items` (the `| default:` path, which
+  is what live will hit until the merchant saves)
+
+That last row matters: live's `settings_data.json` has no such key today.
+
+### Step 4 — the property this design exists for
+
+The offer must survive when the strip does not. Assert all four suppression
+conditions from `tests/cart-recs.test.js`:
+
+| Condition | Assertion |
+|---|---|
+| `dop_cart_recs_enabled` false | band still renders its offer |
+| Recs collection unset | band still renders |
+| Recs collection empty | band still renders |
+| Pool fully deduped against the cart | band still renders |
+
+Then the inverse control: **move the offer into the recs heading in a copy of
+the source in memory and confirm these tests fail.** Without that control they
+assert a property that a coupled implementation would also pass in the common
+case — which is exactly why the coupled design looked fine in the mockup.
+
+### Step 5 — "exactly once"
+
+Goal 1 is a count, so count it. For each layout and each tier state, render the
+drawer region and assert the money figure for the *next* tier appears exactly
+once:
+
+```js
+const occurrences = (haystack, needle) => haystack.split(needle).length - 1;
+assert.strictEqual(occurrences(text(drawer), '$9'), 1);
+```
+
+Run it against `top` as well. Today's layout states it twice, so this test
+should **fail** on the pre-change source — verify that before trusting it.
+
+### Step 6 — the `suppress_heading` contract
+
+In `tests/cart-recs.test.js`:
+
+- `suppress_heading: true` → cards render, no heading element
+- `suppress_heading` absent → today's heading behaviour, unchanged
+- `suppress_heading: true` with `picked_n == 0` → still renders nothing at all;
+  suppression must not resurrect a strip that has no cards
+
+### Step 7 — run
+
+```bash
+npm test
+npx shopify theme check
+```
+
+Expect 245 + the new tests, 0 failures.
+
+## Success Criteria
+
+- [ ] `tests/cart-bundle-band.test.js` exists
+- [ ] All seven tier rows asserted with exact equality
+- [ ] 0-eligible asserts both empty text and no wrapper
+- [ ] Band-vs-headline agreement asserted, not duplicated
+- [ ] Both switch positions asserted, plus the setting-absent path
+- [ ] All four recs-suppression conditions assert the band survives
+- [ ] The coupled-implementation control confirmed to fail those tests
+- [ ] "Exactly once" asserted, and confirmed to fail against pre-change source
+- [ ] `suppress_heading` contract covered, including the `picked_n == 0` interaction
+- [ ] `npm test` 0 failures; `theme check` 0 offenses
+
+## Results
+
+| Check | Result |
+|---|---|
+| New test count | |
+| Suite total | |
+| "Exactly once" verified failing pre-change | |
+| Coupled control verified failing | |
+
+## Risk Assessment
+
+| Risk | Mitigation |
+|---|---|
+| Tests pass against a coupled implementation | Step 4's inverse control exists precisely for this. A test that cannot distinguish the two designs does not protect the decision |
+| The "exactly once" test is vacuous | Step 5 requires it to fail against pre-change source, where the offer genuinely appears twice |
+| Band and headline drift later | Step 2 asserts them against each other rather than against two copies of the same literals |
+| Substring collisions between states | Exact equality throughout. `$25` appears at 3, 4, 5 tees in different sentences; `includes()` would pass on the wrong one |
+| Section too complex to render | Slice the fragment, per the `cart-drawer-line-item.test.js` precedent; do not attempt the whole section |

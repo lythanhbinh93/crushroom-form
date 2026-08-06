@@ -12,10 +12,31 @@ repo: D:\github local\pod-tee-theme
 plans_repo: D:\github local\crushroom-form
 branch: TBD
 store: dopamiles.co / rfeixb-dd.myshopify.com (live theme #158620516604)
-blockedBy: [260806-0932-pod-tee-cart-drawer-footer-trim-and-bar-toggle-verify]
+blockedBy: [260806-0932-pod-tee-cart-drawer-footer-trim-and-bar-toggle-verify, 260806-1245-pod-tee-cart-drawer-bundle-cta-placement]
 blocks: [260520-1010-pod-tee-cart-drawer-offer-revamp]
 related:
   - advice: ./advice.md (confirmed requirements, verified evidence, locked decisions)
+  - blocked-by-note-2: >-
+      Added 2026-08-06. 260806-1245 edits BOTH files this plan owns —
+      dopamiles-cart-recs.liquid (its heading gains a `suppress_heading` arg) and
+      dopamiles-bundle-cart-headline.liquid (its top-tier arm was already
+      rewritten in a84c6a3, see the correction below). Phase 04 steps 9-12 must
+      re-run over the combined result.
+  - CORRECTION-2026-08-06: >-
+      This plan states that live's settings_data.json holds none of the new keys,
+      so the recommendation strip renders hidden and the quick-view is not
+      rendered at all — verified 2026-07-30. That is NO LONGER TRUE. Live now has
+      dop_cart_recs_source, _collection, _end_collection, _per_view, _atc and
+      _atc_color saved, and dop_cart_recs_enabled is absent with a schema default
+      of true. The strip RENDERS ON LIVE. Anything in this plan that treats the
+      strip as dormant on production is reasoning from a stale reading.
+  - CORRECTION-2026-08-06-b: >-
+      The tier headline's top-threshold arm read "Max savings" and rendered no
+      CTA. The tier amount is per-unit, so the top tier is a rate, not a ceiling
+      — 5 tees save $25, 6 save $30, 7 save $35. Fixed in a84c6a3 (pod-tee-theme,
+      branch feat/cart-drawer-chrome-260806): the arm now states what is banked,
+      quotes the rate, and keeps the CTA. Also fixed the .success selector, which
+      only existed in compound form and so never matched the earned-tier states.
   - blocked-by-note: >-
       Re-pointed 2026-08-06. 260805-1848 was rolled back; its successor
       260806-0932 lands the chrome trim only, on its own branch
