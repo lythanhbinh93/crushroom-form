@@ -41,7 +41,10 @@ not have to touch anything for `below_items` to take effect.
 ## Related Code Files
 
 - No code changes. This phase pushes and observes.
-- Pushed: the six files Phase 01 touched, plus the two from `a84c6a3`
+- Pushed: the **eight** runtime files Phase 01 touched. `a84c6a3`'s two files
+  (`dopamiles-bundle-cart-headline.liquid`, `dopamiles-bundle.css`) are already
+  inside that set — it rides along rather than needing its own push.
+- Not pushed: `tests/` is not a theme directory and never ships.
 
 ## Implementation Steps
 
@@ -49,13 +52,29 @@ not have to touch anything for `below_items` to take effect.
 
 ```bash
 npx shopify theme push --theme 160174997756 \
+  --only config/settings_schema.json \
   --only sections/dopamiles-cart-drawer.liquid \
   --only snippets/dopamiles-bundle-cart-band.liquid \
-  --only snippets/dopamiles-cart-recs.liquid \
+  --only snippets/dopamiles-bundle-cart-bar.liquid \
   --only snippets/dopamiles-bundle-cart-headline.liquid \
+  --only snippets/dopamiles-cart-recs.liquid \
   --only assets/dopamiles-bundle.css \
-  --only config/settings_schema.json
+  --only assets/dopamiles-cart.css
 ```
+
+**Eight files, not the six this step originally listed.** Phase 01 added two
+after this phase was written, and both are load-bearing:
+
+- `snippets/dopamiles-bundle-cart-bar.liquid` — the extracted tier progress bar.
+  Omit it and **both** surfaces render a `{% render %}` of a snippet that does
+  not exist on the theme, so the bar vanishes from a layout where it currently
+  works. This is the worst file to leave behind, because the failure is silent.
+- `assets/dopamiles-cart.css` — carries `.dop-cart-recs-top--nohead`. Omit it
+  and the `1 / N` counter sits at the **left** edge under `below_items`, the
+  default layout.
+
+Verify the count before running: `--only` is a list, and a short list is how a
+half-shipped drawer happens.
 
 `config/settings_schema.json` is **not** `settings_data.json` — the schema is
 theme code and must be pushed, the data is merchant state and is
