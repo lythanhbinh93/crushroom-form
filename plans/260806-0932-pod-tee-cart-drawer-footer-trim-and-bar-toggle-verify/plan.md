@@ -3,8 +3,9 @@ title: "pod-tee Cart Drawer Footer Trim and Bar Toggle Verify"
 description: >-
   Re-land the BNC cart-drawer footer trim on dopamiles, rebuilt fresh from the
   BNC source rather than cherry-picked, and verify the already-shipped
-  Stack & Save bar toggle end to end. Branch + preview only; live untouched.
-status: pending
+  Stack & Save bar toggle end to end. Shipped live 2026-08-06 by user decision,
+  with the short-viewport gate still unmeasured.
+status: shipped
 priority: P1
 effort: "6h"
 repo: D:\github local\pod-tee-theme
@@ -12,7 +13,7 @@ plans_repo: D:\github local\crushroom-form
 base: sync/live-collection-header-260731 @ d54412d
 branch: feat/cart-drawer-chrome-260806
 store: dopamiles.co / rfeixb-dd.myshopify.com
-themes: "preview #160174997756 · live #158620516604 (untouched)"
+themes: "preview #160174997756 · live #158620516604 (SHIPPED 2026-08-06)"
 source: tytkwe-qe-theme @ ae6fb4d + e6ad2fd (BNC, live 2026-08-05)
 blockedBy: []
 blocks: [260725-1940-pod-tee-cart-recommendations-and-tier-headline-fix]
@@ -75,7 +76,10 @@ later "the tests pass" claim worthless.
 
 ## Non-goals
 
-- **No live push.** Preview `#160174997756` only. Live `#158620516604` untouched.
+- ~~**No live push.**~~ **REVERSED by the user, 2026-08-06.** Six files pushed to
+  live `#158620516604` with `--allow-live`. See § Ship record. The original gate
+  was preview-only; the reversal was explicit and is recorded rather than
+  quietly absorbed.
 - **No cherry-pick.** User chose a fresh rebuild from BNC source over re-landing
   `7e4fe7c e823eea 9557bfb 4b2c0e2`. Recorded as a decision, not an oversight —
   see § Decisions.
@@ -92,7 +96,7 @@ later "the tests pass" claim worthless.
 |---|---|---|
 | Ask 2 scope | Existing checkbox is the answer; verify, don't build | User |
 | Re-land method | Rebuild fresh from BNC source | User |
-| Ship gate | Branch + preview push; no live | User |
+| Ship gate | Branch + preview push; no live — **reversed 2026-08-06, shipped live** | User |
 | Footer parity | Full — drop Subtotal, Shipping row and wallet line; add tax note | User |
 | Base branch | `sync/live-collection-header-260731` @ `d54412d` — a superset of `e57f20f` and the closest thing to what live serves | Planner |
 
@@ -210,3 +214,56 @@ the change achieves its purpose.** The whole point is vertical room on a short
 viewport, and the only instrument for that is a browser on a preview theme.
 What is committed is a well-covered change whose central claim is still
 unmeasured. It should not be pushed live on the strength of a green suite.
+
+## Ship record — 2026-08-06
+
+Live `#158620516604`, `--allow-live`, **six files only**:
+
+```
+sections/dopamiles-cart-drawer.liquid
+snippets/dopamiles-cart-shipping-protection.liquid
+assets/dopamiles-cart.css
+assets/dopamiles-cart-drawer-ui.css
+assets/dopamiles-cart-page.css
+assets/dopamiles-bundle.css
+```
+
+### Why `--only` and not a full push
+
+A full-tree push would have shipped three things nobody asked for. The live
+theme was pulled in full first and diffed line-ending-agnostically — a naive
+byte comparison reported ~60 changed files, all of which turned out to be the
+CLI writing CRLF on Windows against an LF working tree.
+
+| Found | Disposition |
+|---|---|
+| `sections/dopamiles-collection-grid.liquid` + `dopamiles-home-shop-grid.liquid` carry **uncommitted** `new-arrival` WIP | **Excluded.** `theme push` ships the working tree, not the commit. Verified absent from live after the push |
+| 55 `locales/*.json` differ | **Excluded.** Difference is only Shopify's auto-generated header comment; zero translation content differs |
+| `dopamiles-pdp.css` / `.js` carry the brand size guide the live theme lacks | **Excluded.** Gated behind `{%- if sg_has_chart -%}` (`dopamiles-product-hero.liquid:158`) and parked on chart images — not this plan's to ship |
+| Cart recommendations | Already on live; nothing new shipped |
+
+### Verified after the push, by pulling live back
+
+| Check | Result |
+|---|---|
+| tax note / `Subtotal ·` / `Calc'd at checkout` / secure `<div>` | 1 / 0 / 0 / 0 |
+| `.dop-cart-taxnote` alignment | `text-align: left` |
+| `.dop-cart-summary .dop-cart-secure` in `cart-page.css` | 2 rules — the `/cart` trust line is styled |
+| `new-arrival` WIP on live | 0 — did not leak |
+
+Rollback copy of the pre-push live theme: full pull in the session scratchpad.
+
+### ⚠ Shipped without the measurement gate
+
+The short-viewport claim this change exists to satisfy — ≥1 full line at
+375×500, checkout button in viewport at 375×470 — was **never measured**. Nor
+was the bar-toggle mutation check. Both need a browser, which this session never
+had. Live now serves an unverified change; the risk was stated before the push
+and the user chose to ship.
+
+### ⚠ Production source exists only on a local branch
+
+`feat/cart-drawer-chrome-260806` has **not** been pushed to origin. Live is now
+serving code whose only copy is on this machine — the same exposure recorded in
+`feedback_shopify_push_without_commit_diverges_repo`, one step better only
+because the work is at least committed.
