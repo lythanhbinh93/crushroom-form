@@ -111,7 +111,7 @@ two bugs.
 | 1 | [Green the baseline](./phase-01-start.md) | **Done** — `f186f2b`, suite 198→210 pass | 0.5h |
 | 2 | [Port the BNC footer trim](./phase-02-port-the-bnc-footer-trim.md) | **Done** — `3e40da0` + `8a5d67c` | 2h |
 | 3 | [Cover the trim with tests](./phase-03-cover-the-trim-with-tests.md) | **Done** — `68ce666`, suite 210→234 | 1.5h |
-| 4 | [Preview verification and bar toggle](./phase-04-preview-verification-and-bar-toggle.md) | **Blocked** — no browser bridge, no store access | 2h |
+| 4 | [Preview verification and bar toggle](./phase-04-preview-verification-and-bar-toggle.md) | **Partial** — pushed to preview + verified by pull; measurement still needs a browser | 2h |
 
 ### Progress log
 
@@ -120,7 +120,8 @@ two bugs.
 | 2026-08-06 | P01 done. All 12 test failures were CRLF, not code. Plan's Step 4 had the two routes backwards — `--renormalize` fixes the index, and the index was already LF, so it staged zero changes and fixed nothing; the forced re-checkout was required. Baseline is 210 not 218 because 8 tests are in `stash@{0}` |
 | 2026-08-06 | P02 done, two commits. `--dop-ink-2` confirmed defined (open question 1 closed). All 8 locale keys present in **31** locale files — the "37" figure both plans carried was wrong. A comment naming `ship_qualifies` briefly defeated T3's own absence grep; reworded |
 | 2026-08-06 | P03 done. Suite 210 → 234. The `rescue-260805` cross-check earned its place: it found the trust-line CSS sitting in an **async** stylesheet (moved to the cart page's blocking one) and an **unescaped** merchant-controlled SP subtitle whose fix had never reached this branch. Both adopted. Cross-check ledger now has zero unexplained hunks |
-| 2026-08-06 | P04 **blocked at its own Step 1 gate.** `chrome-profile doctor` → `bridge=none`; DevTools MCP → no `DevToolsActivePort`; `shopify theme list` → no access to `rfeixb-dd`. Nothing pushed, no storefront requests made. The measurement gate and the bar-toggle mutation check remain **unproven** |
+| 2026-08-06 | P04 first stopped at its own Step 1 gate. `chrome-profile doctor` → `bridge=none`; DevTools MCP → no `DevToolsActivePort`; `shopify theme list` → no access to `rfeixb-dd`. Nothing pushed, no storefront requests made. The measurement gate and the bar-toggle mutation check remain **unproven** |
+| 2026-08-06 | P04 partially unblocked — a Theme Access token arrived (in chat again; **must be rotated**). Pushed to preview `#160174997756`. Verified by pulling the drawer section from **both** themes: preview has the tax note and none of the three removals; live still has all three. `.shopifyignore` held — remote `settings_data.json` 14,020 bytes vs the stale local 6,251. **Correction: the push did not destroy the baseline** — live *is* the pre-trim baseline, so before/after is still measurable. Viewport measurement and the bar-toggle mutation check remain unproven |
 
 Strictly sequential. Phase 01 is a gate: until the suite is green, Phase 03
 cannot distinguish a bug it introduced from the twelve already failing.
