@@ -1,19 +1,19 @@
 ---
-phase: 4
+phase: 3
 title: "Verify on preview and ship"
 status: pending
 priority: P1
-effort: "2h"
-dependencies: [3]
+effort: "2.5h"
+dependencies: [2]
 ---
 
-# Phase 4: Verify on preview and ship
+# Phase 3: Verify on preview and ship
 
 ## Overview
 
 Push both layouts to preview, verify what only a browser can, then push to live
-with `--only`. Carries `a84c6a3` — the tier copy fix held back in Phase 01 — to
-live in the same push.
+with `--only`. Carries `a84c6a3` — the tier copy fix held on preview per
+decision 8 — to live in the same push.
 
 ## Requirements
 
@@ -41,7 +41,7 @@ not have to touch anything for `below_items` to take effect.
 ## Related Code Files
 
 - No code changes. This phase pushes and observes.
-- Pushed: the six files Phase 02 touched, plus the two from `a84c6a3`
+- Pushed: the six files Phase 01 touched, plus the two from `a84c6a3`
 
 ## Implementation Steps
 
@@ -82,8 +82,18 @@ Reference cart: 2 bundle-eligible tees + Shipping Protection.
 ### Step 3 — the two properties that cannot be unit-tested
 
 **The mutation.** Tap `+`. The band must survive with updated figures, and the
-layout must not flip to `top`. Phase 01 answered this for a boolean; this
-confirms it for a select, which resolves differently.
+layout must not flip to `top`.
+
+This is a confirmation, not a discovery. The mutation-survival matrix in
+`plans/260725-1940-.../phase-04-qa-and-ship.md` already proved theme-global
+settings survive a `?sections=` re-render — *"two consecutive quantity changes,
+manual picks still present"*, run 2026-07-30 via agent-browser, passed.
+`dop_cart_recs_manual_1..3` are theme-global, merchant-saved, and live in the
+same settings group as `dop_cart_bundle_cta_position`. The one gap that
+assurance does not close is **type**: those are product pickers, this is a
+`select`. Same resolution mechanism, so the risk is small — but set the value to
+`top`, tap `+`, and confirm it is still `top`. Two minutes inside work the
+browser is already doing.
 
 **Recommendations off.** Uncheck `dop_cart_recs_enabled` in the theme editor,
 save, reload. The band must still render its offer. This is the property the
@@ -98,6 +108,27 @@ layout: headline above the list, recs strip with its own offer heading, no band.
 Compare against live directly — live is still on the old layout at this point,
 which makes it the reference. That reference disappears the moment Step 6 runs,
 so do this first.
+
+### Step 4b — the checks inherited from the footer trim
+
+Folded in from this plan's original Phase 01, which was dropped once the
+mutation question turned out to be already answered. These are outstanding from
+`plans/260806-0932-...`, which shipped to live without them.
+
+**`a84c6a3` rendering.** It is on preview and, until Step 6, not on live:
+
+- With 5+ eligible tees the headline reads `✓ Saved $25 · $5 off every extra tee`
+  and a CTA is present
+- Nowhere does the rendered drawer say **Max savings**
+- `Saved $25` renders **green** (`--dop-good #2d7a4f`), not accent orange
+
+The green is the one worth looking at. It has never rendered correctly on any
+theme — the `.success` rule only existed in compound form and so never matched
+the earned-tier states — so there is no remembered "before" to compare against,
+and no Node test can prove a colour.
+
+**`/cart` trust line** on live: correctly sized, not an unsized ~150px padlock.
+That was port trap T1 and it shipped live today unverified.
 
 ### Step 5 — measurements
 
@@ -180,7 +211,7 @@ detail.
 
 | Risk | Mitigation |
 |---|---|
-| No browser, again | Phase 01 already gates on this. If Phase 01 passed, the bridge exists; if it never passed, this plan should not have reached Phase 04 |
+| No browser, again | This is the first phase that needs one, and it has failed to attach in three sessions. Phases 01-02 are complete and committed by this point, so a block here costs verification, not work. Do not substitute an offline mockup — that was tried on 2026-08-05 and was wrong twice |
 | A full push ships the uncommitted WIP | Every push in this phase is `--only` with an explicit file list, and Step 7 verifies absence on live afterwards |
 | `settings_schema.json` confused with `settings_data.json` | Step 1 calls out the distinction explicitly. One is code, the other is merchant state |
 | The `top` reference is destroyed before it is used | Step 4 runs before Step 6 for exactly this reason — live is the reference for "unchanged" |

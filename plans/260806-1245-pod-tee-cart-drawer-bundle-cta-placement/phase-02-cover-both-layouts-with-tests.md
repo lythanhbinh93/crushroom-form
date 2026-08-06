@@ -1,13 +1,13 @@
 ---
-phase: 3
+phase: 2
 title: "Cover both layouts with tests"
 status: pending
 priority: P1
 effort: "1.5h"
-dependencies: [2]
+dependencies: [1]
 ---
 
-# Phase 3: Cover both layouts with tests
+# Phase 2: Cover both layouts with tests
 
 ## Overview
 
@@ -136,6 +136,17 @@ assert.strictEqual(occurrences(text(drawer), '$9'), 1);
 Run it against `top` as well. Today's layout states it twice, so this test
 should **fail** on the pre-change source — verify that before trusting it.
 
+### Step 5b — the empty-cart branch is untouched
+
+The drawer renders the strip twice. Assert the empty branch still renders its own
+heading and no band:
+
+- empty cart → band absent, `context: 'empty'` strip renders with its heading
+- the items branch is the only caller passing `suppress_heading`
+
+Without this, a band render guard placed one line too high would reach both
+branches and nothing would catch it.
+
 ### Step 6 — the `suppress_heading` contract
 
 In `tests/cart-recs.test.js`:
@@ -165,6 +176,7 @@ Expect 245 + the new tests, 0 failures.
 - [ ] The coupled-implementation control confirmed to fail those tests
 - [ ] "Exactly once" asserted, and confirmed to fail against pre-change source
 - [ ] `suppress_heading` contract covered, including the `picked_n == 0` interaction
+- [ ] Empty-cart branch asserted untouched — no band, own heading
 - [ ] `npm test` 0 failures; `theme check` 0 offenses
 
 ## Results

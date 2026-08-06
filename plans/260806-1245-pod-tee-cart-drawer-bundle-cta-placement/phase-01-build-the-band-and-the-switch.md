@@ -1,13 +1,13 @@
 ---
-phase: 2
+phase: 1
 title: "Build the band and the switch"
 status: pending
 priority: P1
 effort: "2.5h"
-dependencies: [1]
+dependencies: []
 ---
 
-# Phase 2: Build the band and the switch
+# Phase 1: Build the band and the switch
 
 ## Overview
 
@@ -103,11 +103,14 @@ carries the paragraph explaining why these live theme-global):
 }
 ```
 
-Theme-global, not section-level — Phase 01 is what licenses that.
+Theme-global, not section-level. What licenses that is the mutation matrix in
+`plans/260725-1940-.../phase-04-qa-and-ship.md`, run 2026-07-30: merchant-saved
+theme-global values survived two consecutive `?sections=` re-renders, while the
+section-block picks they replaced did not. See § Validation Log in `plan.md`.
 
 **Default carries a live consequence.** `below_items` means the layout changes
 for every shopper the moment this reaches live. That was decision 2, taken
-deliberately; it is not an accident to be discovered in Phase 04.
+deliberately; it is not an accident to be discovered in Phase 03.
 
 ### Step 2 — the band snippet
 
@@ -162,6 +165,21 @@ from live's `settings_data.json` until the merchant saves, exactly as
 {%- assign dop_band_shown = false -%}
 {%- if dop_band | strip != blank -%}{%- assign dop_band_shown = true -%}{%- endif -%}
 ```
+
+### Step 3b — leave the empty-cart branch alone
+
+`dopamiles-cart-recs` is rendered **twice**: `context: 'items'` at `:278` and
+`context: 'empty'` at `:423`. Only the items branch gets the band and
+`suppress_heading`.
+
+An empty cart has no bundle-eligible items, so the resolver returns nothing and
+the band renders nothing (decision 3). The empty-state strip therefore keeps its
+own heading, exactly as today. Put the band render inside the items branch only —
+do not hoist it somewhere that reaches both.
+
+`context` currently affects only a CSS modifier class (`cart-recs.liquid:77`,
+`:317`), so `suppress_heading` is a new orthogonal argument rather than an
+overload of an existing one.
 
 ### Step 4 — honour `suppress_heading` in the recs snippet
 
@@ -218,7 +236,7 @@ grep -rn "bnc-\|--bnc-" assets/ sections/ snippets/     # must be empty
 Check every added CSS comment for a literal `*/` inside the body — one makes the
 CDN minifier parse zero rules from the file, silently, while passing theme-check.
 
-Then `npm test` and `npx shopify theme check`. Both must be clean before Phase 03
+Then `npm test` and `npx shopify theme check`. Both must be clean before Phase 02
 adds coverage; a failure here is a build error, not a coverage gap.
 
 ## Success Criteria
@@ -228,6 +246,7 @@ adds coverage; a failure here is a build error, not a coverage gap.
 - [ ] `snippets/dopamiles-bundle-cart-band.liquid` exists and renders all four states
 - [ ] No eligible items → band renders **nothing**, not an empty wrapper
 - [ ] `top` renders today's drawer with no band
+- [ ] The empty-cart branch (`context: 'empty'`) is untouched — no band, heading intact
 - [ ] `below_items` renders the band below the items with the strip heading suppressed
 - [ ] The band is rendered by the section — zero band markup inside `cart-recs.liquid`
 - [ ] `picked_n > 0` and `dop_cart_recs_enabled` gates unchanged
@@ -249,5 +268,5 @@ adds coverage; a failure here is a build error, not a coverage gap.
 | Someone "simplifies" the band into the recs heading | The coupling constraint is stated in `plan.md`, in this phase's Architecture, and in Step 4. It is the single defect this design exists to avoid |
 | The band and the suppressed heading disagree about whether the band rendered | Step 3 captures the band's output and tests it, rather than re-deriving the condition from the resolver in two places |
 | The full-bleed margin breaks when list padding changes | Step 5 requires a comment naming the dependency. The padding moved 22→18px today, so this is a live hazard, not a hypothetical |
-| The default silently changes the live layout | Called out in Step 1 and in decision 2. Phase 04 pushes to preview first |
-| Copy drifts from the headline's | Both surfaces render the same four states from the same resolver and share `.dop-bundle-cart-msg`. Phase 03 asserts them against each other |
+| The default silently changes the live layout | Called out in Step 1 and in decision 2. Phase 03 pushes to preview first, and the switch itself is the rollback |
+| Copy drifts from the headline's | Both surfaces render the same four states from the same resolver and share `.dop-bundle-cart-msg`. Phase 02 asserts them against each other |
