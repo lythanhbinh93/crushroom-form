@@ -93,7 +93,7 @@ Carried from the brainstorm. Numbers match that report.
 | # | Phase | Status | Effort |
 |---|-------|--------|--------|
 | 1 | [Build the band and the switch](./phase-01-build-the-band-and-the-switch.md) | **Done** 2026-08-06 | 3.5h |
-| 2 | [Cover both layouts with tests](./phase-02-cover-both-layouts-with-tests.md) | Pending | 2h |
+| 2 | [Cover both layouts with tests](./phase-02-cover-both-layouts-with-tests.md) | **Done** 2026-08-06 | 2h |
 | 3 | [Verify on preview and ship](./phase-03-verify-on-preview-and-ship.md) | Pending | 2.5h |
 
 **Scope added in Phase 01, carried into 02 and 03.** Scouting found the tier

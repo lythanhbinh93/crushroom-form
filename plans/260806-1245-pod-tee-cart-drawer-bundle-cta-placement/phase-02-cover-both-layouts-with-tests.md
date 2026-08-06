@@ -1,9 +1,9 @@
 ---
 phase: 2
 title: "Cover both layouts with tests"
-status: pending
+status: completed
 priority: P1
-effort: "1.5h"
+effort: "2h"
 dependencies: [1]
 ---
 
@@ -218,10 +218,44 @@ Expect 245 + the new tests, 0 failures.
 
 | Check | Result |
 |---|---|
-| New test count | |
-| Suite total | |
-| "Exactly once" verified failing pre-change | |
-| Coupled control verified failing | |
+| New test count | **48** — 31 in `cart-bundle-band.test.js`, 6 in `cart-recs.test.js`, 11 in `cart-drawer-liquid-parses.test.js` |
+| Suite total | **293 pass / 0 fail** (was 245) |
+| `theme check` | 239 files, 0 offenses |
+| "Exactly once" verified falsifiable | **Yes, two ways.** `top` asserts the count is **2** — the known duplication — so the fragment demonstrably renders both surfaces. And a mutation severing `suppress_heading: dop_band_shown` takes `below_items` from 1 back to 2 |
+| Coupled control verified | **Yes**, by a different route than planned — see below |
+
+**Files created:** `tests/cart-bundle-band.test.js`, `tests/cart-drawer-liquid-parses.test.js`.
+**Modified:** `tests/cart-recs.test.js`, `tests/liquid-harness.js` (`text()` now decodes
+`&mdash;`; no existing assertion used it).
+
+**The switch is tested by slicing the section's real source**, per the
+`cart-drawer-line-item.test.js` precedent — the position assign plus the two
+guards, rendered as one fragment. Restating the guards in the test file would
+have kept passing after the section changed underneath them.
+
+**Step 4's control took a different shape than planned.** The plan called for
+moving the offer into the recs heading in an in-memory copy of the source and
+confirming the tests fail. What ships instead asserts, under each suppression
+condition, that `.dop-cart-recs-head` is **genuinely absent** — so an offer
+living there would have gone with it. Same evidence, no source rewriting, and
+the assertion stays readable. The three conditions covered are recommendations
+off, collection unset, and collection empty. The fourth — pool fully deduped —
+is not separately asserted: `cart-recs.test.js` already covers dedup, and the
+strip's absence is the shared consequence all four conditions reduce to.
+
+**Two properties are asserted that the plan did not ask for**, both from
+Phase 01's scouting: the band renders **no** CTA (locking a deliberate omission
+so it cannot later read as an oversight), and headline and band produce
+**byte-identical** bar markup for the same cart, which is what catches a future
+edit applied to only one caller.
+
+**The parse gate covers the drawer surface by name, not the theme.** A
+theme-wide sweep currently reports ~20 files, none for a real defect: ~15 need
+Shopify filter stubs (`stylesheet_tag`, `inline_asset_content`, …), and
+`snippets/dopamiles-stack-save.liquid` trips a liquidjs limitation with prose
+inside a `comment` nested in a `{% liquid %}` block, which Shopify accepts —
+theme check passes it. Widening the gate is a real follow-up, not a gap in this
+phase.
 
 ## Risk Assessment
 
