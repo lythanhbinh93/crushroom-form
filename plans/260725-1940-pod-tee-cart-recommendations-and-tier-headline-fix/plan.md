@@ -12,10 +12,20 @@ repo: D:\github local\pod-tee-theme
 plans_repo: D:\github local\crushroom-form
 branch: TBD
 store: dopamiles.co / rfeixb-dd.myshopify.com (live theme #158620516604)
-blockedBy: []
+blockedBy: [260806-0932-pod-tee-cart-drawer-footer-trim-and-bar-toggle-verify]
 blocks: [260520-1010-pod-tee-cart-drawer-offer-revamp]
 related:
   - advice: ./advice.md (confirmed requirements, verified evidence, locked decisions)
+  - blocked-by-note: >-
+      Re-pointed 2026-08-06. 260805-1848 was rolled back; its successor
+      260806-0932 lands the chrome trim only, on its own branch
+      (feat/cart-drawer-chrome-260806, based on sync/live-collection-header-260731).
+      The mutation path is NO LONGER changing — the reconcile stayed parked — so
+      only the footer changes affect this plan. Phase 04 is not blocked from
+      starting; it is blocked from CLOSING, because steps 9-12 would otherwise
+      sign off a drawer whose footer rows have since changed. Re-run them once
+      both branches are integrated.
+  - superseded-blocker: plans/260805-1848-pod-tee-cart-drawer-reconcile-and-chrome-trim (rolled back 2026-08-05; kept as the record of the reconcile investigation)
   - overlaps: plans/260520-1010-pod-tee-cart-drawer-offer-revamp (phases 01-04 complete; built the bar + Shipping Protection this plan corrects; phase 05 QA never ran)
   - overlaps: plans/260725-1737-pod-tee-stack-and-save-effective-per-unit-price (same tiers metafield, PDP-side)
   - not-live: dopamiles-bundle-app/extensions/bundle-discount (Rust Function, tag-gated, NOT deployed)
