@@ -790,7 +790,7 @@ def main():
                                     file_id = extract_gdrive_id(img_url)
                                     if file_id:
                                         thumbnail_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w200"
-                                        st.image(thumbnail_url, use_column_width=True)
+                                        st.image(thumbnail_url, width="stretch")
 
     # Map images to slots
     st.markdown("---")
@@ -1115,7 +1115,7 @@ def main():
                                 border_style = "border: 3px solid #4CAF50;" if is_selected else "border: 1px solid #ddd;"
 
                                 st.markdown(f'<div style="{border_style}padding:2px;border-radius:4px;">', unsafe_allow_html=True)
-                                st.image(img['thumbnail'], use_column_width=True)
+                                st.image(img['thumbnail'], width="stretch")
                                 st.markdown('</div>', unsafe_allow_html=True)
 
                                 # Button below thumbnail
