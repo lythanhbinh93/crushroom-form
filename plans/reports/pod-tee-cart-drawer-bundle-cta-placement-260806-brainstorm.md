@@ -59,7 +59,7 @@ switches between that and the current top band.
 |---|---|---|
 | 1 | Structure | Band occupies the recs-heading slot; recs heading demoted to "You might also like"; top headline hidden in this mode |
 | 2 | Default | **`below_items`** — the new layout ships live on deploy |
-| 3 | Edge states | Mirror today's behaviour exactly — no eligible items renders **nothing**; top tier reached shows "Max savings · Saved $X" with no CTA |
+| 3 | Edge states | Mirror today's behaviour — no eligible items renders **nothing**. ~~Top tier shows "Max savings" with no CTA.~~ **Superseded:** that behaviour was found to be a defect and fixed in `a84c6a3`; the band inherits the corrected state instead (see § Found defect and decision 6) |
 | 4 | Coupling | **Decoupled.** The band renders from the drawer section, not from inside the recs snippet |
 | 5 | Merge | The band **fills the recs strip's heading slot** — one row, not two. Visual merge only; it is still emitted by the section, so it survives when the strip does not |
 | 6 | Copy | Band states both halves: `✓ Saved $X · Add N more tees — save $Y`. Banked amount green (`--dop-good`), money on the table accent. At/past the top threshold: `✓ Saved $X · $Y off every extra tee` |
