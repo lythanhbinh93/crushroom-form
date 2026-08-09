@@ -30,8 +30,10 @@ const H = new Function(
   [
     grab(/const VOICE_SHEET_HEADERS = \[[\s\S]*?\];/),
     grab(/function rowFromObject_\(obj\) \{[\s\S]*?\n\}/),
-    grab(/function resolveKeptMedia_\(params, existingRow\) \{[\s\S]*?\n\}/)
-  ].join('\n') + ';return { VOICE_SHEET_HEADERS, rowFromObject_, resolveKeptMedia_ };'
+    grab(/function resolveKeptSlot_\(params, existingRow, flag, fileField, urlField\) \{[\s\S]*?\n\}/),
+    grab(/function resolveKeptMedia_\(params, existingRow\) \{[\s\S]*?\n\}/),
+    grab(/function resolveKeptVoiceMedia_\(params, existingRow\) \{[\s\S]*?\n\}/)
+  ].join('\n') + ';return { VOICE_SHEET_HEADERS, rowFromObject_, resolveKeptMedia_, resolveKeptVoiceMedia_ };'
 )();
 
 let pass = 0, fail = 0;
@@ -77,6 +79,19 @@ ok('blank bg/audio/female cells resolve null despite the flags',
    sparse.male !== null && sparse.female === null && sparse.bg === null && sparse.audio === null);
 ok('whitespace-only cell counts as blank',
    H.resolveKeptMedia_(ALL_FLAGS, H.rowFromObject_({ bg_file_id: '  ' })).bg === null);
+
+console.log('\n-- voice keep-flags (finishUpload) share the same rules --');
+const voiceRow = H.rowFromObject_({
+  image_file_id: 'VI1', image_url: 'u:VI1',
+  audio_file_id: 'VA1', audio_url: 'u:VA1', type: 'voice'
+});
+const vKept = H.resolveKeptVoiceMedia_({ keepImage: '1', keepAudio: '1' }, voiceRow);
+ok('voice image keeps its own pair', vKept.image && vKept.image.fileId === 'VI1');
+ok('voice audio keeps its own pair', vKept.audio && vKept.audio.fileId === 'VA1');
+ok('voice flags resolve null without a row',
+   H.resolveKeptVoiceMedia_({ keepImage: '1', keepAudio: '1' }, null).image === null);
+ok('voice keepAudio with a blank cell resolves null (cannot satisfy audio-required)',
+   H.resolveKeptVoiceMedia_({ keepAudio: '1' }, H.rowFromObject_({ image_file_id: 'VI1' })).audio === null);
 
 console.log('\n-- fresh-wins precedence lives in the handler: pin the OR order --');
 // The handler must OR fresh media FIRST (save || kept). Assert the source

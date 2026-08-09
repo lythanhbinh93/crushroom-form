@@ -288,8 +288,10 @@
   <!-- Shared audio helpers, reused as-is from the voice gift form -->
   <script src="./assets/voice-peaks-extractor.js"></script>
   <script src="./assets/voice-compressor.js"></script>
-  <!-- Shared renderer first — the preview painter reads window.CounterRender -->
+  <!-- Shared modules first — the controller reads window.CounterRender and
+       window.UploadSheet at wire-up time -->
   <script src="./assets/counter-render.js"></script>
+  <script src="./assets/upload-sheet.js"></script>
   <script src="./assets/love-counter-upload.js"></script>
 </body>
 </html>

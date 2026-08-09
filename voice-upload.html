@@ -10,178 +10,189 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@20.3.0/build/css/intlTelInput.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/croppie/2.6.5/croppie.min.css">
 
-  <!-- Custom CSS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Layer sandwich, same recipe as love-counter-upload.html:
+       1. voice-upload.css — shared form system (crop modal, buttons, banners)
+       2. voice-page.css   — the REAL gift page's stylesheet for the backdrop
+       3. love-counter-upload.css — the lc-sheet stepper layer (named for the
+          form that introduced it; it is the shared sheet design system) -->
   <link rel="stylesheet" href="./assets/voice-upload.css">
+  <link rel="stylesheet" href="./assets/voice-page.css">
+  <link rel="stylesheet" href="./assets/love-counter-upload.css">
 
   <!-- External Libraries JS (same CDN versions as couplepix.html) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/croppie/2.6.5/croppie.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@20.3.0/build/js/intlTelInput.min.js"></script>
 </head>
-<body>
-  <div class="container-layout">
+<body class="lc-form-page">
 
-    <!-- ===== MAIN FORM (hidden when success/param-error shown) ===== -->
-    <form id="voice-form" method="post" action="" novalidate>
-      <div class="header">
-        <h3 class="title-heading">Gửi lời nhắn âm thanh</h3>
-        <div class="description">
-          <p>Tải lên file âm thanh (MP3/M4A), ảnh, và lời nhắn để tạo trang quà tặng.</p>
-        </div>
+  <!-- ===== LIVE PREVIEW — static skeleton of the gift page (voice.html),
+       assembling as the customer fills the sheet. Deliberate build choice:
+       the gift page's preview surface is only photo + message + player chip,
+       so mirroring its markup with voice-page.css beats extracting a shared
+       renderer (the counter's "never lies" bar applies to DATA — here the
+       only data are the message text and the photo, both painted 1:1). ===== -->
+  <main id="preview-root" class="gift-card vc-preview-stage" aria-label="Xem trước trang quà tặng">
+    <div class="audio-player">
+      <div class="audio-image">
+        <img id="pv-gift-image" alt="" referrerpolicy="no-referrer" hidden />
+        <button type="button" class="vc-photo-placeholder" id="pv-photo-add" aria-label="Thêm ảnh kèm theo">＋<small>Ảnh kèm theo (tuỳ chọn)</small></button>
       </div>
 
-      <div class="form-builder">
+      <p class="gift-text-wrap"><strong><span id="pv-gift-text" class="vc-dim">Lời nhắn của bạn sẽ hiện ở đây</span></strong></p>
 
-        <!-- PHONE -->
-        <div class="form-control">
-          <label for="phone-input" class="classic-label globo-label">
-            <span class="label-content">Số điện thoại đặt hàng</span>
-            <span class="text-danger text-smaller"> *</span>
-          </label>
-          <div class="form-group">
-            <div class="form-phone">
-              <div class="globo-form-icon">
-                <svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-                  <path fill="currentColor" d="M497.39 361.8l-112-48a24 24 0 0 0-28 6.9l-49.6 60.6A370.66 370.66 0 0 1 130.6 204.11l60.6-49.6a23.94 23.94 0 0 0 6.9-28l-48-112A24.16 24.16 0 0 0 122.6.61l-104 24A24 24 0 0 0 0 48c0 256.5 207.9 464 464 464a24 24 0 0 0 23.4-18.6l24-104a24.29 24.29 0 0 0-14.01-27.6z"></path>
-                </svg>
-              </div>
-              <input type="text" id="phone-input" placeholder="091 234 56 78" autocomplete="tel">
-            </div>
-          </div>
-          <small class="help-text globo-description">Nhập số điện thoại bạn đã dùng khi đặt hàng</small>
-          <small class="messages" id="phone-error" style="display:none;"></small>
-        </div>
-
-        <!-- ORDER ID — hidden from customers; they are matched by phone number.
-             Kept in the DOM (not deleted) because order_id is still required by
-             the backend and forms half the (phone, order_id) row key. It is
-             always populated by voice-upload.js. -->
-        <div class="form-control" id="order-field" style="display:none;">
-          <label for="order-input" class="classic-label globo-label">
-            <span class="label-content">Mã đơn hàng</span>
-            <span class="text-danger text-smaller"> *</span>
-          </label>
-          <div class="globo-form-input">
-            <input type="text" id="order-input" class="voice-text-input" placeholder="VD: ORD-001" autocomplete="off">
-          </div>
-          <small class="help-text globo-description">Mã đơn hàng từ shop (được điền sẵn từ link, có thể sửa nếu cần)</small>
-          <small class="messages" id="order-error" style="display:none;"></small>
-        </div>
-
-        <!-- AUDIO FILE -->
-        <div class="form-control">
-          <label class="classic-label globo-label">
-            <span class="label-content">File âm thanh (MP3, M4A, AAC)</span>
-            <span class="text-danger text-smaller"> *</span>
-          </label>
-          <div class="audio-dropzone" id="audio-dropzone">
-            <div class="audio-placeholder" id="audio-placeholder">
-              <div class="audio-icon" aria-hidden="true">🎵</div>
-              <div class="audio-placeholder-title">Chọn file âm thanh</div>
-              <div class="audio-placeholder-desc">Định dạng hỗ trợ: MP3, M4A, AAC. Tối đa 35MB.</div>
-              <button type="button" class="dropzone--placeholder--button" id="audio-trigger-btn">Chọn file</button>
-            </div>
-            <div class="audio-preview" id="audio-preview" style="display:none;">
-              <span class="audio-icon" aria-hidden="true">🎵</span>
-              <span id="audio-filename" class="audio-filename"></span>
-              <button type="button" class="audio-remove-btn" id="audio-remove-btn" aria-label="Xoá file">✕</button>
-            </div>
-            <!-- Hidden actual file input — triggered programmatically for reliable mobile support -->
-            <input type="file" id="audio-input" accept=".mp3,.m4a,.aac,audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,audio/*" style="display:none;">
-          </div>
-          <!-- Warning banner: shown when file >20MB (WARN_FILE_MB constant) -->
-          <div class="warning-banner" id="audio-size-warning" style="display:none;">
-            ⚠️ File lớn hơn 20MB. Upload có thể mất vài phút trên 4G.
-          </div>
-          <small class="messages" id="audio-error" style="display:none;"></small>
-        </div>
-
-        <!-- IMAGE (Croppie) -->
-        <div class="form-control">
-          <label class="classic-label globo-label">
-            <span class="label-content">Ảnh kèm theo</span>
-            <span class="text-danger text-smaller"> *</span>
-          </label>
-          <div class="dropzone" id="image-dropzone">
-            <div class="dropzone--content">
-              <div class="dropzone--placeholder" id="image-placeholder">
-                <div class="dropzone--placeholder--title">Chọn ảnh hoặc kéo ảnh vào đây</div>
-                <div class="dropzone--placeholder--description">Định dạng hỗ trợ: JPG, PNG, HEIC.</div>
-                <button type="button" class="dropzone--placeholder--button" id="image-trigger-btn">Chọn ảnh</button>
-              </div>
-              <div class="dropzone--preview--area" id="image-preview-area" style="display:none;">
-                <div class="img-preview" id="image-preview"></div>
-                <button type="button" class="couplepix-close t4s-drawer__close" id="image-remove-btn" aria-label="Xoá ảnh">
-                  <svg class="t4s-iconsvg-close" role="presentation" viewBox="0 0 16 14">
-                    <path d="M15 0L1 14m14 0L1 0" stroke="currentColor" fill="none" fill-rule="evenodd"></path>
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <!-- Hidden file input + data holder -->
-            <input type="file" id="image-input" accept="image/*" style="display:none;">
-            <input type="hidden" id="image-data">
-          </div>
-          <small class="messages" id="image-error" style="display:none;"></small>
-        </div>
-
-        <!-- TEXT MESSAGE -->
-        <div class="form-control">
-          <label for="text-message" class="classic-label globo-label">
-            <span class="label-content">Lời nhắn</span>
-            <span class="text-danger text-smaller"> *</span>
-          </label>
-          <div class="globo-form-input">
-            <textarea id="text-message" class="voice-textarea" rows="5" maxlength="1000"
-              placeholder="Nhập lời nhắn của bạn…"></textarea>
-          </div>
-          <div class="char-counter"><span id="char-count">0</span>/1000</div>
-          <small class="messages" id="text-error" style="display:none;"></small>
-        </div>
-
-        <!-- SUBMIT -->
-        <div class="form-control">
-          <div class="gfb__footer wizard__footer">
-            <button type="submit" id="submit-btn" class="globo-form-app" disabled>
-              <span id="submit-spinner" class="spinner" style="display:none;"></span>
-              <span id="submit-label">Gửi lời nhắn</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Global submit error -->
-        <div class="messages" id="submit-error" style="display:none;"></div>
-
-      </div><!-- /.form-builder -->
-    </form>
-
-    <!-- ===== PROGRESS PANEL (shown during upload, hidden otherwise) ===== -->
-    <div id="progress-panel" class="progress-panel" style="display:none;">
-      <div class="progress-title" id="progress-title">Đang tải lên…</div>
-      <div class="progress-bar-track">
-        <div class="progress-bar-fill" id="progress-bar-fill" style="width:0%"></div>
+      <!-- Player chip: presence only — the form never streams (the file is
+           not uploaded yet during form fill), so bars are decorative. -->
+      <div id="pv-player" class="player-container" hidden>
+        <span class="vc-pv-play" aria-hidden="true">🎵</span>
+        <div id="pv-waveform" class="voice-bars-decorative"></div>
+        <div id="pv-audio-name" class="vc-pv-audio-name"></div>
       </div>
-      <div class="progress-label" id="progress-label">0%</div>
     </div>
 
-    <!-- ===== SUCCESS PANEL ===== -->
-    <div id="success-panel" class="success-panel" style="display:none;">
-      <div class="success-icon" aria-hidden="true">✅</div>
-      <h3 class="success-title">Đã gửi thành công!</h3>
-      <p class="success-message">Cảm ơn bạn. Shop sẽ xử lý và gửi link QR cho bạn trong ít giờ tới.</p>
+    <footer class="gift-footer">
+      <span>Gửi từ CouplePix</span>
+    </footer>
+  </main>
+
+  <!-- ===== BOTTOM-SHEET STEPPER ===== -->
+  <form id="voice-form" class="lc-sheet" method="post" action="" novalidate>
+    <button type="button" class="lc-grab-zone" id="lc-grab" aria-label="Mở/thu gọn bảng nhập">
+      <span class="lc-grab"></span>
+    </button>
+    <div class="lc-stepdots" id="lc-stepdots" aria-hidden="true"></div>
+
+    <!-- Editing banner — sheet-level so it stays visible on every step once a
+         prior submission hydrates (hydration jumps straight past step 0). -->
+    <div class="lc-prefill-banner" id="prefill-banner" hidden></div>
+
+    <!-- STEP 0 — identity (order code hidden: customers are matched by phone;
+         order_id stays in the DOM because it is half the row key and is always
+         populated by voice-upload.js — real code from ?order=, else AUTO-…) -->
+    <section class="lc-step" data-step="0">
+      <h2 class="lc-step-title">Xác nhận đơn hàng</h2>
+      <p class="lc-step-sub">Nhập SĐT đặt hàng — nếu bạn đã gửi trước đó qua link của shop, bản cũ sẽ hiện lên để sửa tiếp.</p>
+
+      <div class="lc-field">
+        <label for="phone-input">Số điện thoại đặt hàng <span class="lc-req">*</span></label>
+        <input type="tel" id="phone-input" placeholder="091 234 56 78" autocomplete="tel">
+        <small class="lc-error" id="phone-error" hidden></small>
+      </div>
+
+      <div class="lc-field" id="order-field" style="display:none;">
+        <label for="order-input">Mã đơn hàng</label>
+        <input type="text" id="order-input" autocomplete="off">
+        <small class="lc-error" id="order-error" hidden></small>
+      </div>
+
+      <button type="button" class="lc-btn" id="step0-next">Bắt đầu tạo →</button>
+    </section>
+
+    <!-- STEP 1 — photo (optional; same 280-square crop → 400×400 q0.85) -->
+    <section class="lc-step" data-step="1" hidden>
+      <h2 class="lc-step-title">Ảnh kèm theo <span class="lc-opt">(tuỳ chọn)</span></h2>
+      <p class="lc-step-sub">Chạm để chọn &amp; cắt ảnh — ảnh hiện ngay lên trang phía sau.</p>
+
+      <div class="lc-picks">
+        <div class="lc-pick dropzone" id="image-dropzone">
+          <div class="dropzone--content">
+            <div class="dropzone--placeholder lc-pick-placeholder" id="image-placeholder">
+              <span class="lc-pick-emoji" aria-hidden="true">🖼️</span>
+              <span class="lc-pick-label">Ảnh vuông</span>
+              <button type="button" class="dropzone--placeholder--button lc-pick-btn" id="image-trigger-btn">Chọn ảnh</button>
+            </div>
+            <div class="dropzone--preview--area lc-pick-done" id="image-preview-area" style="display:none;">
+              <div class="img-preview vc-image-preview" id="image-preview"></div>
+              <span class="lc-pick-change">Đổi ảnh</span>
+              <button type="button" class="lc-pick-remove" id="image-remove-btn" aria-label="Xoá ảnh">✕</button>
+            </div>
+          </div>
+          <input type="file" id="image-input" accept="image/*" style="display:none;">
+          <input type="hidden" id="image-data">
+        </div>
+      </div>
+      <small class="lc-error" id="image-error" hidden></small>
+
+      <button type="button" class="lc-btn lc-next" data-goto="2">Tiếp tục →</button>
+      <button type="button" class="lc-btn lc-btn-ghost lc-back" data-goto="0">← Quay lại</button>
+    </section>
+
+    <!-- STEP 2 — message (required, ≤1000) -->
+    <section class="lc-step" data-step="2" hidden>
+      <h2 class="lc-step-title">Lời nhắn</h2>
+      <p class="lc-step-sub">Người nhận sẽ đọc lời nhắn này ngay dưới tấm ảnh.</p>
+
+      <div class="lc-field">
+        <label for="text-message">Lời nhắn <span class="lc-req">*</span></label>
+        <textarea id="text-message" rows="4" maxlength="1000" placeholder="Nhập lời nhắn của bạn…"></textarea>
+        <small class="lc-hint-inline"><span id="char-count">0</span>/1000</small>
+        <small class="lc-error" id="text-error" hidden></small>
+      </div>
+
+      <button type="button" class="lc-btn lc-next" data-goto="3">Tiếp tục →</button>
+      <button type="button" class="lc-btn lc-btn-ghost lc-back" data-goto="1">← Quay lại</button>
+    </section>
+
+    <!-- STEP 3 — audio (REQUIRED — it IS the product) -->
+    <section class="lc-step" data-step="3" hidden>
+      <h2 class="lc-step-title">Giọng nói của bạn <span class="lc-req">*</span></h2>
+      <p class="lc-step-sub">Tải file ghi âm — chính là món quà người nhận sẽ nghe. MP3, M4A, AAC, tối đa 35MB.</p>
+
+      <div class="audio-dropzone lc-audio-dropzone" id="audio-dropzone">
+        <div class="audio-placeholder" id="audio-placeholder">
+          <button type="button" class="lc-btn lc-btn-ghost lc-audio-pick" id="audio-trigger-btn">🎵 Chọn file audio…</button>
+        </div>
+        <div class="audio-preview lc-audio-preview" id="audio-preview" style="display:none;">
+          <span class="audio-icon" aria-hidden="true">🎵</span>
+          <span id="audio-filename" class="audio-filename"></span>
+          <button type="button" class="audio-remove-btn" id="audio-remove-btn" aria-label="Xoá file">✕</button>
+        </div>
+        <input type="file" id="audio-input" accept=".mp3,.m4a,.aac,audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,audio/*" style="display:none;">
+      </div>
+      <div class="warning-banner" id="audio-size-warning" style="display:none;">
+        ⚠️ File lớn hơn 20MB. Upload có thể mất vài phút trên 4G.
+      </div>
+      <small class="lc-error" id="audio-error" hidden></small>
+
+      <button type="button" class="lc-btn lc-next" data-goto="4">Tiếp tục →</button>
+      <button type="button" class="lc-btn lc-btn-ghost lc-back" data-goto="2">← Quay lại</button>
+    </section>
+
+    <!-- STEP 4 — review & submit (sheet collapses; the page IS the review) -->
+    <section class="lc-step" data-step="4" hidden>
+      <h2 class="lc-step-title">Xem lại &amp; gửi</h2>
+      <p class="lc-step-sub">Đây chính xác là trang người nhận sẽ thấy khi quét QR. Chạm thanh kéo để xem toàn trang.</p>
+
+      <button type="submit" id="submit-btn" class="lc-btn" disabled>
+        <span id="submit-spinner" class="spinner" style="display:none;"></span>
+        <span id="submit-label">Gửi lời nhắn 💌</span>
+      </button>
+      <button type="button" class="lc-btn lc-btn-ghost lc-back" data-goto="1">← Sửa lại</button>
+      <div class="lc-error" id="submit-error" hidden></div>
+    </section>
+
+    <!-- Upload progress (audio compression / base64 read) -->
+    <div id="progress-panel" class="lc-progress" style="display:none;">
+      <div class="lc-progress-title" id="progress-title">Đang tải lên…</div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-bar-fill" style="width:0%"></div></div>
+      <div class="lc-progress-label" id="progress-label">0%</div>
     </div>
 
-    <!-- ===== PARAM ERROR PANEL (URL params missing) ===== -->
-    <div id="param-error-panel" class="error-panel" style="display:none;">
-      <div class="error-icon" aria-hidden="true">⚠️</div>
-      <h3 class="error-title">Link không hợp lệ</h3>
-      <p id="param-error-message" class="error-message"></p>
+    <!-- Success (replaces the steps inside the sheet) -->
+    <div id="success-panel" class="lc-success" style="display:none;">
+      <div class="lc-success-icon" aria-hidden="true">✅</div>
+      <h3 class="lc-success-title">Đã gửi thành công!</h3>
+      <p class="lc-success-message">Cảm ơn bạn. Shop sẽ xử lý và gửi link QR cho bạn trong ít giờ tới.</p>
     </div>
-
-  </div><!-- /.container-layout -->
+  </form>
 
   <!-- Custom JavaScript -->
   <script src="./assets/voice-peaks-extractor.js"></script>
   <script src="./assets/voice-compressor.js"></script>
+  <script src="./assets/upload-sheet.js"></script>
   <script src="./assets/voice-upload.js"></script>
 </body>
 </html>

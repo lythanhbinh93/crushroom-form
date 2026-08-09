@@ -251,6 +251,25 @@ Rules, enforced server-side (pure `resolveKeptMedia_`, testable):
 - The new-customer path (no flags, no existing row) is byte-identical to the
   original contract above. No existing param changed meaning.
 
+## finishUpload keep-flags — returning voice customers
+
+The same pattern, applied to `finishUpload`'s two media slots:
+
+| Param | Effect when `1` AND an existing `(phone, order_id, voice)` row is found |
+|---|---|
+| `keepImage` | reuse the row's `image_file_id/_url` instead of reading `imgData` |
+| `keepAudio` | reuse the row's `audio_file_id/_url` **and its `peaks` + `audio_duration`** — satisfies the audio-required rule without re-uploading |
+
+Same rules as submitCounter's flags (shared `resolveKeptSlot_`): ignored
+without a matching row or with a blank cell, fresh data wins, and the
+no-flag path is byte-identical to the original contract. Audio remains
+REQUIRED for a voice row — `keepAudio` is a third way to satisfy it
+(`fileId`, `audioData`, or a kept file), never a way around it.
+
+Note the voice form auto-generates `order_id` (`AUTO-…`) when the link
+carries none, so keep-flags only ever engage on staff links that carry the
+real `?order=` — a bare-page revisit cannot find its previous row.
+
 ## Out of scope this phase
 
 The milestone timeline (10 × avatar/link/text/position) from the current Shopify

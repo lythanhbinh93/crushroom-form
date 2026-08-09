@@ -494,7 +494,9 @@ function handleInitUpload_(e) {
  *     (a) fileId  — Drive ID from a completed resumable upload (server-side callers; initUpload feeds this path)
  *     (b) audioData (base64) + audioFilename + audioMime — direct upload through GAS
  *         (PIVOT: Drive resumable PUT fails browser CORS, so browser posts audio base64 here)
- *   Optional: imgData (base64 JPEG), imgFilename
+ *     (c) keepAudio=1 — returning customer reuses the existing row's audio
+ *         (+ its peaks/duration); see the contract doc's keep-flags section
+ *   Optional: imgData (base64 JPEG), imgFilename — or keepImage=1 to reuse
  * Upserts voice_pages row (re-upload overwrites → status resets to pending).
  */
 function handleFinishUpload_(e) {
@@ -515,7 +517,19 @@ function handleFinishUpload_(e) {
 
         if (!phone) return jsonOut({ ok: false, error: 'phone required' });
         if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
-        if (!audioFileId && !audioData) return jsonOut({ ok: false, error: 'audio required (fileId or audioData)' });
+
+        // Row lookup BEFORE the Drive saves (same rule as submitCounter): the
+        // keep-flags need the existing row, and a bad identity must not leave
+        // orphaned anyone-with-link files in the folder.
+        var sheet = ensureVoiceSheet_();
+        var existing = voiceFindRowByKey_(phone, orderId);
+        var keptMedia = resolveKeptVoiceMedia_(e.parameter, existing ? existing.row : null);
+
+        // Voice audio IS the product: fresh bytes, a completed resumable
+        // upload, or a kept file — one of the three must exist.
+        if (!audioFileId && !audioData && !keptMedia.audio) {
+            return jsonOut({ ok: false, error: 'audio required (fileId or audioData)' });
+        }
 
         var audioFolderId = scriptProp.getProperty('VOICE_AUDIO_FOLDER_ID');
         var imageFolderId = scriptProp.getProperty('VOICE_IMAGE_FOLDER_ID');
@@ -533,11 +547,23 @@ function handleFinishUpload_(e) {
             }
         }
 
-        try { setAnyoneCanView_(audioFileId); } catch (permErr) {
-            Logger.log('Warning: could not set audio permissions: ' + permErr);
+        var audioUrl = '';
+        if (audioFileId) {
+            // Fresh audio (either source) — share it and carry the posted peaks.
+            try { setAnyoneCanView_(audioFileId); } catch (permErr) {
+                Logger.log('Warning: could not set audio permissions: ' + permErr);
+            }
+            audioUrl = 'https://drive.google.com/file/d/' + audioFileId + '/view?usp=sharing';
+        } else {
+            // Kept audio carries the row's peaks + duration forward — the client
+            // never had them. Read values re-enter through the same escaping the
+            // original write used (csvSafe_ applies at the row build below).
+            audioFileId = keptMedia.audio.fileId;
+            audioUrl = keptMedia.audio.url;
+            peaks = String(existing.row[VOICE_SHEET_HEADERS.indexOf('peaks')] || '');
+            audioDuration = parseFloat(existing.row[VOICE_SHEET_HEADERS.indexOf('audio_duration')] || '0') || 0;
         }
 
-        var audioUrl = 'https://drive.google.com/file/d/' + audioFileId + '/view?usp=sharing';
         var imageFileId = '';
         var imageUrl = '';
 
@@ -550,10 +576,11 @@ function handleFinishUpload_(e) {
             } catch (imgErr) {
                 Logger.log('Warning: image save failed: ' + imgErr);
             }
+        } else if (keptMedia.image) {
+            // Fresh data wins; the kept file only fills a slot the POST left empty.
+            imageFileId = keptMedia.image.fileId;
+            imageUrl = keptMedia.image.url;
         }
-
-        var sheet = ensureVoiceSheet_();
-        var existing = voiceFindRowByKey_(phone, orderId);
 
         var now = new Date().toISOString();
         // Prefix phone with apostrophe so Sheets stores as text and preserves leading 0.
@@ -1117,19 +1144,28 @@ function saveCounterImage_(base64Data, filename, fallbackName, folderId) {
  * { fileId, url } or null, same shape saveCounterImage_ produces, so the
  * handler treats kept and fresh media identically downstream.
  */
+function resolveKeptSlot_(params, existingRow, flag, fileField, urlField) {
+    if (!existingRow) return null;
+    if (String(params[flag] || '') !== '1') return null;
+    var fileId = String(existingRow[VOICE_SHEET_HEADERS.indexOf(fileField)] || '').trim();
+    if (!fileId) return null;
+    return { fileId: fileId, url: String(existingRow[VOICE_SHEET_HEADERS.indexOf(urlField)] || '') };
+}
+
 function resolveKeptMedia_(params, existingRow) {
-    function kept(flag, fileField, urlField) {
-        if (!existingRow) return null;
-        if (String(params[flag] || '') !== '1') return null;
-        var fileId = String(existingRow[VOICE_SHEET_HEADERS.indexOf(fileField)] || '').trim();
-        if (!fileId) return null;
-        return { fileId: fileId, url: String(existingRow[VOICE_SHEET_HEADERS.indexOf(urlField)] || '') };
-    }
     return {
-        male: kept('keepMale', 'male_image_file_id', 'male_image_url'),
-        female: kept('keepFemale', 'female_image_file_id', 'female_image_url'),
-        bg: kept('keepBg', 'bg_file_id', 'bg_url'),
-        audio: kept('keepAudio', 'audio_file_id', 'audio_url')
+        male: resolveKeptSlot_(params, existingRow, 'keepMale', 'male_image_file_id', 'male_image_url'),
+        female: resolveKeptSlot_(params, existingRow, 'keepFemale', 'female_image_file_id', 'female_image_url'),
+        bg: resolveKeptSlot_(params, existingRow, 'keepBg', 'bg_file_id', 'bg_url'),
+        audio: resolveKeptSlot_(params, existingRow, 'keepAudio', 'audio_file_id', 'audio_url')
+    };
+}
+
+/** finishUpload's keep-flags — voice rows have one image and one audio slot. */
+function resolveKeptVoiceMedia_(params, existingRow) {
+    return {
+        image: resolveKeptSlot_(params, existingRow, 'keepImage', 'image_file_id', 'image_url'),
+        audio: resolveKeptSlot_(params, existingRow, 'keepAudio', 'audio_file_id', 'audio_url')
     };
 }
 

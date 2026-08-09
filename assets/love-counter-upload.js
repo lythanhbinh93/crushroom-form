@@ -130,8 +130,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var DEFAULT_TITLE = CR.DEFAULT_TITLE;
 
   /* ── State ─────────────────────────────────────────────────────────────── */
+  // Step index lives in the shared sheet frame (see UploadSheet.create below).
   var state = {
-    step: 0,
     audioFile: null,          // fresh audio File chosen this session
     keptAudio: false,         // hydrated audio kept from the prior submission
     isSubmitting: false,
@@ -337,42 +337,21 @@ document.addEventListener('DOMContentLoaded', function () {
     };
   }
 
-  function renderDots() {
-    stepdotsEl.innerHTML = '';
-    for (var i = 0; i < stepEls.length; i++) {
-      var dot = document.createElement('i');
-      if (i <= state.step) dot.className = 'on';
-      stepdotsEl.appendChild(dot);
-    }
-  }
-
-  function goStep(i) {
-    state.step = i;
-    stepEls.forEach(function (el) {
-      el.hidden = Number(el.getAttribute('data-step')) !== i;
-    });
-    renderDots();
-    // Review: collapse so the full page is visible — the page IS the review.
-    sheetEl.classList.toggle('lc-collapsed', i === 4);
-    sheetEl.scrollTop = 0;
-    checkFormValid();
-  }
-
-  // Tap the grab zone (or the collapsed sheet) to toggle at the review step.
-  grabBtn.addEventListener('click', function () {
-    if (state.step === 4) sheetEl.classList.toggle('lc-collapsed');
+  // Shared sheet frame: step visibility, dots, collapse-at-review, keyboard.
+  var sheet = window.UploadSheet.create({
+    sheetEl: sheetEl,
+    grabEl: grabBtn,
+    dotsEl: stepdotsEl,
+    stepEls: stepEls,
+    onStep: function () { checkFormValid(); }
   });
-  sheetEl.addEventListener('click', function (e) {
-    if (sheetEl.classList.contains('lc-collapsed') && !e.target.closest('button')) {
-      sheetEl.classList.remove('lc-collapsed');
-    }
-  });
+  function goStep(i) { sheet.goStep(i); }
 
   // Generic next/back buttons validate the CURRENT step before moving forward.
   Array.prototype.forEach.call(document.querySelectorAll('.lc-next, .lc-back'), function (btn) {
     btn.addEventListener('click', function () {
       var target = Number(btn.getAttribute('data-goto'));
-      if (target > state.step && !lcValidateStep(state.step, stepSnapshot())) {
+      if (target > sheet.step && !lcValidateStep(sheet.step, stepSnapshot())) {
         flagStepErrors();
         return;
       }
@@ -381,11 +360,11 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   function flagStepErrors() {
-    if (state.step === 1) {
+    if (sheet.step === 1) {
       if (!maleAvatar.isSet) showError(maleAvatar.errorEl, 'Vui lòng chọn ảnh bạn nam');
       if (!femaleAvatar.isSet) showError(femaleAvatar.errorEl, 'Vui lòng chọn ảnh bạn nữ');
     }
-    if (state.step === 2) {
+    if (sheet.step === 2) {
       if (!lcIsValidDateString(startDateInput.value, CR.todayInVN())) {
         showError(document.getElementById('start-date-error'),
           startDateInput.value > CR.todayInVN()
@@ -893,28 +872,6 @@ document.addEventListener('DOMContentLoaded', function () {
           : 'Ngày không hợp lệ');
     }
     checkFormValid();
-  });
-
-  /* ══════════════════════════════════════════════════════════════════════════
-   *  KEYBOARD — keep the sheet above the iOS keyboard
-   * ═══════════════════════════════════════════════════════════════════════ */
-  if (window.visualViewport) {
-    var vv = window.visualViewport;
-    var onVV = function () {
-      // Height the keyboard steals from the layout viewport, if any.
-      var stolen = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      sheetEl.style.bottom = stolen ? stolen + 'px' : '';
-    };
-    vv.addEventListener('resize', onVV);
-    vv.addEventListener('scroll', onVV);
-  }
-  // Belt-and-braces: make sure the focused control is inside the sheet's view.
-  form.addEventListener('focusin', function (e) {
-    if (e.target && e.target.scrollIntoView) {
-      setTimeout(function () {
-        e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }, 250);
-    }
   });
 
   /* ══════════════════════════════════════════════════════════════════════════

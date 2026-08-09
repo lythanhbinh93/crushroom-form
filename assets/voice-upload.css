@@ -485,3 +485,101 @@
   }
   .header .title-heading { font-size: 20px; }
 }
+
+/* ===== Voice preview-form chrome (voice-upload.html sheet rebuild) =====
+   vc-* classes are namespaced to the voice form's gift-page backdrop; the
+   sheet layer itself comes from love-counter-upload.css (see that file's
+   header for the three-layer load order). */
+
+/* The gift card becomes a fixed backdrop behind the sheet. */
+.vc-preview-stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  max-width: none;
+  padding: 24px 16px 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+}
+
+.vc-preview-stage .audio-player {
+  width: 100%;
+  max-width: 600px;
+}
+
+/* Cap the photo so card + player stay visible above the sheet on a phone. */
+.vc-preview-stage .audio-image img {
+  max-height: 38vh;
+  width: auto;
+  max-width: 100%;
+}
+
+.vc-photo-placeholder {
+  width: 160px;
+  height: 160px;
+  margin: 0 auto;
+  border-radius: 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 8px;
+  font-family: inherit;
+}
+
+.vc-photo-placeholder small {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.vc-dim {
+  opacity: 0.45;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.vc-pv-play { font-size: 30px; flex-shrink: 0; }
+
+.vc-preview-stage .voice-bars-decorative {
+  height: 44px;
+  margin: 0 10px;
+}
+
+.vc-pv-audio-name {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Square 1:1 tile preview for the voice photo (mirrors lc-avatar-preview's
+   specificity trick against the shared .img-preview rules). */
+.dropzone--preview--area .img-preview.vc-image-preview {
+  width: 64px;
+  max-width: 64px;
+  height: 64px;
+  margin: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dropzone--preview--area .img-preview.vc-image-preview img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 0;
+  display: block;
+}
