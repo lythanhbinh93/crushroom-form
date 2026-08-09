@@ -1138,6 +1138,31 @@ body {
 .voice-status-badge.published { background: #d1fae5; color: #065f46; }
 .voice-status-badge.archived  { background: #f3f4f6; color: #6b7280; }
 
+/* Product type. Deliberately quieter than the status badge — status is what
+   staff act on; type only needs to be distinguishable at a glance, since the
+   two products publish to different pages. */
+.voice-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.voice-type-badge--counter { background: #fce7f3; color: #9d174d; }
+.voice-type-badge--voice   { background: #ede9fe; color: #5b21b6; }
+
+/* Shown in place of the action buttons when a row's public page has not
+   shipped, so the reason the buttons are absent is on screen. */
+.voice-card-blocked-note {
+  font-size: 12px;
+  font-style: italic;
+  color: #92400e;
+}
+
 .voice-card-text-preview {
   font-size: 14px;
   color: #444;

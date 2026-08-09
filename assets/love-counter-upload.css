@@ -1,0 +1,128 @@
+/**
+ * love-counter-upload.css — Love Counter form additions.
+ *
+ * Loaded AFTER assets/voice-upload.css, which supplies the shared form system
+ * (container-layout, form-control, globo-label, dropzone, modal, panels).
+ * Only what the counter form adds on top lives here: section headings, the
+ * two-up partner grid, the date control, and the circular avatar previews.
+ */
+
+/* ── Section headings ───────────────────────────────────────────────────── */
+.lc-section-title {
+  margin: 32px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e5e5;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #333;
+}
+
+.lc-section-title:first-child {
+  margin-top: 0;
+}
+
+.lc-optional-tag {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #8a8a8a;
+}
+
+/* ── Date control ───────────────────────────────────────────────────────── */
+/* iOS renders date inputs shorter than text inputs and ignores inherited
+   font-size below 16px by zooming the page on focus, so both are pinned. */
+.lc-date-input {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+/* Safari shows a centred value in a date input; align it with the text fields. */
+.lc-date-input::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+/* ── Partner grid ───────────────────────────────────────────────────────── */
+.lc-partner-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+/* Single column on narrow phones — two croppable avatars side by side get too
+   small to aim at below roughly 480px. */
+@media (max-width: 560px) {
+  .lc-partner-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+
+.lc-partner {
+  min-width: 0;
+}
+
+/* ── Avatar dropzone + preview ──────────────────────────────────────────── */
+/* Selectors are scoped through .dropzone--preview--area deliberately.
+   voice-upload.css:257 sets `.dropzone--preview--area .img-preview` at
+   specificity (0,2,0) with max-width:150px/height:auto, and its `img` rule at
+   (0,2,1) with object-fit:contain and border-radius:4px. A bare .lc-* class
+   (0,1,0) loses to both, so the circle and the 16:9 frame would silently not
+   apply. Matching the descendant structure and adding the modifier class wins
+   on specificity rather than on load order. */
+.lc-avatar-dropzone {
+  min-height: 0;
+}
+
+.dropzone--preview--area .img-preview.lc-avatar-preview {
+  width: 120px;
+  max-width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.dropzone--preview--area .img-preview.lc-avatar-preview img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 0;
+  display: block;
+}
+
+/* ── Background preview ─────────────────────────────────────────────────── */
+.dropzone--preview--area .img-preview.lc-bg-preview {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  margin: 0 auto;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.dropzone--preview--area .img-preview.lc-bg-preview img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 0;
+  display: block;
+}
+
+/* ── Cropper modal cancel button ────────────────────────────────────────── */
+/* .couplepix-modal-actions is already defined at voice-upload.css:460 with the
+   same flex/gap/centre rules — not repeated here. Only Cancel is new; the voice
+   modal ships an OK button alone. */
+.couplepix-modal-cancel {
+  background: #fff;
+  color: #333;
+  border: 1px solid #ccc;
+}

@@ -3,15 +3,10 @@
  *
  * Submit flow:
  *  1. Client-side validation (phone, audio, image, text).
- *  2. POST GAS initUpload → receive { uploadUrl, sessionId }.
- *  3. Chunked PUT audio bytes directly to Drive resumable uploadUrl.
- *     - 256 KB chunks: small enough for snappy progress on slow 4G,
- *       large enough to keep HTTP overhead low.
- *     - On 308 Resume Incomplete → send next chunk.
- *     - On 5xx → exponential-backoff retry (1s, 2s, 4s); on persistent failure
- *       query Drive for resume cursor and offer Resume button.
- *  4. POST GAS finishUpload with fileId, text, image base64, image filename.
- *  5. Show success panel.
+ *  2. (Optional) compress audio via window.compressAudio; extract waveform peaks
+ *     via window.extractPeaks — both best-effort, fall back to raw file/null.
+ *  3. Single POST to GAS finishUpload with audioData, imgData, text, peaks.
+ *  4. Show success panel.
  */
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -63,8 +58,6 @@ document.addEventListener('DOMContentLoaded', function () {
   var progressFill   = document.getElementById('progress-bar-fill');
   var progressLabel  = document.getElementById('progress-label');
   var successPanel   = document.getElementById('success-panel');
-  var paramErrorPanel = document.getElementById('param-error-panel');
-  var paramErrorMsg  = document.getElementById('param-error-message');
 
   /* ── Helpers ────────────────────────────────────────────────────────────── */
   function escapeHtml(s) {
@@ -200,7 +193,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var sizeMB = file.size / (1024 * 1024);
 
     if (sizeMB > MAX_FILE_MB) {
-      showError(document.getElementById('audio-error'), 'File quá lớn, tối đa 50MB');
+      // Rejection message reads from the constant so HTML and JS stay in sync.
+      showError(document.getElementById('audio-error'), 'File quá lớn, tối đa ' + MAX_FILE_MB + 'MB');
       clearAudioFile();
       return;
     }
@@ -519,19 +513,51 @@ document.addEventListener('DOMContentLoaded', function () {
       progressTitle.textContent = 'Đang đọc file âm thanh…';
       updateProgress(0, 1, '0%');
 
-      // Kick off peaks extraction in parallel with base64 read so the recipient
+      // Kick off peaks extraction in parallel with compression so the recipient
       // page can render the waveform instantly without re-decoding. Failure is
       // non-fatal — recipient just falls back to decorative bars.
       var peaksPromise = window.extractPeaks
         ? window.extractPeaks(state.audioFile, 200)
         : Promise.resolve(null);
 
-      var audioB64 = await readFileAsBase64(state.audioFile, function (pct) {
+      // Compress audio before base64-encoding to reduce payload size.
+      // compressAudio returns { blob, mime, durationSec, … }.
+      // On any compressor failure we fall back to the raw file so behavior never
+      // regresses for users on browsers without Worker/AudioContext support.
+      var audioBlob = state.audioFile;
+      var audioMime = state.audioFile.type || 'audio/mpeg';
+      var compressDuration = 0; // seconds; 0 means unset — GAS uses it if non-zero
+
+      if (window.compressAudio) {
+        try {
+          progressTitle.textContent = 'Đang nén âm thanh…';
+          var compressResult = await window.compressAudio(state.audioFile, {
+            onProgress: function (pct) {
+              updateProgress(pct, 100, Math.round(pct) + '%');
+            }
+          });
+          audioBlob = compressResult.blob;
+          audioMime = compressResult.mime || audioMime;
+          compressDuration = compressResult.durationSec || 0;
+        } catch (compressErr) {
+          // Fall back to raw file — compression is best-effort only.
+          audioBlob = state.audioFile;
+          audioMime = state.audioFile.type || 'audio/mpeg';
+          compressDuration = 0;
+        }
+      }
+
+      progressTitle.textContent = 'Đang đọc file âm thanh…';
+      updateProgress(0, 1, '0%');
+      var audioB64 = await readFileAsBase64(audioBlob, function (pct) {
         updateProgress(pct, 100, Math.round(pct) + '%');
       });
 
       progressTitle.textContent = 'Đang xử lý âm thanh…';
       var peaksResult = await peaksPromise;
+
+      // Prefer duration from compressor (decoded accurately); fall back to peaks.
+      var audioDuration = compressDuration || (peaksResult ? peaksResult.duration : 0);
 
       progressTitle.textContent = 'Đang gửi lên shop…';
       updateProgress(100, 100, '100%');
@@ -543,11 +569,11 @@ document.addEventListener('DOMContentLoaded', function () {
         text_message: textVal,
         audioData: audioB64,
         audioFilename: state.audioFile.name || (phoneNormalized + '_' + orderId),
-        audioMime: state.audioFile.type || 'audio/mpeg',
+        audioMime: audioMime,
         imgData: state.imageDataB64,
         imgFilename: state.imageFilename,
         peaks: peaksResult ? JSON.stringify(peaksResult.peaks) : '',
-        audio_duration: peaksResult ? peaksResult.duration : 0
+        audio_duration: audioDuration
       });
 
       if (!finishResp.ok) throw new Error(finishResp.error || 'Gửi thất bại');

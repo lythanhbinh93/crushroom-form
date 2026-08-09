@@ -5,39 +5,80 @@
  * This gives the voice feature its own Sheet, its own Drive folders, its own quota,
  * its own web-app URL — fully isolated from the photo-upload pipeline.
  *
+ * Serves TWO products off one sheet, discriminated by the `type` column:
+ * voice gifts and love counters. A blank type means voice, so rows written
+ * before the column existed keep working untouched.
+ *
  * Endpoints:
- *   GET  ?action=listVoice[&status=pending|published|archived|all]
+ *   GET  ?action=listVoice[&status=pending|published|archived|all][&type=voice|counter]
  *   GET  ?action=getVoice&id=SLUG
- *   POST action=initUpload    (phone, order_id, filename, mimeType, size)
- *   POST action=finishUpload  (phone, order_id, fileId, text_message, imgData, imgFilename)
- *   POST action=publishVoice  (phone, order_id)
- *   POST action=archiveVoice  (phone, order_id, target_status)
+ *   GET  ?action=getCounter&id=SLUG
+ *   GET  ?action=audioProxy&id=FILEID
+ *   POST action=initUpload     (phone, order_id, filename, mimeType, size)
+ *   POST action=finishUpload   (phone, order_id, fileId, text_message, imgData, imgFilename)
+ *   POST action=submitCounter  (see docs/love-counter-submit-contract.md)
+ *   POST action=publishVoice   (phone, order_id[, type])
+ *   POST action=archiveVoice   (phone, order_id, target_status[, type])
+ *   POST action=updatePeaks    (slug, peaks, audio_duration)
  *
  * Setup (one-time, after paste into new GAS project):
  *   1. Run intialSetup() from the editor — binds Spreadsheet, creates Script Properties placeholders.
  *   2. Project Settings → Script Properties → fill:
  *        - VOICE_AUDIO_FOLDER_ID  (Drive folder ID for audio uploads)
- *        - VOICE_IMAGE_FOLDER_ID  (Drive folder ID for voice-gift images)
+ *        - VOICE_IMAGE_FOLDER_ID  (Drive folder ID for images, both products)
  *   3. Run authorizeUrlFetch() once to grant external_request scope.
  *   4. Deploy → New deployment → Web app → Execute as Me, Anyone access.
+ *
+ * REDEPLOYING: use Manage deployments and bump the version of the EXISTING
+ * deployment. A new deployment mints a new /exec URL, and five files hardcode
+ * the current one (voice-upload.js, voice-page.js, admin-voice-tab.js,
+ * love-counter-upload.js, cloudflare-worker-voice-proxy.js).
+ *
+ * After appending to VOICE_SHEET_HEADERS, run migrateCounterColumns() before
+ * deploying — see that function.
  */
 
 const VOICE_SHEET_NAME = 'voice_pages';
+// Columns are addressed by name via indexOf everywhere, never by position, so
+// this list may be APPENDED to safely. Never reorder or remove — existing rows
+// are positional on disk. After appending, run migrateCounterColumns() once to
+// widen the live sheet; ensureVoiceSheet_ only writes headers for a NEW sheet.
 const VOICE_SHEET_HEADERS = [
     'timestamp', 'phone', 'order_id', 'text_message',
     'audio_file_id', 'audio_url', 'image_file_id', 'image_url',
     'status', 'slug', 'published_at',
     // Pre-computed by customer's browser during upload so recipient page
     // can render waveform instantly without re-decoding the audio.
-    'peaks', 'audio_duration'
+    'peaks', 'audio_duration',
+
+    // ── Love Counter ────────────────────────────────────────────────────────
+    // Row discriminator. Blank on every pre-existing row, which is read as
+    // 'voice' rather than backfilled — see rowType_().
+    'type',
+    // Raw 'YYYY-MM-DD', written apostrophe-prefixed. Without the apostrophe
+    // Sheets casts it to a date cell, getValues() hands back a JS Date, and
+    // JSON.stringify serialises Vietnam midnight as the PREVIOUS day.
+    'start_date',
+    'male_name', 'female_name',
+    'male_image_file_id', 'male_image_url',
+    'female_image_file_id', 'female_image_url',
+    'bg_file_id', 'bg_url',
+    'title', 'heart_text', 'audio_title'
 ];
+
+// Values written into `type`. A blank cell means VOICE — see rowType_().
+const ROW_TYPE_VOICE = 'voice';
+const ROW_TYPE_COUNTER = 'counter';
 const VOICE_RECIPIENT_EMAIL = 'crush@crushroom.vn';
 const VOICE_PAGE_BASE_URL = 'https://crushroom-form.vercel.app/voice.html?id=';
+// Love Counter rows publish to their own page — the two render nothing alike,
+// and a shared page would ship the waveform player to counter visitors.
+const COUNTER_PAGE_BASE_URL = 'https://crushroom-form.vercel.app/counter.html?id=';
 
 const scriptProp = PropertiesService.getScriptProperties();
 
 // ============================================================
-//  SETUP & AUTH
+//  SETUP
 // ============================================================
 
 function intialSetup() {
@@ -69,7 +110,9 @@ function doGet(e) {
     try {
         const action = e.parameter.action;
         if (action === 'listVoice') return handleListVoice_(e);
+        // getVoice and audioProxy are recipient-facing: no admin login required.
         if (action === 'getVoice') return handleGetVoice_(e);
+        if (action === 'getCounter') return handleGetCounter_(e);
         if (action === 'audioProxy') return handleAudioProxy_(e);
         return jsonOut({ ok: false, error: 'Invalid action' });
     } catch (err) {
@@ -82,6 +125,7 @@ function doPost(e) {
         const action = e.parameter && e.parameter.action;
         if (action === 'initUpload') return handleInitUpload_(e);
         if (action === 'finishUpload') return handleFinishUpload_(e);
+        if (action === 'submitCounter') return handleSubmitCounter_(e);
         if (action === 'publishVoice') return handlePublishVoice_(e);
         if (action === 'archiveVoice') return handleArchiveVoice_(e);
         if (action === 'updatePeaks') return handleUpdatePeaks_(e);
@@ -114,6 +158,17 @@ function normalizeVNPhone_(raw) {
     return digits;
 }
 
+/**
+ * Guard against CSV/formula-injection: a leading =, +, -, @, tab, or CR
+ * lets a cell value execute as a spreadsheet formula when opened in Excel/Sheets.
+ * Prefix those with a single quote (Sheets stores as text, hides the quote).
+ * Only apply to CUSTOMER-CONTROLLED fields (order_id, text_message, peaks).
+ */
+function csvSafe_(v) {
+    v = String(v == null ? '' : v);
+    return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
+}
+
 // ============================================================
 //  SHEET + DRIVE HELPERS
 // ============================================================
@@ -131,18 +186,118 @@ function ensureVoiceSheet_() {
 }
 
 /**
- * Find a row by (phone, order_id). Returns { rowIdx, row } or null.
+ * ONE-TIME (idempotent): widen the existing sheet with any headers added to
+ * VOICE_SHEET_HEADERS since it was created.
+ *
+ * ensureVoiceSheet_ writes the header row only when the sheet does not exist,
+ * so appending names in code does nothing to a live sheet on its own. Run this
+ * from the editor after any append, BEFORE deploying code that reads or writes
+ * the new columns — otherwise indexOf returns a position past the sheet's real
+ * width and values land in the wrong cells.
+ *
+ * Safe to re-run: it only appends names that are genuinely missing, and never
+ * reorders, renames or clears anything. Existing data is untouched.
+ */
+function migrateCounterColumns() {
+    var sheet = ensureVoiceSheet_();
+    var lastCol = sheet.getLastColumn();
+    var existing = lastCol > 0
+        ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); })
+        : [];
+
+    var missing = VOICE_SHEET_HEADERS.filter(function (h) { return existing.indexOf(h) === -1; });
+
+    if (!missing.length) {
+        Logger.log('Nothing to do — all ' + VOICE_SHEET_HEADERS.length + ' headers already present.');
+        return;
+    }
+
+    // Guard: the code list must be a superset of the sheet, in the same order
+    // for the shared prefix. If the sheet has a column the code does not know
+    // about, positions have diverged and blind appending would corrupt reads.
+    for (var i = 0; i < existing.length; i++) {
+        if (existing[i] && VOICE_SHEET_HEADERS[i] !== existing[i]) {
+            throw new Error(
+                'ABORTED — column ' + (i + 1) + ' is "' + existing[i] + '" in the sheet but "' +
+                VOICE_SHEET_HEADERS[i] + '" in code. Reconcile by hand; do not append.'
+            );
+        }
+    }
+
+    sheet.getRange(1, existing.length + 1, 1, missing.length).setValues([missing]);
+    sheet.setFrozenRows(1);
+    Logger.log('Added ' + missing.length + ' column(s): ' + missing.join(', '));
+    Logger.log('Sheet now has ' + sheet.getLastColumn() + ' columns; code expects ' + VOICE_SHEET_HEADERS.length + '.');
+}
+
+/**
+ * Widen a positional row array to the full header width, padding with ''.
+ *
+ * Row writes build a positional array and hand it to
+ * setValues(getRange(r, 1, 1, VOICE_SHEET_HEADERS.length)). setValues throws
+ * unless the array width matches the range width exactly, so every append to
+ * VOICE_SHEET_HEADERS would otherwise break every existing writer. Pad instead
+ * of hand-counting: the writer lists the values it knows, this fills the rest.
+ */
+function padRow_(values) {
+    var out = values.slice();
+    while (out.length < VOICE_SHEET_HEADERS.length) out.push('');
+    if (out.length > VOICE_SHEET_HEADERS.length) {
+        throw new Error('row has ' + out.length + ' values but only ' +
+            VOICE_SHEET_HEADERS.length + ' columns are defined');
+    }
+    return out;
+}
+
+/**
+ * Fail loudly if the live sheet is narrower than the code expects.
+ *
+ * Guards the case where code that knows about new columns is deployed before
+ * migrateCounterColumns() has widened the sheet. Without this the write still
+ * "succeeds" against a short header row and values land under the wrong names.
+ */
+function assertSheetWidth_(sheet) {
+    var width = sheet.getLastColumn();
+    if (width < VOICE_SHEET_HEADERS.length) {
+        throw new Error('sheet has ' + width + ' columns but code expects ' +
+            VOICE_SHEET_HEADERS.length + ' — run migrateCounterColumns() first');
+    }
+}
+
+/**
+ * Row type, treating a blank cell as 'voice'.
+ * Pre-existing rows predate the column and are never backfilled — backfilling
+ * would rewrite production data for no gain.
+ */
+function rowType_(row) {
+    var i = VOICE_SHEET_HEADERS.indexOf('type');
+    var v = (i === -1 || row[i] === undefined) ? '' : String(row[i]).trim().toLowerCase();
+    return v || ROW_TYPE_VOICE;
+}
+
+/**
+ * Find a row by (phone, order_id, type). Returns { rowIdx, row } or null.
+ *
+ * Type is part of the key because one customer can buy a voice gift and a love
+ * counter on the SAME order. Keyed on phone+order alone, both rows collide and
+ * the first match wins, so a submission or publish silently writes the wrong
+ * row. Omitting `type` means voice, which keeps every existing caller correct
+ * and matches pre-existing rows through rowType_'s blank-is-voice rule.
+ *
  * Normalizes stored phone before compare — Sheets auto-casts leading-zero strings
  * to numbers ("0918260494" → 918260494), so we re-normalize both sides.
  */
-function voiceFindRowByKey_(phone, orderId) {
+function voiceFindRowByKey_(phone, orderId, type) {
+    var wantType = String(type || ROW_TYPE_VOICE).trim().toLowerCase();
     var sheet = ensureVoiceSheet_();
     var data = sheet.getDataRange().getValues();
     var iPhone = VOICE_SHEET_HEADERS.indexOf('phone');
     var iOrder = VOICE_SHEET_HEADERS.indexOf('order_id');
     for (var i = 1; i < data.length; i++) {
         var rowPhone = normalizeVNPhone_(String(data[i][iPhone]));
-        if (rowPhone === phone && String(data[i][iOrder]) === orderId) {
+        if (rowPhone === phone &&
+            String(data[i][iOrder]) === orderId &&
+            rowType_(data[i]) === wantType) {
             return { rowIdx: i + 1, row: data[i] };
         }
     }
@@ -270,7 +425,7 @@ function handleInitUpload_(e) {
  * Params:
  *   Required: phone, order_id, text_message
  *   Audio source — EITHER:
- *     (a) fileId  — Drive ID from completed resumable upload (original flow, unused post-pivot)
+ *     (a) fileId  — Drive ID from a completed resumable upload (server-side callers; initUpload feeds this path)
  *     (b) audioData (base64) + audioFilename + audioMime — direct upload through GAS
  *         (PIVOT: Drive resumable PUT fails browser CORS, so browser posts audio base64 here)
  *   Optional: imgData (base64 JPEG), imgFilename
@@ -333,24 +488,24 @@ function handleFinishUpload_(e) {
 
         var sheet = ensureVoiceSheet_();
         var existing = voiceFindRowByKey_(phone, orderId);
+
         var now = new Date().toISOString();
         // Prefix phone with apostrophe so Sheets stores as text and preserves leading 0.
         // (Without this, "0918260494" auto-casts to number 918260494 and breaks lookups.)
+        // csvSafe_ wraps customer-controlled text fields to prevent formula injection.
         var rowValues = [
-            now, "'" + phone, orderId, textMessage,
+            now, "'" + phone, csvSafe_(orderId), csvSafe_(textMessage),
             audioFileId, audioUrl, imageFileId, imageUrl,
             'pending', '', '',
-            peaks, audioDuration
+            csvSafe_(peaks), audioDuration,
+            // `type` — written explicitly on new rows. Pre-existing rows keep a
+            // blank cell, which rowType_ reads as voice.
+            ROW_TYPE_VOICE
         ];
 
-        var rowIdx;
-        if (existing) {
-            rowIdx = existing.rowIdx;
-            sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([rowValues]);
-        } else {
-            rowIdx = sheet.getLastRow() + 1;
-            sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([rowValues]);
-        }
+        assertSheetWidth_(sheet);
+        var rowIdx = existing ? existing.rowIdx : sheet.getLastRow() + 1;
+        sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([padRow_(rowValues)]);
 
         try {
             var subject = '[Voice Gift] New upload — order ' + orderId;
@@ -378,6 +533,9 @@ function handleFinishUpload_(e) {
 function handleListVoice_(e) {
     try {
         var statusFilter = String(e.parameter.status || 'pending').toLowerCase();
+        // Absent type means "every type", so the existing admin call keeps
+        // returning what it always did. Pass type=voice or type=counter to narrow.
+        var typeFilter = String(e.parameter.type || 'all').trim().toLowerCase();
         var sheet = ensureVoiceSheet_();
         var data = sheet.getDataRange().getValues();
         if (data.length < 2) return jsonOut({ ok: true, rows: [] });
@@ -388,8 +546,11 @@ function handleListVoice_(e) {
             var row = data[i];
             var rowStatus = String(row[iStatus]).toLowerCase();
             if (statusFilter !== 'all' && rowStatus !== statusFilter) continue;
+            if (typeFilter !== 'all' && rowType_(row) !== typeFilter) continue;
             var obj = {};
             VOICE_SHEET_HEADERS.forEach(function (h, idx) { obj[h] = row[idx]; });
+            // Explicit so the client never has to reproduce the blank-is-voice rule.
+            obj.type = rowType_(row);
             obj._rowIndex = i + 1;
             rows.push(obj);
         }
@@ -408,11 +569,13 @@ function handlePublishVoice_(e) {
     try {
         var phone = normalizeVNPhone_(e.parameter.phone);
         var orderId = String(e.parameter.order_id || '').trim();
+        // Absent type means voice, so the existing admin keeps working unchanged.
+        var type = String(e.parameter.type || ROW_TYPE_VOICE).trim().toLowerCase();
         if (!phone) return jsonOut({ ok: false, error: 'phone required' });
         if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
 
         var sheet = ensureVoiceSheet_();
-        var found = voiceFindRowByKey_(phone, orderId);
+        var found = voiceFindRowByKey_(phone, orderId, type);
         if (!found) return jsonOut({ ok: false, error: 'row_not_found' });
 
         var iSlug = VOICE_SHEET_HEADERS.indexOf('slug');
@@ -427,7 +590,10 @@ function handlePublishVoice_(e) {
         sheet.getRange(found.rowIdx, iStatus + 1).setValue('published');
         sheet.getRange(found.rowIdx, iPublishedAt + 1).setValue(now);
 
-        return jsonOut({ ok: true, slug: slug, url: VOICE_PAGE_BASE_URL + slug });
+        // Each type has its own public page, so the printed QR must point at the
+        // right one. Publish is where the slug becomes a URL, so it decides.
+        var baseUrl = (type === ROW_TYPE_COUNTER) ? COUNTER_PAGE_BASE_URL : VOICE_PAGE_BASE_URL;
+        return jsonOut({ ok: true, slug: slug, url: baseUrl + slug, type: type });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
     }
@@ -456,7 +622,8 @@ function handleUpdatePeaks_(e) {
 
         var iPeaks = VOICE_SHEET_HEADERS.indexOf('peaks');
         var iDur = VOICE_SHEET_HEADERS.indexOf('audio_duration');
-        sheet.getRange(found.rowIdx, iPeaks + 1).setValue(peaks);
+        // csvSafe_ guards against a crafted peaks string injecting a formula into Sheets.
+        sheet.getRange(found.rowIdx, iPeaks + 1).setValue(csvSafe_(peaks));
         sheet.getRange(found.rowIdx, iDur + 1).setValue(audioDuration);
 
         return jsonOut({ ok: true, slug: slug });
@@ -552,6 +719,7 @@ function handleArchiveVoice_(e) {
         var phone = normalizeVNPhone_(e.parameter.phone);
         var orderId = String(e.parameter.order_id || '').trim();
         var targetStatus = String(e.parameter.target_status || 'archived').trim().toLowerCase();
+        var type = String(e.parameter.type || ROW_TYPE_VOICE).trim().toLowerCase();
 
         if (!phone) return jsonOut({ ok: false, error: 'phone required' });
         if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
@@ -560,12 +728,259 @@ function handleArchiveVoice_(e) {
         }
 
         var sheet = ensureVoiceSheet_();
-        var found = voiceFindRowByKey_(phone, orderId);
+        var found = voiceFindRowByKey_(phone, orderId, type);
         if (!found) return jsonOut({ ok: false, error: 'row_not_found' });
 
         var iStatus = VOICE_SHEET_HEADERS.indexOf('status');
         sheet.getRange(found.rowIdx, iStatus + 1).setValue(targetStatus);
         return jsonOut({ ok: true, status: targetStatus });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
+    }
+}
+
+// ============================================================
+//  LOVE COUNTER
+//  Additive only — nothing above this line changes for voice rows.
+//  Parameter contract: docs/love-counter-submit-contract.md
+// ============================================================
+
+/**
+ * Build a full-width row from a { headerName: value } object.
+ *
+ * Writers name their fields instead of counting positions. Column order then
+ * lives in exactly one place (VOICE_SHEET_HEADERS), which is the drift that
+ * silently broke three admin reads when it was allowed to live in two.
+ * Unlisted columns are written blank.
+ */
+function rowFromObject_(obj) {
+    return VOICE_SHEET_HEADERS.map(function (h) {
+        return Object.prototype.hasOwnProperty.call(obj, h) ? obj[h] : '';
+    });
+}
+
+/**
+ * Normalise a stored start_date back to 'YYYY-MM-DD'.
+ * Apostrophe-prefixed writes come back as a clean string, but a cell edited by
+ * hand in the Sheets UI comes back as a Date — resolve that in Vietnam time so
+ * it never slips a day.
+ */
+function toDateString_(v) {
+    if (v instanceof Date && !isNaN(v.getTime())) {
+        return Utilities.formatDate(v, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+    }
+    return String(v == null ? '' : v).trim();
+}
+
+/** Save one optional base64 image. Returns { fileId, url } or null when absent. */
+function saveCounterImage_(base64Data, filename, fallbackName, folderId) {
+    var data = String(base64Data || '');
+    if (!data) return null;
+    var name = String(filename || '').trim() || fallbackName;
+    var result = saveImageToDrive_(data, name, folderId);
+    try { setAnyoneCanView_(result.fileId); } catch (permErr) {
+        Logger.log('Warning: could not share ' + name + ': ' + permErr);
+    }
+    return result;
+}
+
+/**
+ * POST action=submitCounter
+ *
+ * Required: phone, order_id, start_date, male_name, female_name,
+ *           maleData, femaleData
+ * Optional: bgData, audioData (+ audioFilename, audioMime, audio_title,
+ *           peaks, audio_duration), title, heart_text, text_message
+ *
+ * Upserts on (phone, order_id, 'counter'). A re-submission resets status to
+ * pending for staff review but KEEPS the slug — see below.
+ */
+function handleSubmitCounter_(e) {
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) {
+        return jsonOut({ ok: false, error: 'busy, please retry' });
+    }
+    try {
+        var phone = normalizeVNPhone_(e.parameter.phone);
+        var orderId = String(e.parameter.order_id || '').trim();
+        var startDate = String(e.parameter.start_date || '').trim();
+        var maleName = String(e.parameter.male_name || '').trim().slice(0, 40);
+        var femaleName = String(e.parameter.female_name || '').trim().slice(0, 40);
+
+        if (!phone) return jsonOut({ ok: false, error: 'phone required' });
+        if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
+        if (!maleName || !femaleName) return jsonOut({ ok: false, error: 'both names required' });
+
+        // The form's min/max attributes are a UI affordance, not a guarantee —
+        // anything can POST here, so the same rules are enforced again.
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+            return jsonOut({ ok: false, error: 'start_date must be YYYY-MM-DD' });
+        }
+        var todayVN = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+        if (startDate > todayVN) {
+            return jsonOut({ ok: false, error: 'start_date cannot be in the future' });
+        }
+        if (startDate < '1900-01-01') {
+            return jsonOut({ ok: false, error: 'start_date is out of range' });
+        }
+
+        var imageFolderId = scriptProp.getProperty('VOICE_IMAGE_FOLDER_ID');
+        var audioFolderId = scriptProp.getProperty('VOICE_AUDIO_FOLDER_ID');
+        if (!imageFolderId) {
+            return jsonOut({ ok: false, error: 'VOICE_IMAGE_FOLDER_ID not configured' });
+        }
+
+        var stem = phone + '_' + orderId;
+        var male = saveCounterImage_(e.parameter.maleData, e.parameter.maleFilename, stem + '_male.jpg', imageFolderId);
+        if (!male) return jsonOut({ ok: false, error: 'male photo required' });
+        var female = saveCounterImage_(e.parameter.femaleData, e.parameter.femaleFilename, stem + '_female.jpg', imageFolderId);
+        if (!female) return jsonOut({ ok: false, error: 'female photo required' });
+        var bg = saveCounterImage_(e.parameter.bgData, e.parameter.bgFilename, stem + '_bg.jpg', imageFolderId);
+
+        // Audio is optional for a counter — the day count is the product.
+        var audioFileId = '';
+        var audioUrl = '';
+        var audioData = e.parameter.audioData || '';
+        if (audioData) {
+            if (!audioFolderId) return jsonOut({ ok: false, error: 'VOICE_AUDIO_FOLDER_ID not configured' });
+            try {
+                var audioMime = String(e.parameter.audioMime || 'audio/mpeg').trim();
+                var audioName = String(e.parameter.audioFilename || (stem + '.m4a')).trim();
+                var audioBlob = Utilities.newBlob(Utilities.base64Decode(audioData), audioMime, audioName);
+                audioFileId = DriveApp.getFolderById(audioFolderId).createFile(audioBlob).getId();
+                try { setAnyoneCanView_(audioFileId); } catch (_) { }
+                audioUrl = 'https://drive.google.com/file/d/' + audioFileId + '/view?usp=sharing';
+            } catch (audioErr) {
+                return jsonOut({ ok: false, error: 'audio save failed: ' + audioErr });
+            }
+        }
+
+        var sheet = ensureVoiceSheet_();
+        assertSheetWidth_(sheet);
+        var existing = voiceFindRowByKey_(phone, orderId, ROW_TYPE_COUNTER);
+
+        // Keep the slug across a re-submission. The QR is printed on a physical
+        // bracelet already in the customer's hands, so minting a new slug would
+        // permanently brick it. Status still returns to pending so staff review
+        // the changed content before it goes back up.
+        var iSlug = VOICE_SHEET_HEADERS.indexOf('slug');
+        var iPublishedAt = VOICE_SHEET_HEADERS.indexOf('published_at');
+        var keptSlug = existing ? String(existing.row[iSlug] || '') : '';
+        var keptPublishedAt = existing ? String(existing.row[iPublishedAt] || '') : '';
+
+        var values = rowFromObject_({
+            timestamp: new Date().toISOString(),
+            // Apostrophe forces text so the leading zero survives.
+            phone: "'" + phone,
+            order_id: csvSafe_(orderId),
+            text_message: csvSafe_(String(e.parameter.text_message || '').slice(0, 200)),
+            audio_file_id: audioFileId,
+            audio_url: audioUrl,
+            // The male avatar doubles as the row thumbnail, so the existing admin
+            // card renders counter rows with no admin-side change.
+            image_file_id: male.fileId,
+            image_url: male.url,
+            status: 'pending',
+            slug: keptSlug,
+            published_at: keptPublishedAt,
+            peaks: csvSafe_(String(e.parameter.peaks || '')),
+            audio_duration: parseFloat(e.parameter.audio_duration || '0') || 0,
+            type: ROW_TYPE_COUNTER,
+            // Apostrophe-prefixed for the same reason as phone: without it Sheets
+            // casts to a date cell, getValues hands back a Date, and JSON puts
+            // Vietnam midnight into the PREVIOUS day in UTC.
+            start_date: "'" + startDate,
+            male_name: csvSafe_(maleName),
+            female_name: csvSafe_(femaleName),
+            male_image_file_id: male.fileId,
+            male_image_url: male.url,
+            female_image_file_id: female.fileId,
+            female_image_url: female.url,
+            bg_file_id: bg ? bg.fileId : '',
+            bg_url: bg ? bg.url : '',
+            title: csvSafe_(String(e.parameter.title || '').slice(0, 120)),
+            heart_text: csvSafe_(String(e.parameter.heart_text || '').slice(0, 60)),
+            audio_title: csvSafe_(String(e.parameter.audio_title || '').slice(0, 120))
+        });
+
+        var rowIdx = existing ? existing.rowIdx : sheet.getLastRow() + 1;
+        sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([values]);
+
+        try {
+            MailApp.sendEmail(
+                VOICE_RECIPIENT_EMAIL,
+                '[Love Counter] New submission — order ' + orderId,
+                'Phone: ' + phone + '\n'
+                + 'Order ID: ' + orderId + '\n'
+                + 'Couple: ' + maleName + ' & ' + femaleName + '\n'
+                + 'Start date: ' + startDate + '\n'
+                + 'Has audio: ' + (audioFileId ? 'yes' : 'no') + '\n'
+                + 'Admin: https://crushroom-form.vercel.app/admin.html#voice\n'
+            );
+        } catch (mailErr) {
+            Logger.log('MailApp failed (quota?): ' + mailErr);
+        }
+
+        return jsonOut({ ok: true, rowIndex: rowIdx, updated: !!existing });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
+    } finally {
+        lock.releaseLock();
+    }
+}
+
+/**
+ * GET action=getCounter&id=SLUG
+ * Public JSON for a published counter page; not_found otherwise.
+ *
+ * Fields are listed explicitly rather than echoing the row, so a column added
+ * later stays private until it is deliberately exposed here.
+ */
+function handleGetCounter_(e) {
+    try {
+        var slug = String(e.parameter.id || '').trim();
+        if (!slug) return jsonOut({ ok: false, error: 'id (slug) required' });
+
+        var found = voiceFindRowBySlug_(slug);
+        if (!found) return jsonOut({ ok: false, error: 'not_found' });
+
+        // A voice slug must not resolve through the counter endpoint, or the
+        // page would render an empty counter for a real voice gift.
+        if (rowType_(found.row) !== ROW_TYPE_COUNTER) {
+            return jsonOut({ ok: false, error: 'not_found' });
+        }
+
+        var iStatus = VOICE_SHEET_HEADERS.indexOf('status');
+        if (String(found.row[iStatus]) !== 'published') {
+            return jsonOut({ ok: false, error: 'not_found' });
+        }
+
+        var obj = {};
+        VOICE_SHEET_HEADERS.forEach(function (h, idx) { obj[h] = found.row[idx]; });
+
+        return jsonOut({
+            ok: true,
+            // Raw YYYY-MM-DD. The page computes the day count client-side, so it
+            // keeps ticking over instead of freezing behind a cached render.
+            start_date: toDateString_(obj.start_date),
+            male_name: obj.male_name,
+            female_name: obj.female_name,
+            male_image_url: obj.male_image_url,
+            male_image_file_id: obj.male_image_file_id,
+            female_image_url: obj.female_image_url,
+            female_image_file_id: obj.female_image_file_id,
+            bg_url: obj.bg_url,
+            bg_file_id: obj.bg_file_id,
+            title: obj.title,
+            heart_text: obj.heart_text,
+            text_message: obj.text_message,
+            audio_title: obj.audio_title,
+            audio_url: obj.audio_url,
+            audio_file_id: obj.audio_file_id,
+            peaks: obj.peaks || '',
+            audio_duration: obj.audio_duration || 0,
+            published_at: obj.published_at
+        });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
     }
