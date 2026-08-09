@@ -213,7 +213,7 @@ crushroom-form/
 - Single POST base64 to GAS finishUpload
 
 **Public Recipient Page** (`voice.html` + `assets/voice-page.{js,css}`):
-- URL: `https://qr.crushroom.vn/voice.html?id=SLUG`
+- URL: `https://qr.crushroom.vn/voice?id=SLUG`
 - Renders: customer image + message text + WaveSurfer audio player (dark theme)
 - Audio playback via GAS audioProxy (Drive CORP policy workaround)
 
@@ -237,13 +237,13 @@ crushroom-form/
 | Surface | URL | File | Tech |
 |---------|-----|------|------|
 | **Customer (Shopify)** | `https://store.myshopify.com/pages/couplepix` | couplepix.liquid | Liquid (Shopify) |
-| **Customer (Photo Upload)** | `https://qr.crushroom.vn/couplepix.html` | couplepix.html | HTML5 + JS |
-| **Customer (Voice Upload)** | `https://qr.crushroom.vn/voice-upload.html?phone=X&order=Y` | voice-upload.html | HTML5 + JS |
-| **Recipient (Voice Page)** | `https://qr.crushroom.vn/voice.html?id=SLUG` | voice.html | HTML5 + JS + WaveSurfer |
+| **Customer (Photo Upload)** | `https://qr.crushroom.vn/couplepix` | couplepix.html | HTML5 + JS |
+| **Customer (Voice Upload)** | `https://qr.crushroom.vn/voice-upload?phone=X&order=Y` | voice-upload.html | HTML5 + JS |
+| **Recipient (Voice Page)** | `https://qr.crushroom.vn/voice?id=SLUG` | voice.html | HTML5 + JS + WaveSurfer |
 | **Staff (Homepage)** | `https://qr.crushroom.vn/` | index.html | HTML5 + CSS |
-| **Staff (Admin)** | `https://qr.crushroom.vn/admin.html` (+ #voice tab) | admin.html + admin-voice-tab.js | HTML5 + JS |
+| **Staff (Admin)** | `https://qr.crushroom.vn/admin` (+ #voice tab) | admin.html + admin-voice-tab.js | HTML5 + JS |
 | **Staff (Photo Helper)** | `https://crushroomapp.streamlit.app/` | app.py | Streamlit |
-| **Staff (Date Calc)** | `https://qr.crushroom.vn/check-date.html` | check-date.html | HTML5 + JS |
+| **Staff (Date Calc)** | `https://qr.crushroom.vn/check-date` | check-date.html | HTML5 + JS |
 | **Backend (Main)** | `https://script.google.com/macros/s/.../exec` | google-apps-script-complete.js | GAS |
 | **Backend (Voice)** | `https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6.../exec` | google-apps-script-voice.js | GAS |
 

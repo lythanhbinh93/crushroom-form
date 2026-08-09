@@ -66,9 +66,9 @@ ok('a legacy blank-type row still keys as voice', H.makeRowKey(voiceRow).endsWit
 console.log('\n-- getRowUrl: the value that ends up printed on a bracelet --');
 const pubVoice = { slug: 'abc123', status: 'published' };
 const pubCounter = { slug: 'abc123', status: 'published', type: 'counter' };
-ok('voice row resolves to the voice page', H.getRowUrl(pubVoice).indexOf('voice.html') !== -1);
-ok('counter row resolves to the counter page', H.getRowUrl(pubCounter).indexOf('counter.html') !== -1);
-ok('counter row never resolves to the voice page', H.getRowUrl(pubCounter).indexOf('voice.html') === -1);
+ok('voice row resolves to the voice page', H.getRowUrl(pubVoice).indexOf('/voice?id=') !== -1);
+ok('counter row resolves to the counter page', H.getRowUrl(pubCounter).indexOf('/counter?id=') !== -1);
+ok('counter row never resolves to the voice page', H.getRowUrl(pubCounter).indexOf('/voice?id=') === -1);
 ok('a url supplied by the server always wins',
    H.getRowUrl({ slug: 'x', type: 'counter', url: 'https://server/authoritative' }) === 'https://server/authoritative');
 ok('no slug yields no URL rather than a guess', H.getRowUrl({ type: 'counter' }) === '');
