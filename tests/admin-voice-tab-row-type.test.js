@@ -83,8 +83,8 @@ console.log('\n-- getRowUrl: prototype keys must not resolve to a truthy base --
 console.log('\n-- pageMissingFor_: gate rows whose public page has not shipped --');
 ok('voice pages exist, so voice is not gated', H.pageMissingFor_({ type: 'voice' }) === false);
 ok('a legacy blank-type row is not gated', H.pageMissingFor_({}) === false);
-ok('counter is gated while counter.html is absent',
-   H.pageMissingFor_({ type: 'counter' }) === true);
+ok('counter is no longer gated — counter.html shipped',
+   H.pageMissingFor_({ type: 'counter' }) === false);
 ok('an unknown type is not gated (it fails closed at getRowUrl instead)',
    H.pageMissingFor_({ type: 'bogus' }) === false);
 

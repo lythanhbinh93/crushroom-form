@@ -47,9 +47,10 @@
    * Types whose public page is not built yet. Publish and QR stay disabled for
    * these: the URL would be well-formed, the QR would scan, and the page would
    * 404 — and by then it is printed on a bracelet. Remove an entry the moment
-   * its page ships.
+   * its page ships; the row-type test asserts this list against whether the
+   * page file actually exists. Empty since counter.html shipped.
    */
-  const TYPES_WITHOUT_PAGE = ['counter'];
+  const TYPES_WITHOUT_PAGE = [];
 
   // ----------------------------------------------------------------
   // State

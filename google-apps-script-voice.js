@@ -644,6 +644,13 @@ function handleGetVoice_(e) {
         var found = voiceFindRowBySlug_(slug);
         if (!found) return jsonOut({ ok: false, error: 'not_found' });
 
+        // Mirror of getCounter's check: a counter slug must not resolve through
+        // the voice endpoint, or voice.html would render a counter row as a
+        // voice gift with an empty message.
+        if (rowType_(found.row) !== ROW_TYPE_VOICE) {
+            return jsonOut({ ok: false, error: 'not_found' });
+        }
+
         var iStatus = VOICE_SHEET_HEADERS.indexOf('status');
         if (String(found.row[iStatus]) !== 'published') {
             return jsonOut({ ok: false, error: 'not_found' });
