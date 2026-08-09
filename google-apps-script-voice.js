@@ -28,6 +28,9 @@
  *   2. Project Settings → Script Properties → fill:
  *        - VOICE_AUDIO_FOLDER_ID  (Drive folder ID for audio uploads)
  *        - VOICE_IMAGE_FOLDER_ID  (Drive folder ID for images, both products)
+ *        - LARK_WEBHOOK_URL       (staff group-bot webhook; same value as the
+ *                                  photo project's property — notifications go
+ *                                  to Lark only, there is no email fallback)
  *   3. Run authorizeUrlFetch() once to grant external_request scope.
  *   4. Deploy → New deployment → Web app → Execute as Me, Anyone access.
  *
@@ -71,7 +74,7 @@ const VOICE_SHEET_HEADERS = [
 // Values written into `type`. A blank cell means VOICE — see rowType_().
 const ROW_TYPE_VOICE = 'voice';
 const ROW_TYPE_COUNTER = 'counter';
-const VOICE_RECIPIENT_EMAIL = 'crush@crushroom.vn';
+const ADMIN_URL = 'https://qr.crushroom.vn/admin#voice';
 // Branded custom domain, attached to the same Vercel deployment. URLs minted
 // before the switch (crushroom-form.vercel.app) keep working — Vercel serves
 // both hosts — so already-printed QRs are unaffected. Do NOT deploy a change
@@ -83,6 +86,57 @@ const VOICE_PAGE_BASE_URL = 'https://qr.crushroom.vn/voice?id=';
 const COUNTER_PAGE_BASE_URL = 'https://qr.crushroom.vn/counter?id=';
 
 const scriptProp = PropertiesService.getScriptProperties();
+
+// ============================================================
+//  LARK NOTIFICATION (replaces email — the mailbox is not watched)
+// ============================================================
+
+/**
+ * One-time: run from the Apps Script editor to store the group-bot webhook in
+ * Script Properties (kept out of source/git). Same webhook value as the photo
+ * project — copy it from that project's Script Properties, do not retype.
+ */
+function setLarkWebhook_(webhookUrl) {
+    scriptProp.setProperty('LARK_WEBHOOK_URL', webhookUrl);
+}
+
+/**
+ * Post a text card to the staff Lark group. Text-only — unlike the photo
+ * project's notifier there are no inline images, so the webhook alone is
+ * enough (no custom-app token needed).
+ *
+ * Fully try/catch-wrapped: a Lark failure is logged and never breaks the
+ * customer's submission. Called in the same spot MailApp used to be — a single
+ * webhook POST inside the lock costs about what the email send did.
+ */
+function notifyLark_(title, headerColor, lines) {
+    try {
+        var webhook = scriptProp.getProperty('LARK_WEBHOOK_URL');
+        if (!webhook) { Logger.log('lark: LARK_WEBHOOK_URL not configured'); return; }
+        var res = UrlFetchApp.fetch(webhook, {
+            method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+            payload: JSON.stringify({
+                msg_type: 'interactive',
+                card: {
+                    config: { wide_screen_mode: true },
+                    header: {
+                        template: headerColor || 'blue',
+                        title: { tag: 'plain_text', content: title }
+                    },
+                    elements: [
+                        { tag: 'div', text: { tag: 'lark_md', content: lines.join('\n') } },
+                        { tag: 'hr' },
+                        { tag: 'div', text: { tag: 'lark_md', content: '[Mở Admin](' + ADMIN_URL + ')' } }
+                    ]
+                }
+            })
+        });
+        var j = JSON.parse(res.getContentText());
+        if (j.code !== 0) Logger.log('lark post fail: ' + res.getContentText());
+    } catch (e) {
+        Logger.log('notifyLark_ failed: ' + e);
+    }
+}
 
 // ============================================================
 //  SETUP
@@ -516,16 +570,11 @@ function handleFinishUpload_(e) {
         var rowIdx = existing ? existing.rowIdx : sheet.getLastRow() + 1;
         sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([padRow_(rowValues)]);
 
-        try {
-            var subject = '[Voice Gift] New upload — order ' + orderId;
-            var body = 'Phone: ' + phone + '\n'
-                + 'Order ID: ' + orderId + '\n'
-                + 'Admin: https://qr.crushroom.vn/admin#voice\n'
-                + 'Message preview: ' + textMessage.slice(0, 200) + '\n';
-            MailApp.sendEmail(VOICE_RECIPIENT_EMAIL, subject, body);
-        } catch (mailErr) {
-            Logger.log('MailApp failed (quota?): ' + mailErr);
-        }
+        notifyLark_('🎙️ Voice Gift mới — đơn ' + orderId, 'violet', [
+            '**SĐT:** ' + phone,
+            '**Đơn:** ' + orderId,
+            '**Lời nhắn:** ' + (textMessage.slice(0, 200) || '(trống)')
+        ]);
 
         return jsonOut({ ok: true, rowIndex: rowIdx });
     } catch (err) {
@@ -1176,20 +1225,14 @@ function handleSubmitCounter_(e) {
         var rowIdx = existing ? existing.rowIdx : sheet.getLastRow() + 1;
         sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([values]);
 
-        try {
-            MailApp.sendEmail(
-                VOICE_RECIPIENT_EMAIL,
-                '[Love Counter] New submission — order ' + orderId,
-                'Phone: ' + phone + '\n'
-                + 'Order ID: ' + orderId + '\n'
-                + 'Couple: ' + maleName + ' & ' + femaleName + '\n'
-                + 'Start date: ' + startDate + '\n'
-                + 'Has audio: ' + (audioFileId ? 'yes' : 'no') + '\n'
-                + 'Admin: https://qr.crushroom.vn/admin#voice\n'
-            );
-        } catch (mailErr) {
-            Logger.log('MailApp failed (quota?): ' + mailErr);
-        }
+        notifyLark_('❤️ Love Counter mới — đơn ' + orderId, 'carmine', [
+            '**SĐT:** ' + phone,
+            '**Đơn:** ' + orderId,
+            '**Cặp đôi:** ' + maleName + ' & ' + femaleName,
+            '**Ngày bắt đầu:** ' + startDate,
+            '**Audio:** ' + (audioFileId ? 'có' : 'không'),
+            existing ? '_(khách gửi lại — chờ duyệt lại)_' : ''
+        ].filter(Boolean));
 
         return jsonOut({ ok: true, rowIndex: rowIdx, updated: !!existing });
     } catch (err) {
