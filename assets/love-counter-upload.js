@@ -3,20 +3,118 @@
  *
  * Parameter contract: docs/love-counter-submit-contract.md — change that first.
  *
- * Submit flow:
- *  1. Client-side validation (phone, order, start date, both names, both avatars).
- *  2. If audio was supplied: extract waveform peaks and compress, both best-effort.
- *  3. Single POST to GAS submitCounter with all base64 payloads.
- *  4. Show success panel.
+ * Shape: the REAL public counter page renders full-bleed behind a bottom-sheet
+ * stepper (identity → photos → date/names → audio → review) and assembles live
+ * as the customer types. The preview paints through window.CounterRender — the
+ * same renderer counter-page.js uses — so it cannot lie. Approved design:
+ * plans/visuals/260809-love-counter-preview-form-mockup.html.
  *
- * Differences from voice-upload.js, deliberately:
- *  - Three croppers (two avatars + one background) instead of one, so the modal
- *    is a factory rather than a single hard-wired instance.
- *  - Audio is OPTIONAL. The day count is the product; the voice is a bonus.
- *  - start_date is posted as the raw YYYY-MM-DD string and must be stored
- *    apostrophe-prefixed server-side, or Sheets autocasts it to a Date and the
- *    page renders the previous day. See the contract doc.
+ * Returning customers: step 0 calls GET action=getSubmission; a found row
+ * hydrates every step and the preview, and untouched media resubmits via
+ * keep-flags (keepMale/keepFemale/keepBg/keepAudio) instead of re-uploading.
+ *
+ * Submit flow (unchanged from the stacked form):
+ *  1. Per-step validation mirrors the server rules.
+ *  2. If fresh audio was supplied: extract peaks and compress, best-effort.
+ *  3. Single POST to GAS submitCounter with base64 payloads.
+ *  4. Success panel inside the sheet.
  */
+
+/* ── Pure step/payload logic ─────────────────────────────────────────────────
+ * Top-level and DOM-free so tests/love-counter-form-steps.test.js can extract
+ * and run them (same extract-real-functions convention as the GAS suites). */
+
+function lcIsValidDateString(v, todayVN) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  // Reject a future date even if the browser ignored the max attribute —
+  // string compare is safe because both sides are zero-padded YYYY-MM-DD.
+  if (v > todayVN) return false;
+  if (v < '1900-01-01') return false;
+  return true;
+}
+
+/**
+ * Can the flow advance past `step` with snapshot `s`?
+ * s: { phoneValid, order, maleSet, femaleSet, startDate, todayVN,
+ *      maleName, femaleName }
+ * Media counts as set whether fresh (cropped this session) or kept (hydrated
+ * from a prior submission). Background, audio and every text extra are
+ * optional — same rules the server re-enforces.
+ */
+function lcValidateStep(step, s) {
+  switch (step) {
+    case 0: return !!s.phoneValid && String(s.order || '').trim().length > 0;
+    case 1: return !!s.maleSet && !!s.femaleSet;
+    case 2: return lcIsValidDateString(String(s.startDate || ''), s.todayVN) &&
+                   String(s.maleName || '').trim().length > 0 &&
+                   String(s.maleName || '').trim().length <= 40 &&
+                   String(s.femaleName || '').trim().length > 0 &&
+                   String(s.femaleName || '').trim().length <= 40;
+    case 3: return true; // audio is optional for a counter
+    case 4: return lcValidateStep(0, s) && lcValidateStep(1, s) && lcValidateStep(2, s);
+    default: return false;
+  }
+}
+
+/**
+ * Build the submitCounter POST params (audio appended separately — it needs
+ * the async compressor). For a slot with fresh crop data the keys match the
+ * original stacked form byte-for-byte; a kept slot sends its keep-flag and NO
+ * image keys; bg with neither stays the legacy empty-string pair so the
+ * new-customer payload is identical to the old form's.
+ *
+ * s: { phone, orderId, startDate, maleName, femaleName, title, heartText,
+ *      textMessage,
+ *      male:   { dataB64, filename, kept },
+ *      female: { dataB64, filename, kept },
+ *      bg:     { dataB64, filename, kept } }
+ */
+function lcBuildSubmitPayload(s, defaultTitle) {
+  var p = {
+    action: 'submitCounter',
+    type: 'counter',
+    phone: s.phone,
+    order_id: s.orderId,
+    // Raw YYYY-MM-DD. Server must apostrophe-prefix this before writing,
+    // or Sheets autocasts it and the page renders the previous day.
+    start_date: s.startDate,
+    male_name: String(s.maleName || '').trim(),
+    female_name: String(s.femaleName || '').trim(),
+    title: String(s.title || '').trim() || defaultTitle,
+    heart_text: String(s.heartText || '').trim(),
+    text_message: String(s.textMessage || '').trim()
+  };
+
+  if (s.male.dataB64) {
+    p.maleData = s.male.dataB64;
+    p.maleFilename = s.male.filename;
+  } else if (s.male.kept) {
+    p.keepMale = '1';
+  }
+
+  if (s.female.dataB64) {
+    p.femaleData = s.female.dataB64;
+    p.femaleFilename = s.female.filename;
+  } else if (s.female.kept) {
+    p.keepFemale = '1';
+  }
+
+  if (s.bg.dataB64) {
+    p.bgData = s.bg.dataB64;
+    p.bgFilename = s.bg.filename;
+  } else if (s.bg.kept) {
+    p.keepBg = '1';
+  } else {
+    // Legacy shape: the stacked form always sent the bg pair, empty when unset.
+    p.bgData = '';
+    p.bgFilename = '';
+  }
+
+  return p;
+}
+
+/* ── Controller ──────────────────────────────────────────────────────────── */
+
 document.addEventListener('DOMContentLoaded', function () {
 
   /* ── Constants ─────────────────────────────────────────────────────────── */
@@ -25,25 +123,34 @@ document.addEventListener('DOMContentLoaded', function () {
   var COUNTER_GAS_URL = 'https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec';
 
   // 35MB hard limit — base64 encoding inflates ~47MB, within GAS 50MB doPost cap.
-  // The three images add ~0.5MB on top, which stays comfortably inside the cap.
   var MAX_FILE_MB = 35;
   var WARN_FILE_MB = 20;
 
-  var DEFAULT_TITLE = '❤️ Been Love Memory ❤️';
+  var CR = window.CounterRender;
+  var DEFAULT_TITLE = CR.DEFAULT_TITLE;
 
-  /* ── State ──────────────────────────────────────────────────────────────── */
+  /* ── State ─────────────────────────────────────────────────────────────── */
   var state = {
-    audioFile: null,
-    isSubmitting: false
+    step: 0,
+    audioFile: null,          // fresh audio File chosen this session
+    keptAudio: false,         // hydrated audio kept from the prior submission
+    isSubmitting: false,
+    hydrated: false           // a prior submission was loaded
   };
 
-  /* ── DOM refs ───────────────────────────────────────────────────────────── */
+  /* ── DOM refs — sheet controls ─────────────────────────────────────────── */
   var form            = document.getElementById('counter-form');
+  var sheetEl         = form;
+  var grabBtn         = document.getElementById('lc-grab');
+  var stepdotsEl      = document.getElementById('lc-stepdots');
+  var stepEls         = Array.prototype.slice.call(document.querySelectorAll('.lc-step'));
+  var prefillBanner   = document.getElementById('prefill-banner');
   var phoneInputEl    = document.getElementById('phone-input');
   var orderInput      = document.getElementById('order-input');
+  var step0Next       = document.getElementById('step0-next');
   var startDateInput  = document.getElementById('start-date');
-  var maleNameEl    = document.getElementById('male-name');
-  var femaleNameEl    = document.getElementById('female-name');
+  var maleNameEl      = document.getElementById('male-name-input');
+  var femaleNameEl    = document.getElementById('female-name-input');
   var pageTitle       = document.getElementById('page-title');
   var heartText       = document.getElementById('heart-text');
   var textMessage     = document.getElementById('text-message');
@@ -55,9 +162,10 @@ document.addEventListener('DOMContentLoaded', function () {
   var audioFilenameEl = document.getElementById('audio-filename');
   var audioRemoveBtn  = document.getElementById('audio-remove-btn');
   var audioTriggerBtn = document.getElementById('audio-trigger-btn');
+  var audioSkipBtn    = document.getElementById('audio-skip-btn');
   var audioSizeWarn   = document.getElementById('audio-size-warning');
   var audioTitleCtrl  = document.getElementById('audio-title-control');
-  var audioTitle      = document.getElementById('audio-title');
+  var audioTitle      = document.getElementById('audio-title-input');
   var submitBtn       = document.getElementById('submit-btn');
   var submitSpinner   = document.getElementById('submit-spinner');
   var submitLabel     = document.getElementById('submit-label');
@@ -68,15 +176,45 @@ document.addEventListener('DOMContentLoaded', function () {
   var progressLabel   = document.getElementById('progress-label');
   var successPanel    = document.getElementById('success-panel');
 
-  /* ── Error helpers ──────────────────────────────────────────────────────── */
+  /* ── DOM refs — live preview (mirrors counter.html's element map) ──────── */
+  var pv = {
+    bg: document.getElementById('pv-bg'),
+    title: document.getElementById('pv-title'),
+    heartText: document.getElementById('pv-heart-text'),
+    maleName: document.getElementById('pv-male-name'),
+    femaleName: document.getElementById('pv-female-name'),
+    maleImg: document.getElementById('pv-male-avatar'),
+    femaleImg: document.getElementById('pv-female-avatar'),
+    message: document.getElementById('pv-message')
+  };
+  var pvDays       = document.getElementById('pv-days');
+  var pvAudioBlock = document.getElementById('pv-audio-block');
+  var pvAudioTitle = document.getElementById('pv-audio-title');
+  var pvAudioName  = document.getElementById('pv-audio-name');
+  var pvWaveform   = document.getElementById('pv-waveform');
+  var pvMaleAdd    = document.getElementById('pv-male-add');
+  var pvFemaleAdd  = document.getElementById('pv-female-add');
+
+  // Decorative bars for the audio chip — same look as the page's fallback.
+  (function buildPvBars() {
+    for (var i = 0; i < 40; i++) {
+      var bar = document.createElement('span');
+      bar.className = 'voice-bar';
+      pvWaveform.appendChild(bar);
+    }
+  })();
+
+  /* ── Error helpers ─────────────────────────────────────────────────────── */
   function showError(el, msg) {
     if (!el) return;
     el.textContent = msg;
+    el.hidden = false;
     el.style.display = 'block';
   }
   function clearError(el) {
     if (!el) return;
     el.textContent = '';
+    el.hidden = true;
     el.style.display = 'none';
   }
 
@@ -86,23 +224,10 @@ document.addEventListener('DOMContentLoaded', function () {
     progressLabel.textContent = label || (pct + '%');
   }
 
-  /* ── Vietnam-time "today" ───────────────────────────────────────────────── */
-  // The counter belongs to the couple, not to whoever is scanning it, so every
-  // date boundary in this form resolves in Asia/Ho_Chi_Minh regardless of the
-  // device clock. en-CA formats as YYYY-MM-DD, which is the exact wire format.
-  function todayInVN() {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(new Date());
-  }
-
   // A future start date would render a negative day count, so cap the picker.
-  startDateInput.setAttribute('max', todayInVN());
+  startDateInput.setAttribute('max', CR.todayInVN());
 
-  /* ── URL param parse (optional prefill) ────────────────────────────────── */
-  // If staff shares link with ?phone=X&order=Y those fields get prefilled.
-  // If customer opens the bare page, the form still works — they enter both.
+  /* ── URL param parse (staff prefill links keep working) ────────────────── */
   (function initFromUrlParams() {
     var params = new URLSearchParams(window.location.search);
     var phone  = params.get('phone') || '';
@@ -129,10 +254,249 @@ document.addEventListener('DOMContentLoaded', function () {
     phoneInputEl.value = window._prefillPhone;
   }
 
-  /* ── Text counter ───────────────────────────────────────────────────────── */
+  /* ══════════════════════════════════════════════════════════════════════════
+   *  LIVE PREVIEW PAINTER
+   *  Thin calls into CounterRender — the exact functions the public page runs.
+   * ═══════════════════════════════════════════════════════════════════════ */
+
+  function paintPreview() {
+    // Shared static paint. Kept media enters as Drive thumbnail URLs (what the
+    // published page receives); fresh crops paint below as data URLs, which
+    // the renderer's Drive-only guard correctly ignores.
+    CR.renderCounterInto(pv, {
+      title: pageTitle.value,
+      heart_text: heartText.value,
+      male_name: maleNameEl.value,
+      female_name: femaleNameEl.value,
+      text_message: textMessage.value,
+      male_image_url: maleAvatar.keptFileId ? 'https://drive.google.com/thumbnail?id=' + maleAvatar.keptFileId : '',
+      female_image_url: femaleAvatar.keptFileId ? 'https://drive.google.com/thumbnail?id=' + femaleAvatar.keptFileId : '',
+      bg_url: background.keptFileId ? 'https://drive.google.com/thumbnail?id=' + background.keptFileId : ''
+    });
+
+    // Fresh crops override: data URLs are session-local, never Drive-shaped.
+    if (maleAvatar.dataB64) pv.maleImg.src = 'data:image/jpeg;base64,' + maleAvatar.dataB64;
+    if (femaleAvatar.dataB64) pv.femaleImg.src = 'data:image/jpeg;base64,' + femaleAvatar.dataB64;
+    if (background.dataB64) {
+      pv.bg.style.backgroundImage = 'url("data:image/jpeg;base64,' + background.dataB64 + '")';
+    } else if (!background.keptFileId) {
+      pv.bg.style.backgroundImage = '';
+    }
+
+    // Empty-avatar affordances + dim name placeholders (form-only chrome —
+    // the published page never renders an empty state).
+    var maleSet = maleAvatar.isSet;
+    var femaleSet = femaleAvatar.isSet;
+    if (!maleSet) pv.maleImg.removeAttribute('src');
+    if (!femaleSet) pv.femaleImg.removeAttribute('src');
+    pvMaleAdd.hidden = maleSet;
+    pv.maleImg.style.visibility = maleSet ? '' : 'hidden';
+    pvFemaleAdd.hidden = femaleSet;
+    pv.femaleImg.style.visibility = femaleSet ? '' : 'hidden';
+    if (!maleNameEl.value.trim()) { pv.maleName.textContent = 'Tên nam'; pv.maleName.classList.add('lc-dim'); }
+    else pv.maleName.classList.remove('lc-dim');
+    if (!femaleNameEl.value.trim()) { pv.femaleName.textContent = 'Tên nữ'; pv.femaleName.classList.add('lc-dim'); }
+    else pv.femaleName.classList.remove('lc-dim');
+
+    // Day count — same functions the page's refreshDays uses.
+    var d = startDateInput.value;
+    if (lcIsValidDateString(d, CR.todayInVN())) {
+      var n = CR.loveDays(d, CR.todayInVN());
+      pvDays.textContent = n > 0 ? String(n) : '—';
+    } else {
+      pvDays.textContent = '—';
+    }
+
+    // Audio chip: presence only (fresh file or kept) — the form never streams.
+    var hasAudio = !!state.audioFile || state.keptAudio;
+    pvAudioBlock.hidden = !hasAudio;
+    if (hasAudio) {
+      var t = audioTitle.value.trim();
+      pvAudioTitle.textContent = t;
+      pvAudioTitle.hidden = !t;
+      pvAudioName.textContent = state.audioFile
+        ? (state.audioFile.name || '')
+        : 'Giọng nói đã gửi trước đó';
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+   *  STEP NAVIGATION
+   * ═══════════════════════════════════════════════════════════════════════ */
+
+  function stepSnapshot() {
+    return {
+      phoneValid: iti ? iti.isValidNumber() : phoneInputEl.value.trim().length >= 8,
+      order: orderInput.value,
+      maleSet: maleAvatar.isSet,
+      femaleSet: femaleAvatar.isSet,
+      startDate: startDateInput.value,
+      todayVN: CR.todayInVN(),
+      maleName: maleNameEl.value,
+      femaleName: femaleNameEl.value
+    };
+  }
+
+  function renderDots() {
+    stepdotsEl.innerHTML = '';
+    for (var i = 0; i < stepEls.length; i++) {
+      var dot = document.createElement('i');
+      if (i <= state.step) dot.className = 'on';
+      stepdotsEl.appendChild(dot);
+    }
+  }
+
+  function goStep(i) {
+    state.step = i;
+    stepEls.forEach(function (el) {
+      el.hidden = Number(el.getAttribute('data-step')) !== i;
+    });
+    renderDots();
+    // Review: collapse so the full page is visible — the page IS the review.
+    sheetEl.classList.toggle('lc-collapsed', i === 4);
+    sheetEl.scrollTop = 0;
+    checkFormValid();
+  }
+
+  // Tap the grab zone (or the collapsed sheet) to toggle at the review step.
+  grabBtn.addEventListener('click', function () {
+    if (state.step === 4) sheetEl.classList.toggle('lc-collapsed');
+  });
+  sheetEl.addEventListener('click', function (e) {
+    if (sheetEl.classList.contains('lc-collapsed') && !e.target.closest('button')) {
+      sheetEl.classList.remove('lc-collapsed');
+    }
+  });
+
+  // Generic next/back buttons validate the CURRENT step before moving forward.
+  Array.prototype.forEach.call(document.querySelectorAll('.lc-next, .lc-back'), function (btn) {
+    btn.addEventListener('click', function () {
+      var target = Number(btn.getAttribute('data-goto'));
+      if (target > state.step && !lcValidateStep(state.step, stepSnapshot())) {
+        flagStepErrors();
+        return;
+      }
+      goStep(target);
+    });
+  });
+
+  function flagStepErrors() {
+    if (state.step === 1) {
+      if (!maleAvatar.isSet) showError(maleAvatar.errorEl, 'Vui lòng chọn ảnh bạn nam');
+      if (!femaleAvatar.isSet) showError(femaleAvatar.errorEl, 'Vui lòng chọn ảnh bạn nữ');
+    }
+    if (state.step === 2) {
+      if (!lcIsValidDateString(startDateInput.value, CR.todayInVN())) {
+        showError(document.getElementById('start-date-error'),
+          startDateInput.value > CR.todayInVN()
+            ? 'Ngày bắt đầu không thể ở tương lai'
+            : 'Vui lòng chọn ngày hợp lệ');
+      }
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+   *  STEP 0 — IDENTITY + getSubmission HYDRATION
+   * ═══════════════════════════════════════════════════════════════════════ */
+
+  step0Next.addEventListener('click', function () {
+    clearError(document.getElementById('phone-error'));
+    clearError(document.getElementById('order-error'));
+    if (iti && !iti.isValidNumber()) {
+      showError(document.getElementById('phone-error'), 'Số điện thoại không hợp lệ');
+      return;
+    }
+    if (!lcValidateStep(0, stepSnapshot())) {
+      if (!orderInput.value.trim()) showError(document.getElementById('order-error'), 'Vui lòng nhập mã đơn hàng');
+      return;
+    }
+
+    var phone = iti ? iti.getNumber() : phoneInputEl.value.trim();
+    var orderId = orderInput.value.trim();
+
+    step0Next.disabled = true;
+    step0Next.textContent = 'Đang kiểm tra…';
+
+    fetch(COUNTER_GAS_URL + '?action=getSubmission&phone=' + encodeURIComponent(phone) +
+          '&order_id=' + encodeURIComponent(orderId) + '&type=counter')
+      .then(function (r) { return r.json(); })
+      .then(function (resp) {
+        if (resp && resp.ok && resp.found) hydrateFromSubmission(resp.submission);
+      })
+      .catch(function () {
+        // A blank start is always safe — prefill is best-effort, never a wall.
+      })
+      .then(function () {
+        step0Next.disabled = false;
+        step0Next.textContent = 'Bắt đầu tạo →';
+        goStep(1);
+      });
+  });
+
+  /**
+   * Fill every step + the preview from a prior submission (whitelisted fields
+   * only — see the contract doc). Kept media is referenced by Drive file id;
+   * re-cropping a slot replaces it, and an untouched slot resubmits by
+   * keep-flag so the customer never re-uploads bytes they already sent.
+   */
+  function hydrateFromSubmission(sub) {
+    state.hydrated = true;
+
+    if (sub.start_date) startDateInput.value = sub.start_date;
+    maleNameEl.value = sub.male_name || '';
+    femaleNameEl.value = sub.female_name || '';
+    // The stacked form stored the default title verbatim; showing it back as a
+    // literal input value would read as user-entered — keep the placeholder.
+    pageTitle.value = (sub.title && sub.title !== DEFAULT_TITLE) ? sub.title : '';
+    heartText.value = sub.heart_text || '';
+    textMessage.value = sub.text_message || '';
+    charCount.textContent = String(textMessage.value.length);
+    audioTitle.value = sub.audio_title || '';
+
+    if (sub.male_image_file_id) setKeptImage(maleAvatar, sub.male_image_file_id);
+    if (sub.female_image_file_id) setKeptImage(femaleAvatar, sub.female_image_file_id);
+    if (sub.bg_file_id) setKeptImage(background, sub.bg_file_id);
+
+    if (sub.audio_file_id) {
+      state.keptAudio = true;
+      audioFilenameEl.textContent = 'Giọng nói đã gửi trước đó';
+      audioPlaceholder.style.display = 'none';
+      audioPreview.style.display = 'flex';
+      audioTitleCtrl.style.display = 'block';
+    }
+
+    prefillBanner.textContent = sub.has_slug
+      ? '✳️ Tìm thấy bản đã gửi — bạn đang sửa lại, mã QR giữ nguyên.'
+      : '✳️ Tìm thấy bản đã gửi — bạn đang sửa lại bản chờ duyệt.';
+    prefillBanner.hidden = false;
+
+    paintPreview();
+    checkFormValid();
+  }
+
+  /** Mark a picker slot as kept: Drive thumbnail in the tile, no local bytes. */
+  function setKeptImage(picker, fileId) {
+    picker.keptFileId = fileId;
+    picker.dataB64 = '';
+    picker.filename = '';
+    picker.isSet = true;
+    var img = new Image();
+    img.referrerPolicy = 'no-referrer';
+    img.src = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileId) + '&sz=w400';
+    picker.previewEl.innerHTML = '';
+    picker.previewEl.appendChild(img);
+    picker.placeholderEl.style.display = 'none';
+    picker.previewAreaEl.style.display = 'block';
+  }
+
+  /* ── Text inputs repaint the preview live ──────────────────────────────── */
   textMessage.addEventListener('input', function () {
     charCount.textContent = textMessage.value.length;
   });
+  [startDateInput, maleNameEl, femaleNameEl, pageTitle, heartText, textMessage, audioTitle]
+    .forEach(function (el) {
+      el.addEventListener('input', paintPreview);
+    });
 
   /* ══════════════════════════════════════════════════════════════════════════
    *  IMAGE PICKERS
@@ -289,10 +653,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 picker.placeholderEl.style.display = 'none';
                 picker.previewAreaEl.style.display = 'block';
 
-                // Store base64 without the data: prefix for the GAS POST
+                // Store base64 without the data: prefix for the GAS POST.
+                // A fresh crop replaces a kept file — fresh data wins.
                 picker.dataB64 = (ev.target.result.split('base64,')[1]) || '';
                 picker.filename = file.name || (picker.key + '.jpg');
                 picker.isSet = true;
+                picker.keptFileId = '';
+                paintPreview();
                 checkFormValid();
                 resolve();
               } catch (err) { reject(err); }
@@ -324,6 +691,7 @@ document.addEventListener('DOMContentLoaded', function () {
       quality: cfg.quality || 0.85,
       dataB64: '',
       filename: '',
+      keptFileId: '',
       isSet: false
     };
 
@@ -344,6 +712,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     picker.placeholderEl.addEventListener('click', function (e) {
       if (e.target === picker.triggerEl) return;
+      picker.inputEl.click();
+    });
+    // "Đổi ảnh": tapping a filled tile re-opens the picker (fresh crop wins).
+    picker.previewAreaEl.addEventListener('click', function (e) {
+      if (e.target === picker.removeEl) return;
       picker.inputEl.click();
     });
 
@@ -374,11 +747,13 @@ document.addEventListener('DOMContentLoaded', function () {
       e.stopPropagation();
       picker.dataB64 = '';
       picker.filename = '';
+      picker.keptFileId = '';
       picker.isSet = false;
       picker.inputEl.value = '';
       picker.previewEl.innerHTML = '';
       picker.previewAreaEl.style.display = 'none';
       picker.placeholderEl.style.display = 'flex';
+      paintPreview();
       checkFormValid();
     });
 
@@ -411,6 +786,10 @@ document.addEventListener('DOMContentLoaded', function () {
     output: { width: 675, height: 1200 }, quality: 0.82
   });
 
+  // The preview's empty-avatar affordances jump straight into the pickers.
+  pvMaleAdd.addEventListener('click', function () { maleAvatar.inputEl.click(); });
+  pvFemaleAdd.addEventListener('click', function () { femaleAvatar.inputEl.click(); });
+
   /* ══════════════════════════════════════════════════════════════════════════
    *  AUDIO (optional)
    * ═══════════════════════════════════════════════════════════════════════ */
@@ -420,7 +799,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   audioDropzone.addEventListener('click', function (e) {
     if (e.target === audioTriggerBtn || e.target === audioRemoveBtn) return;
-    if (!state.audioFile) audioInput.click();
+    if (!state.audioFile && !state.keptAudio) audioInput.click();
   });
 
   ['dragenter', 'dragover'].forEach(function (ev) {
@@ -449,6 +828,10 @@ document.addEventListener('DOMContentLoaded', function () {
     clearAudioFile();
   });
 
+  audioSkipBtn.addEventListener('click', function () {
+    goStep(4);
+  });
+
   function handleAudioSelected(file) {
     clearError(document.getElementById('audio-error'));
     var sizeMB = file.size / (1024 * 1024);
@@ -460,18 +843,22 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
+    // A fresh file replaces kept audio — fresh data wins, same as images.
     state.audioFile = file;
+    state.keptAudio = false;
     audioFilenameEl.textContent = file.name + ' (' + sizeMB.toFixed(1) + ' MB)';
     audioPlaceholder.style.display = 'none';
     audioPreview.style.display = 'flex';
     audioSizeWarn.style.display = sizeMB > WARN_FILE_MB ? 'block' : 'none';
     // The audio title only means anything once there is audio to title.
     audioTitleCtrl.style.display = 'block';
+    paintPreview();
     checkFormValid();
   }
 
   function clearAudioFile() {
     state.audioFile = null;
+    state.keptAudio = false;
     audioInput.value = '';
     audioFilenameEl.textContent = '';
     audioPlaceholder.style.display = 'flex';
@@ -479,30 +866,16 @@ document.addEventListener('DOMContentLoaded', function () {
     audioSizeWarn.style.display = 'none';
     audioTitleCtrl.style.display = 'none';
     audioTitle.value = '';
+    paintPreview();
     checkFormValid();
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
    *  VALIDATION
    * ═══════════════════════════════════════════════════════════════════════ */
-  function isValidDateString(v) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
-    // Reject a future date even if the browser ignored the max attribute —
-    // string compare is safe because both sides are zero-padded YYYY-MM-DD.
-    if (v > todayInVN()) return false;
-    if (v < '1900-01-01') return false;
-    return true;
-  }
-
   function checkFormValid() {
     if (state.isSubmitting) return;
-    var phoneOk  = iti ? iti.isValidNumber() : phoneInputEl.value.trim().length >= 8;
-    var orderOk  = orderInput.value.trim().length > 0;
-    var dateOk   = isValidDateString(startDateInput.value);
-    var namesOk  = maleNameEl.value.trim().length > 0 && femaleNameEl.value.trim().length > 0;
-    var avatarsOk = maleAvatar.isSet && femaleAvatar.isSet;
-    // Audio, background, title, heart text and message are all optional.
-    submitBtn.disabled = !(phoneOk && orderOk && dateOk && namesOk && avatarsOk);
+    submitBtn.disabled = !lcValidateStep(4, stepSnapshot());
   }
 
   phoneInputEl.addEventListener('input', checkFormValid);
@@ -513,13 +886,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
   startDateInput.addEventListener('input', function () {
     clearError(document.getElementById('start-date-error'));
-    if (startDateInput.value && !isValidDateString(startDateInput.value)) {
+    if (startDateInput.value && !lcIsValidDateString(startDateInput.value, CR.todayInVN())) {
       showError(document.getElementById('start-date-error'),
-        startDateInput.value > todayInVN()
+        startDateInput.value > CR.todayInVN()
           ? 'Ngày bắt đầu không thể ở tương lai'
           : 'Ngày không hợp lệ');
     }
     checkFormValid();
+  });
+
+  /* ══════════════════════════════════════════════════════════════════════════
+   *  KEYBOARD — keep the sheet above the iOS keyboard
+   * ═══════════════════════════════════════════════════════════════════════ */
+  if (window.visualViewport) {
+    var vv = window.visualViewport;
+    var onVV = function () {
+      // Height the keyboard steals from the layout viewport, if any.
+      var stolen = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      sheetEl.style.bottom = stolen ? stolen + 'px' : '';
+    };
+    vv.addEventListener('resize', onVV);
+    vv.addEventListener('scroll', onVV);
+  }
+  // Belt-and-braces: make sure the focused control is inside the sheet's view.
+  form.addEventListener('focusin', function (e) {
+    if (e.target && e.target.scrollIntoView) {
+      setTimeout(function () {
+        e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }, 250);
+    }
   });
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -529,7 +924,7 @@ document.addEventListener('DOMContentLoaded', function () {
     state.isSubmitting = active;
     submitBtn.disabled = active;
     submitSpinner.style.display = active ? 'inline-block' : 'none';
-    submitLabel.textContent = active ? 'Đang gửi…' : 'Tạo trang đếm ngày';
+    submitLabel.textContent = active ? 'Đang gửi…' : 'Gửi cho Crush Room 💌';
     var inputs = form.querySelectorAll('input, textarea, button');
     inputs.forEach(function (el) { el.disabled = active; });
     // Re-enabling every control above also re-enables submit, which would let a
@@ -573,42 +968,39 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       var phoneNormalized = iti ? iti.getNumber() : phoneInputEl.value.trim();
       if (iti && !iti.isValidNumber()) {
-        showError(document.getElementById('phone-error'), 'Số điện thoại không hợp lệ');
+        showError(submitError, 'Số điện thoại không hợp lệ');
         setSubmitting(false);
         return;
       }
 
       var startDate = startDateInput.value;
-      if (!isValidDateString(startDate)) {
-        showError(document.getElementById('start-date-error'), 'Ngày bắt đầu không hợp lệ');
+      if (!lcIsValidDateString(startDate, CR.todayInVN())) {
+        showError(submitError, 'Ngày bắt đầu không hợp lệ');
         setSubmitting(false);
         return;
       }
 
-      var orderId = orderInput.value.trim();
-
-      var payload = {
-        action: 'submitCounter',
-        type: 'counter',
+      var payload = lcBuildSubmitPayload({
         phone: phoneNormalized,
-        order_id: orderId,
-        // Raw YYYY-MM-DD. Server must apostrophe-prefix this before writing,
-        // or Sheets autocasts it and the page renders the previous day.
-        start_date: startDate,
-        male_name: maleNameEl.value.trim(),
-        female_name: femaleNameEl.value.trim(),
-        title: pageTitle.value.trim() || DEFAULT_TITLE,
-        heart_text: heartText.value.trim(),
-        text_message: textMessage.value.trim(),
-        maleData: maleAvatar.dataB64,
-        maleFilename: maleAvatar.filename,
-        femaleData: femaleAvatar.dataB64,
-        femaleFilename: femaleAvatar.filename,
-        bgData: background.dataB64,
-        bgFilename: background.filename
-      };
+        orderId: orderInput.value.trim(),
+        startDate: startDate,
+        maleName: maleNameEl.value,
+        femaleName: femaleNameEl.value,
+        title: pageTitle.value,
+        heartText: heartText.value,
+        textMessage: textMessage.value,
+        male: maleAvatar.dataB64
+          ? { dataB64: maleAvatar.dataB64, filename: maleAvatar.filename, kept: false }
+          : { dataB64: '', filename: '', kept: !!maleAvatar.keptFileId },
+        female: femaleAvatar.dataB64
+          ? { dataB64: femaleAvatar.dataB64, filename: femaleAvatar.filename, kept: false }
+          : { dataB64: '', filename: '', kept: !!femaleAvatar.keptFileId },
+        bg: background.dataB64
+          ? { dataB64: background.dataB64, filename: background.filename, kept: false }
+          : { dataB64: '', filename: '', kept: !!background.keptFileId }
+      }, DEFAULT_TITLE);
 
-      // ── Optional audio ────────────────────────────────────────────────────
+      // ── Audio: fresh file → compress + peaks; kept → keep-flag ────────────
       if (state.audioFile) {
         progressPanel.style.display = 'block';
         progressTitle.textContent = 'Đang xử lý âm thanh…';
@@ -649,7 +1041,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         var peaksResult = await peaksPromise;
-        payload.audioFilename = state.audioFile.name || (phoneNormalized + '_' + orderId);
+        payload.audioFilename = state.audioFile.name || (phoneNormalized + '_' + payload.order_id);
         payload.audioMime = audioMime;
         payload.audio_title = audioTitle.value.trim();
         payload.peaks = peaksResult ? JSON.stringify(peaksResult.peaks) : '';
@@ -657,6 +1049,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         progressTitle.textContent = 'Đang gửi lên shop…';
         updateProgress(100, 100, '100%');
+      } else if (state.keptAudio) {
+        // The server reuses the row's file + peaks; only the title is editable.
+        payload.keepAudio = '1';
+        payload.audio_title = audioTitle.value.trim();
       }
       // With no audio the payload is three small JPEGs — roughly a second on 4G.
       // The submit button's own spinner covers that; a progress bar that appears
@@ -665,8 +1061,11 @@ document.addEventListener('DOMContentLoaded', function () {
       var resp = await gasPost(payload);
       if (!resp.ok) throw new Error(resp.error || 'Gửi thất bại');
 
-      form.style.display = 'none';
+      // Success: swap the sheet's contents; the finished preview stays behind.
+      stepEls.forEach(function (el) { el.hidden = true; });
+      stepdotsEl.hidden = true;
       progressPanel.style.display = 'none';
+      sheetEl.classList.remove('lc-collapsed');
       successPanel.style.display = 'block';
 
     } catch (err) {
@@ -682,7 +1081,7 @@ document.addEventListener('DOMContentLoaded', function () {
     submitCounter();
   });
 
-  // Initial submit button state
-  checkFormValid();
-
+  // Initial paint + state
+  paintPreview();
+  goStep(0);
 });

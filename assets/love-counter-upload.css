@@ -1,87 +1,385 @@
 /**
- * love-counter-upload.css — Love Counter form additions.
+ * love-counter-upload.css — Love Counter preview-form (bottom-sheet stepper).
  *
- * Loaded AFTER assets/voice-upload.css, which supplies the shared form system
- * (container-layout, form-control, globo-label, dropzone, modal, panels).
- * Only what the counter form adds on top lives here: section headings, the
- * two-up partner grid, the date control, and the circular avatar previews.
+ * Load order matters and is a three-layer sandwich:
+ *  1. voice-upload.css   — shared form system: crop modal, dropzone buttons,
+ *                          progress bar track/fill, spinners.
+ *  2. counter-page.css   — the REAL public page's stylesheet; the preview
+ *                          behind the sheet is the counter page and must wear
+ *                          its exact clothes (shared truth, zero copies).
+ *  3. this file          — the lc-sheet-* layer on top, plus the small bits of
+ *                          form-only chrome the preview needs (empty-avatar
+ *                          affordances, dim name placeholders, audio chip).
+ *
+ * Approved design: plans/visuals/260809-love-counter-preview-form-mockup.html.
  */
 
-/* ── Section headings ───────────────────────────────────────────────────── */
-.lc-section-title {
-  margin: 32px 0 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e5e5e5;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: #333;
+/* Same guard as counter-page.css, carried over: author display rules must
+   never beat [hidden] on steps, banners, or preview blocks. */
+[hidden] { display: none !important; }
+
+/* voice-upload.css centres a white card layout on body; the form page is the
+   dark full-bleed counter page instead. counter-page.css's body rules win by
+   order, but the card system's width caps must not leak onto the sheet. */
+body.lc-form-page {
+  display: block;
+  padding: 0;
+  margin: 0;
+  overflow: hidden; /* the sheet scrolls, the page behind stays put */
 }
 
-.lc-section-title:first-child {
-  margin-top: 0;
+/* ── Preview stage (fixed backdrop; the sheet floats above) ─────────────── */
+.lc-preview-stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
 }
 
-.lc-optional-tag {
-  margin-left: 6px;
+/* Keep the heart/couple visible above the sheet on small screens: the page's
+   own content column, just with breathing room for the collapsed strip. */
+.lc-preview-stage .counter-content {
+  min-height: 100vh;
+  padding-bottom: 90px;
+}
+
+/* ── Form-only preview chrome ───────────────────────────────────────────── */
+.lc-ava-slot { position: relative; display: block; }
+
+.lc-ava-placeholder {
+  position: absolute;
+  inset: 0;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 20px;
+  line-height: 1.1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.lc-ava-placeholder small {
   font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.couple-name.lc-dim {
+  opacity: 0.5;
+  font-style: italic;
   font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  color: #8a8a8a;
 }
 
-/* ── Date control ───────────────────────────────────────────────────────── */
-/* iOS renders date inputs shorter than text inputs and ignores inherited
-   font-size below 16px by zooming the page on focus, so both are pinned. */
-.lc-date-input {
-  min-height: 44px;
-  font-size: 16px;
-}
+/* Audio chip: decorative bars sized like the page's fallback, plus the
+   filename line the real page does not need. */
+.lc-pv-play { font-size: 26px; flex-shrink: 0; }
 
-/* Safari shows a centred value in a date input; align it with the text fields. */
-.lc-date-input::-webkit-date-and-time-value {
-  text-align: left;
-}
-
-/* ── Partner grid ───────────────────────────────────────────────────────── */
-.lc-partner-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-}
-
-/* Single column on narrow phones — two croppable avatars side by side get too
-   small to aim at below roughly 480px. */
-@media (max-width: 560px) {
-  .lc-partner-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-}
-
-.lc-partner {
+.lc-pv-bars {
+  flex-grow: 1;
+  height: 34px;
   min-width: 0;
 }
 
-/* ── Avatar dropzone + preview ──────────────────────────────────────────── */
-/* Selectors are scoped through .dropzone--preview--area deliberately.
-   voice-upload.css:257 sets `.dropzone--preview--area .img-preview` at
-   specificity (0,2,0) with max-width:150px/height:auto, and its `img` rule at
-   (0,2,1) with object-fit:contain and border-radius:4px. A bare .lc-* class
-   (0,1,0) loses to both, so the circle and the 16:9 frame would silently not
-   apply. Matching the descendant structure and adding the modifier class wins
-   on specificity rather than on load order. */
-.lc-avatar-dropzone {
-  min-height: 0;
+.lc-pv-audio-name {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.dropzone--preview--area .img-preview.lc-avatar-preview {
-  width: 120px;
-  max-width: 120px;
-  height: 120px;
+/* ── Bottom sheet ───────────────────────────────────────────────────────── */
+.lc-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
   margin: 0 auto;
+  max-width: 480px;
+  background: #fff;
+  color: #222;
+  border-radius: 22px 22px 0 0;
+  padding: 6px 20px calc(22px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35);
+  transition: transform 0.35s ease;
+  max-height: 62vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  font-family: 'Montserrat', -apple-system, 'Segoe UI', sans-serif;
+}
+
+.lc-sheet.lc-collapsed {
+  transform: translateY(calc(100% - 64px));
+  overflow: hidden;
+}
+
+.lc-grab-zone {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 8px 0 4px;
+  cursor: pointer;
+}
+
+.lc-grab {
+  display: block;
+  width: 44px;
+  height: 5px;
+  border-radius: 3px;
+  background: #ddd;
+  margin: 0 auto;
+}
+
+.lc-stepdots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.lc-stepdots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e5e5ee;
+  transition: all 0.3s;
+}
+
+.lc-stepdots i.on {
+  background: #a2334f;
+  width: 20px;
+  border-radius: 4px;
+}
+
+/* ── Steps ──────────────────────────────────────────────────────────────── */
+.lc-step-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+
+.lc-step-sub {
+  font-size: 12.5px;
+  color: #888;
+  margin: 0 0 14px;
+  line-height: 1.45;
+}
+
+.lc-opt {
+  font-size: 11px;
+  font-weight: 400;
+  color: #999;
+  text-transform: none;
+}
+
+.lc-req { color: #d33; }
+
+.lc-field { margin-bottom: 11px; }
+
+.lc-field label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.lc-field input,
+.lc-field textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1.5px solid #e2e2ea;
+  border-radius: 11px;
+  font-size: 16px; /* ≥16px so iOS does not zoom the page on focus */
+  font-family: inherit;
+  box-sizing: border-box;
+  background: #fff;
+  color: #222;
+}
+
+.lc-field input:focus,
+.lc-field textarea:focus {
+  outline: none;
+  border-color: #a2334f;
+}
+
+.lc-field input[readonly] {
+  background: #f6f6f9;
+  color: #888;
+}
+
+/* iOS renders date inputs shorter than text inputs; pin the height and align
+   the value left like the text fields (Safari centres it by default). */
+.lc-date-input { min-height: 44px; }
+.lc-date-input::-webkit-date-and-time-value { text-align: left; }
+
+/* intl-tel-input needs its wrapper to span the field */
+.lc-field .iti { width: 100%; }
+
+.lc-row2 { display: flex; gap: 10px; }
+.lc-row2 .lc-field { flex: 1; min-width: 0; }
+
+.lc-more { margin: 4px 0 12px; }
+.lc-more summary {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #a2334f;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.lc-more .lc-field { margin-top: 10px; }
+
+.lc-hint {
+  font-size: 11.5px;
+  color: #aaa;
+  text-align: center;
+  margin: 10px 0 0;
+}
+
+.lc-hint-inline {
+  display: block;
+  text-align: right;
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 2px;
+}
+
+.lc-error {
+  display: block;
+  color: #d33;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.lc-prefill-banner {
+  background: #fff8e6;
+  border: 1px solid #f2dfa8;
+  color: #8a6d1a;
+  font-size: 12.5px;
+  border-radius: 10px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+  line-height: 1.45;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.lc-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  background: linear-gradient(135deg, #a2334f, #6d2244);
+  color: #fff;
+  margin-top: 8px;
+}
+
+.lc-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.lc-btn-ghost {
+  background: #f4f4f8;
+  color: #666;
+  font-weight: 600;
+  padding: 11px;
+}
+
+/* ── Photo pick tiles (the dropzones, restyled) ─────────────────────────── */
+.lc-picks {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 4px;
+  align-items: stretch;
+}
+
+.lc-pick {
+  flex: 1;
+  min-width: 0;
+  border: 2px dashed #d5d5e0;
+  border-radius: 14px;
+  background: #fafafc;
+  cursor: pointer;
+  padding: 0;
+  min-height: 108px;
+  display: flex;
+  transition: border-color 0.25s, background 0.25s;
+}
+
+.lc-pick.is-dragover {
+  border-color: #a2334f;
+  background: #fdf4f6;
+}
+
+.lc-pick-bg { max-width: 92px; }
+
+.lc-pick .dropzone--content {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+
+.lc-pick-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px;
+  text-align: center;
+}
+
+.lc-pick-emoji { font-size: 24px; }
+
+.lc-pick-label {
+  font-size: 12px;
+  color: #777;
+  font-weight: 600;
+}
+
+.lc-pick-btn {
+  font-size: 11.5px;
+  padding: 5px 10px;
+}
+
+.lc-pick-done {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+}
+
+/* Specificity note: voice-upload.css styles
+   `.dropzone--preview--area .img-preview` at (0,2,0) with max-width:150px and
+   its img at (0,2,1) — the lc-* modifier classes below match that descendant
+   structure to win on specificity, not load order (same trick the stacked
+   form documented). */
+.dropzone--preview--area .img-preview.lc-avatar-preview {
+  width: 64px;
+  max-width: 64px;
+  height: 64px;
+  margin: 0;
   border-radius: 50%;
   overflow: hidden;
 }
@@ -96,14 +394,11 @@
   display: block;
 }
 
-/* ── Background preview ─────────────────────────────────────────────────── */
-/* Portrait 9:16, matching the crop — the page is viewed on a phone that just
-   scanned the QR, so the preview should read as a phone screen. */
 .dropzone--preview--area .img-preview.lc-bg-preview {
   width: 100%;
-  max-width: 170px;
+  max-width: 46px;
   height: auto;
-  margin: 0 auto;
+  margin: 0;
   aspect-ratio: 9 / 16;
   overflow: hidden;
   border-radius: 6px;
@@ -119,10 +414,102 @@
   display: block;
 }
 
-/* ── Cropper modal cancel button ────────────────────────────────────────── */
-/* .couplepix-modal-actions is already defined at voice-upload.css:460 with the
-   same flex/gap/centre rules — not repeated here. Only Cancel is new; the voice
-   modal ships an OK button alone. */
+.lc-pick-change {
+  font-size: 11px;
+  font-weight: 600;
+  color: #3bb273;
+}
+
+.lc-pick-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* A filled tile reads as done */
+.lc-pick:has(.dropzone--preview--area[style*="block"]) {
+  border-style: solid;
+  border-color: #3bb273;
+  background: #f2fbf6;
+}
+
+/* ── Audio step ─────────────────────────────────────────────────────────── */
+.lc-audio-dropzone {
+  border: none;
+  padding: 0;
+  background: none;
+}
+
+.lc-audio-pick { margin-top: 0; }
+
+.lc-audio-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f4f4f8;
+  border-radius: 11px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.lc-audio-preview .audio-filename {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Progress + success (inside the sheet) ──────────────────────────────── */
+.lc-progress { margin-top: 12px; }
+
+.lc-progress-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.lc-progress-label {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.lc-success {
+  text-align: center;
+  padding: 18px 6px 8px;
+}
+
+.lc-success-icon { font-size: 40px; }
+
+.lc-success-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 8px 0 4px;
+}
+
+.lc-success-message {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Cropper modal cancel button (OK-only in the voice modal) ───────────── */
 .couplepix-modal-cancel {
   background: #fff;
   color: #333;
