@@ -76,6 +76,50 @@
     }
   });
 
+  /**
+   * Client mirror of the server's MEDIA_SLOTS_BY_TYPE (replaceMedia action),
+   * plus the crop geometry for each image slot — copied VERBATIM from the
+   * customer forms (voice-upload.js / love-counter-upload.js): the admin must
+   * never produce a file the public page renders differently than a customer
+   * upload. tests/admin-media-slots.test.js asserts both the slot names
+   * (against the GAS map) and the geometries (against the form sources).
+   */
+  const MEDIA_SLOTS_BY_TYPE = Object.assign(Object.create(null), {
+    voice: {
+      image: {
+        label: 'Đổi ảnh', kind: 'image',
+        viewport: { width: 280, height: 280, type: 'square' },
+        boundary: { width: 300, height: 380 },
+        output: { width: 400, height: 400 }, quality: 0.85
+      },
+      audio: { label: 'Đổi audio', kind: 'audio' }
+    },
+    counter: {
+      male: {
+        label: 'Đổi ảnh nam', kind: 'image',
+        viewport: { width: 240, height: 240, type: 'circle' },
+        boundary: { width: 280, height: 340 },
+        output: { width: 400, height: 400 }, quality: 0.85
+      },
+      female: {
+        label: 'Đổi ảnh nữ', kind: 'image',
+        viewport: { width: 240, height: 240, type: 'circle' },
+        boundary: { width: 280, height: 340 },
+        output: { width: 400, height: 400 }, quality: 0.85
+      },
+      bg: {
+        label: 'Đổi ảnh nền', kind: 'image',
+        viewport: { width: 171, height: 304, type: 'square' },
+        boundary: { width: 300, height: 340 },
+        output: { width: 675, height: 1200 }, quality: 0.82
+      },
+      audio: { label: 'Đổi audio', kind: 'audio', removable: true }
+    }
+  });
+
+  /** Same cap as voice-upload.js — base64 inflates ~47MB vs the GAS 50MB doPost cap. */
+  const MAX_AUDIO_MB = 35;
+
   // ----------------------------------------------------------------
   // State
   // ----------------------------------------------------------------
@@ -113,6 +157,9 @@
   const editCancelBtn = $('voice-edit-cancel-btn');
   const editGroupVoice   = $('voice-edit-fields-voice');
   const editGroupCounter = $('voice-edit-fields-counter');
+  const mediaButtonsEl   = $('voice-edit-media-buttons');
+  const mediaImageInput  = $('voice-edit-image-input');
+  const mediaAudioInput  = $('voice-edit-audio-input');
 
   // ----------------------------------------------------------------
   // Boot — called from admin.js after DOMContentLoaded
@@ -161,6 +208,18 @@
       if (e.target === editModal) closeEditModal();
     });
     editSaveBtn.addEventListener('click', saveEdit);
+
+    // Media replacement file inputs (buttons are rendered per row type)
+    mediaImageInput.addEventListener('change', function () {
+      const file = mediaImageInput.files && mediaImageInput.files[0];
+      mediaImageInput.value = '';
+      if (file && pendingMedia) openAdminCropModal(file, pendingMedia);
+    });
+    mediaAudioInput.addEventListener('change', function () {
+      const file = mediaAudioInput.files && mediaAudioInput.files[0];
+      mediaAudioInput.value = '';
+      if (file && pendingMedia) replaceAudio(file, pendingMedia);
+    });
   }
 
   // ----------------------------------------------------------------
@@ -633,6 +692,7 @@
     if (dateInput) {
       dateInput.max = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
     }
+    renderMediaButtons(row);
     hideEditError();
     editModal.style.display = 'flex';
   }
@@ -651,6 +711,7 @@
     if (editSaving) return;
     editModal.style.display = 'none';
     editingRow = null;
+    pendingMedia = null;
     hideEditError();
   }
 
@@ -715,6 +776,286 @@
         editSaveBtn.disabled = false;
         editSaveBtn.textContent = 'Lưu';
       });
+  }
+
+  // ----------------------------------------------------------------
+  // Media replacement — crop/compress in the browser, POST replaceMedia
+  // Contract: docs/love-counter-submit-contract.md → "replaceMedia"
+  // ----------------------------------------------------------------
+
+  // The slot a just-clicked media button refers to while the (async) file
+  // picker is open: { row, slot, spec, btn }.
+  let pendingMedia = null;
+
+  function renderMediaButtons(row) {
+    mediaButtonsEl.innerHTML = '';
+    const slots = MEDIA_SLOTS_BY_TYPE[rowTypeOf(row)];
+    if (!slots) return;
+    Object.keys(slots).forEach(function (slot) {
+      const spec = slots[slot];
+      const btn = makeBtn(spec.label, 'btn-voice-action btn-voice-media');
+      btn.addEventListener('click', function () {
+        pendingMedia = { row: row, slot: slot, spec: spec, btn: btn };
+        (spec.kind === 'audio' ? mediaAudioInput : mediaImageInput).click();
+      });
+      mediaButtonsEl.appendChild(btn);
+      if (spec.removable && (row.audio_file_id || row.audio_url)) {
+        const rmBtn = makeBtn('Xoá audio', 'btn-voice-action btn-voice-media-remove');
+        rmBtn.addEventListener('click', function () { removeMedia(row, slot, rmBtn); });
+        mediaButtonsEl.appendChild(rmBtn);
+      }
+    });
+  }
+
+  /**
+   * Crop modal for a media slot, using the SAME Croppie build and geometry as
+   * the customer forms. Kept separate from the forms' openCropModal — that one
+   * is wired to form dropzones/previews; this one resolves to a base64 upload.
+   */
+  function openAdminCropModal(file, ctx) {
+    const overlay = document.createElement('div');
+    overlay.className = 'voice-media-crop-overlay';
+    const box = document.createElement('div');
+    box.className = 'voice-media-crop-box';
+    const cropArea = document.createElement('div');
+    box.appendChild(cropArea);
+    const actions = document.createElement('div');
+    actions.className = 'voice-modal-actions';
+    const cancelBtn = makeBtn('Huỷ', 'btn-voice-action btn-voice-secondary');
+    const cropBtn = makeBtn('Cắt & upload', 'btn-voice-action btn-voice-publish');
+    actions.appendChild(cancelBtn);
+    actions.appendChild(cropBtn);
+    box.appendChild(actions);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    let croppie = null;
+    function closeCrop() {
+      try { if (croppie && croppie.destroy) croppie.destroy(); } catch (e) { /* ignore */ }
+      overlay.remove();
+    }
+    cancelBtn.addEventListener('click', closeCrop);
+
+    if (typeof Croppie === 'undefined') {
+      closeCrop();
+      showEditError('Thư viện cắt ảnh chưa tải được — reload trang admin');
+      return;
+    }
+    try {
+      croppie = new Croppie(cropArea, {
+        viewport: ctx.spec.viewport,
+        boundary: ctx.spec.boundary,
+        enableZoom: true,
+        enforceBoundary: false
+      });
+    } catch (e) {
+      closeCrop();
+      showEditError('Không khởi tạo được bộ cắt ảnh: ' + e.message);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (ev) { croppie.bind({ url: ev.target.result }).catch(function () {}); };
+    reader.onerror = function () { closeCrop(); showEditError('Không đọc được file ảnh'); };
+    reader.readAsDataURL(file);
+
+    cropBtn.addEventListener('click', function () {
+      cropBtn.disabled = true;
+      cropBtn.textContent = '...';
+      croppie.result({
+        type: 'blob',
+        size: ctx.spec.output,
+        format: 'jpeg',
+        quality: ctx.spec.quality
+      }).then(function (blob) {
+        return readBlobAsBase64(blob);
+      }).then(function (b64) {
+        closeCrop();
+        uploadMedia(ctx, {
+          data: b64,
+          filename: (file.name || ctx.slot) + '.jpg'
+        });
+      }).catch(function (err) {
+        cropBtn.disabled = false;
+        cropBtn.textContent = 'Cắt & upload';
+        console.error('[voice] crop failed:', err);
+      });
+    });
+  }
+
+  /**
+   * Audio replacement: cap → best-effort MP3 compression (same shared
+   * voice-compressor.js the forms use) → fresh peaks from the ORIGINAL file in
+   * parallel — stale peaks from the previous audio must never survive, and the
+   * server overwrites them regardless.
+   */
+  function replaceAudio(file, ctx) {
+    if (file.size / (1024 * 1024) > MAX_AUDIO_MB) {
+      showEditError('File quá lớn, tối đa ' + MAX_AUDIO_MB + 'MB');
+      return;
+    }
+    const btn = ctx.btn;
+    // Held from the START of compression, not just the upload: compressing a
+    // 35MB file takes seconds, and if the modal could close and reopen on a
+    // different row in that window, the completing upload would inject THIS
+    // row's buttons into the other row's modal — a wrong-row replacement.
+    editSaving = true;
+    btn.disabled = true;
+    btn.textContent = 'Đang nén…';
+
+    const peaksPromise = window.extractPeaks
+      ? window.extractPeaks(file, 200).catch(function () { return null; })
+      : Promise.resolve(null);
+
+    const compressPromise = window.compressAudio
+      ? window.compressAudio(file, {}).catch(function () { return null; })
+      : Promise.resolve(null);
+
+    Promise.all([compressPromise, peaksPromise]).then(function (results) {
+      const compressed = results[0];
+      const peaksResult = results[1];
+      const blob = compressed ? compressed.blob : file;
+      const mime = (compressed && compressed.mime) || file.type || 'audio/mpeg';
+      const duration = (compressed && compressed.durationSec) || (peaksResult ? peaksResult.duration : 0);
+      btn.textContent = 'Đang upload…';
+      return readBlobAsBase64(blob).then(function (b64) {
+        uploadMedia(ctx, {
+          data: b64,
+          filename: file.name || (ctx.slot + '.mp3'),
+          mime: mime,
+          peaks: peaksResult ? JSON.stringify(peaksResult.peaks) : '',
+          audio_duration: String(duration || 0)
+        });
+      });
+    }).catch(function (err) {
+      editSaving = false;
+      btn.disabled = false;
+      btn.textContent = ctx.spec.label;
+      console.error('[voice] audio prep failed:', err);
+      showEditError('Xử lý audio thất bại: ' + err.message);
+    });
+  }
+
+  /** Read a Blob as base64 without the data: prefix. */
+  function readBlobAsBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      const r = new FileReader();
+      r.onerror = function () { reject(new Error('Không đọc được file')); };
+      r.onload = function () {
+        const s = String(r.result);
+        resolve(s.slice(s.indexOf('base64,') + 7));
+      };
+      r.readAsDataURL(blob);
+    });
+  }
+
+  function uploadMedia(ctx, extra) {
+    const row = ctx.row;
+    const btn = ctx.btn;
+    const params = {
+      action: 'replaceMedia',
+      phone: row.phone || '',
+      order_id: row.order_id || '',
+      type: rowTypeOf(row),
+      slot: ctx.slot
+    };
+    Object.keys(extra).forEach(function (k) { params[k] = extra[k]; });
+
+    editSaving = true; // block modal close while the upload is in flight
+    btn.disabled = true;
+    btn.textContent = 'Đang upload…';
+    fetch(VOICE_GAS_URL, { method: 'POST', body: new URLSearchParams(params) })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'replaceMedia failed');
+        applyMediaResult(row, ctx.slot, ctx.spec, data, extra);
+        showToast('Đã thay ' + ctx.spec.label.toLowerCase().replace('đổi ', '') + ' — ' + (data.file_id ? 'file mới đã lưu' : 'đã xoá'));
+      })
+      .catch(function (err) {
+        console.error('[voice] uploadMedia error:', err);
+        showEditError('Upload thất bại: ' + err.message);
+      })
+      .then(function () {
+        editSaving = false;
+        btn.disabled = false;
+        btn.textContent = ctx.spec.label;
+      });
+  }
+
+  function removeMedia(row, slot, btn) {
+    if (!confirm('Xoá audio của row này? File cũ vẫn còn trong Drive.')) return;
+    const spec = MEDIA_SLOTS_BY_TYPE[rowTypeOf(row)][slot];
+    editSaving = true;
+    btn.disabled = true;
+    fetch(VOICE_GAS_URL, {
+      method: 'POST',
+      body: new URLSearchParams({
+        action: 'replaceMedia',
+        phone: row.phone || '',
+        order_id: row.order_id || '',
+        type: rowTypeOf(row),
+        slot: slot,
+        remove: '1'
+      })
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'replaceMedia failed');
+        applyMediaResult(row, slot, spec, data, null);
+        showToast('Đã xoá audio');
+      })
+      .catch(function (err) {
+        console.error('[voice] removeMedia error:', err);
+        showEditError('Xoá thất bại: ' + err.message);
+      })
+      .then(function () {
+        editSaving = false;
+        btn.disabled = false;
+      });
+  }
+
+  /**
+   * Mirror the server's cell updates onto the local row, rebuild the card in
+   * place (thumbnail and audio player come from row fields), and re-render the
+   * media buttons so a removed audio's Xoá button disappears.
+   */
+  function applyMediaResult(row, slot, spec, data, sent) {
+    const fileId = data.file_id || '';
+    const url = data.url || '';
+    const type = rowTypeOf(row);
+    if (type === 'counter') {
+      if (slot === 'male') { row.male_image_file_id = fileId; row.male_image_url = url; }
+      if (slot === 'female') { row.female_image_file_id = fileId; row.female_image_url = url; }
+      if (slot === 'bg') { row.bg_file_id = fileId; row.bg_url = url; }
+    }
+    if (spec.kind === 'audio') {
+      row.audio_file_id = fileId;
+      row.audio_url = url;
+      // Mirror what the server wrote: the peaks THIS request sent, blank on a
+      // removal. Blanking after a replace would diverge from the sheet and
+      // wrongly re-qualify the row for the Backfill-peaks tool.
+      row.peaks = (sent && sent.peaks) || '';
+      row.audio_duration = parseFloat((sent && sent.audio_duration) || '0') || 0;
+    }
+    if (slot === 'image' || slot === 'male') {
+      // The male avatar doubles as the row thumbnail — same mirror the server does.
+      row.image_file_id = fileId;
+      row.image_url = url;
+    }
+    const rowKey = makeRowKey(row);
+    const cardEl = Array.prototype.find.call(
+      listEl.querySelectorAll('[data-row-key]'),
+      function (el) { return el.dataset.rowKey === rowKey; }
+    );
+    if (cardEl) cardEl.replaceWith(buildVoiceCard(row));
+    // Only touch the modal when it is still showing THIS row.
+    if (editingRow === row) renderMediaButtons(row);
   }
 
   /**

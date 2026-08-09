@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Panel - CouplePix Image Viewer</title>
   <link rel="stylesheet" href="./assets/admin.css">
+  <!-- Croppie: same build the customer forms use, for identical crop output -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/croppie/2.6.5/croppie.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/croppie/2.6.5/croppie.min.js"></script>
 </head>
 <body>
   <div class="admin-container">
@@ -206,6 +209,13 @@
         <textarea id="voice-edit-text-message-counter" class="voice-edit-input" rows="3" maxlength="200"></textarea>
       </div>
 
+      <div class="voice-edit-media">
+        <p class="voice-edit-label voice-edit-media-heading">Media <span class="voice-edit-optional">(upload thay thế ngay, không cần Lưu)</span></p>
+        <div class="voice-edit-media-buttons" id="voice-edit-media-buttons"></div>
+      </div>
+      <input type="file" id="voice-edit-image-input" accept="image/*" hidden>
+      <input type="file" id="voice-edit-audio-input" accept="audio/*" hidden>
+
       <p class="voice-edit-error" id="voice-edit-error" hidden></p>
 
       <div class="voice-modal-actions">
@@ -222,6 +232,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.9.2/lib/qr-code-styling.js"></script>
   <script src="./assets/admin.js"></script>
   <script src="./assets/voice-peaks-extractor.js"></script>
+  <script src="./assets/voice-compressor.js"></script>
   <script src="./assets/admin-voice-tab.js"></script>
 </body>
 </html>

@@ -153,6 +153,38 @@ stays published and the live page picks the change up on next fetch
 worker cache for up to its TTL). Contrast: customer re-submission resets status
 to `pending`.
 
+## replaceMedia (admin) — staff media replacement
+
+`POST action=replaceMedia` replaces one media slot on an existing row. Old
+Drive files are never deleted — they are the recovery path.
+
+Identity (all required): `phone`, `order_id`, `type` — same strictness as
+`editVoice` (absent type is rejected).
+
+| type | slot | columns written | notes |
+|---|---|---|---|
+| voice | `image` | `image_file_id`, `image_url` | 400×400 JPEG q0.85, square crop (matches voice-upload.js) |
+| voice | `audio` | `audio_file_id`, `audio_url`, `peaks`, `audio_duration` | ≤35MB; compressed client-side best-effort |
+| counter | `male` | `male_image_file_id/_url` **+ `image_file_id/_url`** | thumbnail mirror, same as submitCounter |
+| counter | `female` | `female_image_file_id/_url` | 400×400 JPEG q0.85 circular crop |
+| counter | `bg` | `bg_file_id`, `bg_url` | 675×1200 JPEG q0.82 — 9:16 portrait |
+| counter | `audio` | `audio_file_id`, `audio_url`, `peaks`, `audio_duration` | the ONLY removable slot (`remove=1` clears all four) |
+
+Payload params: `slot`, then either `remove=1` (counter audio only) or `data`
+(base64, no `data:` prefix) + `filename` + `mime` (audio; images are always
+JPEG). Audio replacements SHOULD send freshly computed `peaks` +
+`audio_duration`; the server **always overwrites both** on an audio slot —
+blank when not supplied — because peaks belonging to the previous audio are
+worse than no peaks (the page falls back to decorative bars).
+
+The slot table above is the server-side whitelist (`MEDIA_SLOTS_BY_TYPE`,
+iterated by `hasOwnProperty` lookup): an unknown or prototype-key slot fails
+closed, and no slot can name a non-media column. Status/slug are untouched —
+same staff-is-the-reviewer rule as `editVoice`.
+
+Crop geometries are the customer form's, verbatim — the admin must never
+produce a file the public page renders differently than a customer upload.
+
 ## Out of scope this phase
 
 The milestone timeline (10 × avatar/link/text/position) from the current Shopify

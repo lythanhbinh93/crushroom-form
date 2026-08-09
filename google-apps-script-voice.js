@@ -21,6 +21,7 @@
  *   POST action=archiveVoice   (phone, order_id, target_status[, type])
  *   POST action=updatePeaks    (slug, peaks, audio_duration)
  *   POST action=editVoice      (phone, order_id, type + whitelisted fields; see contract doc)
+ *   POST action=replaceMedia   (phone, order_id, type, slot + data|remove; see contract doc)
  *
  * Setup (one-time, after paste into new GAS project):
  *   1. Run intialSetup() from the editor — binds Spreadsheet, creates Script Properties placeholders.
@@ -131,6 +132,7 @@ function doPost(e) {
         if (action === 'archiveVoice') return handleArchiveVoice_(e);
         if (action === 'updatePeaks') return handleUpdatePeaks_(e);
         if (action === 'editVoice') return handleEditVoice_(e);
+        if (action === 'replaceMedia') return handleReplaceMedia_(e);
         return jsonOut({ ok: false, error: 'Invalid action' });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
@@ -857,6 +859,144 @@ function handleEditVoice_(e) {
             sheet.getRange(found.rowIdx, col + 1).setValue(result.updates[field]);
         });
         return jsonOut({ ok: true, updated: fields });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
+    } finally {
+        lock.releaseLock();
+    }
+}
+
+// ============================================================
+//  ADMIN MEDIA REPLACEMENT
+//  Parameter contract: docs/love-counter-submit-contract.md → "replaceMedia"
+// ============================================================
+
+/**
+ * The only media slots action=replaceMedia may touch, per row type. Iterated
+ * via hasOwnProperty lookup like EDITABLE_FIELDS_BY_TYPE, so an unknown or
+ * prototype-key slot fails closed and no slot can name a non-media column.
+ *
+ * mirrorThumb: the male avatar doubles as the row thumbnail (the contract
+ * handleSubmitCounter_ established), so replacing it must keep both pairs in
+ * step. removable: only counter audio — audio is optional for a counter, but
+ * IS the product for a voice gift, and the images are required by both pages.
+ */
+var MEDIA_SLOTS_BY_TYPE = {
+    voice: {
+        image: { fileField: 'image_file_id', urlField: 'image_url', kind: 'image' },
+        audio: { fileField: 'audio_file_id', urlField: 'audio_url', kind: 'audio' }
+    },
+    counter: {
+        male: { fileField: 'male_image_file_id', urlField: 'male_image_url', kind: 'image', mirrorThumb: true },
+        female: { fileField: 'female_image_file_id', urlField: 'female_image_url', kind: 'image' },
+        bg: { fileField: 'bg_file_id', urlField: 'bg_url', kind: 'image' },
+        audio: { fileField: 'audio_file_id', urlField: 'audio_url', kind: 'audio', removable: true }
+    }
+};
+
+/**
+ * Pure cell-update map for one media slot — extractable by the Node tests.
+ *
+ * Audio slots ALWAYS overwrite peaks + audio_duration (blank when the caller
+ * sent none): peaks belonging to the previous audio are worse than no peaks,
+ * since the page falls back to decorative bars on blank.
+ */
+function buildMediaCellUpdates_(spec, fileId, url, peaksJson, audioDuration) {
+    var updates = {};
+    updates[spec.fileField] = fileId;
+    updates[spec.urlField] = url;
+    if (spec.kind === 'audio') {
+        updates.peaks = csvSafe_(String(peaksJson || ''));
+        updates.audio_duration = audioDuration || 0;
+    }
+    if (spec.mirrorThumb) {
+        updates.image_file_id = fileId;
+        updates.image_url = url;
+    }
+    return updates;
+}
+
+/**
+ * POST action=replaceMedia
+ * Params: phone, order_id, type, slot, then either remove=1 (removable slots
+ * only) or data (base64) + filename + mime (audio; images are always JPEG).
+ * Optional for audio: peaks, audio_duration.
+ *
+ * Old Drive files are never deleted — they are the recovery path. Status and
+ * slug are untouched, same staff-is-the-reviewer rule as editVoice.
+ */
+function handleReplaceMedia_(e) {
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) {
+        return jsonOut({ ok: false, error: 'busy, please retry' });
+    }
+    try {
+        var phone = normalizeVNPhone_(e.parameter.phone);
+        var orderId = String(e.parameter.order_id || '').trim();
+        var type = String(e.parameter.type || '').trim().toLowerCase();
+        var slot = String(e.parameter.slot || '').trim().toLowerCase();
+        if (!phone) return jsonOut({ ok: false, error: 'phone required' });
+        if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
+        if (!type) return jsonOut({ ok: false, error: 'type required' });
+
+        if (!Object.prototype.hasOwnProperty.call(MEDIA_SLOTS_BY_TYPE, type)) {
+            return jsonOut({ ok: false, error: 'unknown_type' });
+        }
+        var slots = MEDIA_SLOTS_BY_TYPE[type];
+        if (!Object.prototype.hasOwnProperty.call(slots, slot)) {
+            return jsonOut({ ok: false, error: 'unknown_slot' });
+        }
+        var spec = slots[slot];
+
+        var isRemove = String(e.parameter.remove || '') === '1';
+        if (isRemove && !spec.removable) {
+            return jsonOut({ ok: false, error: 'slot_not_removable' });
+        }
+
+        // Row lookup BEFORE the Drive save: a bad identity must not leave an
+        // orphaned anyone-with-link file in the folder.
+        var sheet = ensureVoiceSheet_();
+        assertSheetWidth_(sheet);
+        var found = voiceFindRowByKey_(phone, orderId, type);
+        if (!found) return jsonOut({ ok: false, error: 'row_not_found' });
+
+        var fileId = '';
+        var url = '';
+        if (!isRemove) {
+            var data = String(e.parameter.data || '');
+            if (!data) return jsonOut({ ok: false, error: 'data required' });
+            var stem = phone + '_' + orderId + '_' + slot;
+            if (spec.kind === 'image') {
+                var imageFolderId = scriptProp.getProperty('VOICE_IMAGE_FOLDER_ID');
+                if (!imageFolderId) return jsonOut({ ok: false, error: 'VOICE_IMAGE_FOLDER_ID not configured' });
+                var name = String(e.parameter.filename || '').trim() || (stem + '.jpg');
+                var saved = saveImageToDrive_(data, name, imageFolderId);
+                fileId = saved.fileId;
+                url = saved.url;
+            } else {
+                var audioFolderId = scriptProp.getProperty('VOICE_AUDIO_FOLDER_ID');
+                if (!audioFolderId) return jsonOut({ ok: false, error: 'VOICE_AUDIO_FOLDER_ID not configured' });
+                var mime = String(e.parameter.mime || 'audio/mpeg').trim();
+                var audioName = String(e.parameter.filename || '').trim() || (stem + '.m4a');
+                var blob = Utilities.newBlob(Utilities.base64Decode(data), mime, audioName);
+                fileId = DriveApp.getFolderById(audioFolderId).createFile(blob).getId();
+                url = 'https://drive.google.com/file/d/' + fileId + '/view?usp=sharing';
+            }
+            try { setAnyoneCanView_(fileId); } catch (permErr) {
+                Logger.log('Warning: could not share ' + slot + ': ' + permErr);
+            }
+        }
+
+        var updates = buildMediaCellUpdates_(
+            spec, fileId, url,
+            e.parameter.peaks || '',
+            parseFloat(e.parameter.audio_duration || '0') || 0
+        );
+        Object.keys(updates).forEach(function (field) {
+            var col = VOICE_SHEET_HEADERS.indexOf(field);
+            sheet.getRange(found.rowIdx, col + 1).setValue(updates[field]);
+        });
+        return jsonOut({ ok: true, slot: slot, file_id: fileId, url: url, removed: isRemove });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
     } finally {
