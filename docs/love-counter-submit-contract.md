@@ -37,7 +37,7 @@ resumable PUT is blocked by browser CORS (see
 | `title` | no | string ≤120 | Defaults to `❤️ Been Love Memory ❤️` at render time if blank. |
 | `heart_text` | no | string ≤60 | Small line above the day number. |
 | `text_message` | no | string ≤200 | Short caption. Not the voice-gift 1000-char letter. |
-| `bgData` | no | base64 | 1200×675 JPEG q0.82. Page falls back to a gradient when absent. |
+| `bgData` | no | base64 | 675×1200 JPEG q0.82 — **9:16 portrait**, because the page is opened by scanning a QR on a phone and is painted full-viewport with `cover`. Page falls back to a gradient when absent. |
 | `bgFilename` | no | string | |
 | `audioData` | no | base64 | Optional. Compressed client-side when the browser supports it. |
 | `audioFilename` | no | string | |

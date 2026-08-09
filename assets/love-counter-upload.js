@@ -402,9 +402,13 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   var background = createImagePicker({
     key: 'background', prefix: 'bg',
-    viewport: { width: 288, height: 162, type: 'square' },
-    boundary: { width: 300, height: 320 },
-    output: { width: 1200, height: 675 }, quality: 0.82
+    // 9:16 PORTRAIT (171 = 9x19, 304 = 16x19). The page is opened by scanning
+    // a QR on a bracelet — a portrait phone — and counter-page.css paints this
+    // full-viewport with background-size: cover, so a landscape crop loses
+    // ~70% of its width to the viewport fit. Crop for how it is actually seen.
+    viewport: { width: 171, height: 304, type: 'square' },
+    boundary: { width: 300, height: 340 },
+    output: { width: 675, height: 1200 }, quality: 0.82
   });
 
   /* ══════════════════════════════════════════════════════════════════════════

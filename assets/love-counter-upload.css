@@ -97,12 +97,14 @@
 }
 
 /* ── Background preview ─────────────────────────────────────────────────── */
+/* Portrait 9:16, matching the crop — the page is viewed on a phone that just
+   scanned the QR, so the preview should read as a phone screen. */
 .dropzone--preview--area .img-preview.lc-bg-preview {
   width: 100%;
-  max-width: 320px;
+  max-width: 170px;
   height: auto;
   margin: 0 auto;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 9 / 16;
   overflow: hidden;
   border-radius: 6px;
 }
