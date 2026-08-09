@@ -1,24 +1,10 @@
 {
-  "routes": [
+  "redirects": [
     {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/admin.html",
-      "dest": "/admin.html"
-    },
-    {
-      "src": "/couplepix.html",
-      "dest": "/couplepix.html"
-    },
-    {
-      "src": "/check-date.html",
-      "dest": "/check-date.html"
-    },
-    {
-      "src": "/",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "crushroom-form.vercel.app" }],
+      "destination": "https://qr.crushroom.vn/$1",
+      "permanent": false
     }
   ]
 }
