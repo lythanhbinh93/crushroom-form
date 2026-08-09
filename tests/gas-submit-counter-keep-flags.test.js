@@ -93,6 +93,13 @@ ok('voice flags resolve null without a row',
 ok('voice keepAudio with a blank cell resolves null (cannot satisfy audio-required)',
    H.resolveKeptVoiceMedia_({ keepAudio: '1' }, H.rowFromObject_({ image_file_id: 'VI1' })).audio === null);
 
+console.log('\n-- voice resubmission keeps the slug (printed QR must survive) --');
+const finishSrc = grab(/function handleFinishUpload_\(e\) \{[\s\S]*?\n    \}\n\}/);
+ok('finishUpload row write carries the kept slug + published_at, not blanks',
+   /'pending', keptSlug, keptPublishedAt,/.test(finishSrc));
+ok('finishUpload reads the kept pair off the existing row',
+   /keptSlug = existing \? String\(existing\.row\[iSlugV\]/.test(finishSrc));
+
 console.log('\n-- fresh-wins precedence lives in the handler: pin the OR order --');
 // The handler must OR fresh media FIRST (save || kept). Assert the source
 // keeps that order for all three image slots so a refactor cannot flip it.

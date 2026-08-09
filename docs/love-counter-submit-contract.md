@@ -270,6 +270,11 @@ Note the voice form auto-generates `order_id` (`AUTO-…`) when the link
 carries none, so keep-flags only ever engage on staff links that carry the
 real `?order=` — a bare-page revisit cannot find its previous row.
 
+`finishUpload` now also **keeps the slug and `published_at` across a
+re-submission**, exactly like `submitCounter`: the QR is printed on a
+physical product, so a republish must reuse the existing slug. Status still
+resets to `pending` for staff review.
+
 ## Out of scope this phase
 
 The milestone timeline (10 × avatar/link/text/position) from the current Shopify

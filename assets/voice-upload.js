@@ -95,7 +95,11 @@ document.addEventListener('DOMContentLoaded', function () {
     imageDataB64: '',      // base64 string (no data: prefix)
     imageFilename: '',     // original filename for sheet reference
     keptImageId: '',       // Drive file id kept from the prior submission
-    isSubmitting: false
+    isSubmitting: false,
+    // Identity the last getSubmission lookup ran for ('phone|order'). Guards
+    // re-entering step 0: a second tap with the same identity must NOT
+    // re-hydrate, or it would silently revert every in-session edit.
+    checkedKey: ''
   };
 
   /* ── DOM refs — sheet controls ─────────────────────────────────────────── */
@@ -321,6 +325,11 @@ document.addEventListener('DOMContentLoaded', function () {
     var phone = iti ? iti.getNumber() : phoneInputEl.value.trim();
     var orderId = orderInput.value.trim();
 
+    // Same identity as the last lookup → the user just went back to double-
+    // check; re-hydrating would revert their in-session edits. Skip straight in.
+    var identityKey = phone + '|' + orderId;
+    if (identityKey === state.checkedKey) { goStep(1); return; }
+
     step0Next.disabled = true;
     step0Next.textContent = 'Đang kiểm tra…';
 
@@ -328,10 +337,12 @@ document.addEventListener('DOMContentLoaded', function () {
           '&order_id=' + encodeURIComponent(orderId) + '&type=voice')
       .then(function (r) { return r.json(); })
       .then(function (resp) {
+        state.checkedKey = identityKey;
         if (resp && resp.ok && resp.found) hydrateFromSubmission(resp.submission);
       })
       .catch(function () {
         // A blank start is always safe — prefill is best-effort, never a wall.
+        state.checkedKey = identityKey;
       })
       .then(function () {
         step0Next.disabled = false;

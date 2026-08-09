@@ -582,6 +582,15 @@ function handleFinishUpload_(e) {
             imageUrl = keptMedia.image.url;
         }
 
+        // Keep the slug across a re-submission — same rule as submitCounter:
+        // the QR is printed on a physical product, so minting a new slug on
+        // republish would permanently brick it. Status still returns to
+        // pending so staff review the changed content before it goes back up.
+        var iSlugV = VOICE_SHEET_HEADERS.indexOf('slug');
+        var iPublishedAtV = VOICE_SHEET_HEADERS.indexOf('published_at');
+        var keptSlug = existing ? String(existing.row[iSlugV] || '') : '';
+        var keptPublishedAt = existing ? String(existing.row[iPublishedAtV] || '') : '';
+
         var now = new Date().toISOString();
         // Prefix phone with apostrophe so Sheets stores as text and preserves leading 0.
         // (Without this, "0918260494" auto-casts to number 918260494 and breaks lookups.)
@@ -589,7 +598,7 @@ function handleFinishUpload_(e) {
         var rowValues = [
             now, "'" + phone, csvSafe_(orderId), csvSafe_(textMessage),
             audioFileId, audioUrl, imageFileId, imageUrl,
-            'pending', '', '',
+            'pending', keptSlug, keptPublishedAt,
             csvSafe_(peaks), audioDuration,
             // `type` — written explicitly on new rows. Pre-existing rows keep a
             // blank cell, which rowType_ reads as voice.
