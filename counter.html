@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Đếm ngày yêu</title>
+  <meta name="robots" content="noindex, nofollow" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+  <!-- Same WaveSurfer major as voice.html — peaks + duration skip fetch+decode -->
+  <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.min.js" defer></script>
+
+  <link rel="stylesheet" href="./assets/counter-page.css" />
+</head>
+<body>
+  <!-- Loading state -->
+  <div id="counter-loading" class="state-screen" aria-live="polite" aria-label="Đang tải…">
+    <div class="spinner"></div>
+    <p class="state-hint">Đang tải…</p>
+  </div>
+
+  <!-- 404 / error state -->
+  <div id="counter-404" class="state-screen" hidden>
+    <div class="state-icon" aria-hidden="true">😔</div>
+    <h1 class="state-title">Không tìm thấy trang này</h1>
+    <p class="state-hint">Link có thể đã bị thu hồi hoặc không tồn tại.</p>
+    <a href="./index.html" class="home-link">Về trang chủ</a>
+  </div>
+
+  <!-- Counter content -->
+  <main id="counter-root" class="counter-stage" hidden aria-label="Trang đếm ngày yêu">
+    <!-- Background image sits behind a dark overlay; a gradient shows when absent -->
+    <div class="counter-bg" id="counter-bg" aria-hidden="true"></div>
+    <div class="counter-overlay" aria-hidden="true"></div>
+
+    <div class="counter-content">
+      <h1 id="counter-title" class="counter-title"></h1>
+
+      <!-- Animated heart with the live day count inside -->
+      <div class="svg-heart-container">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#ff5c5c" class="svg-heart" aria-hidden="true">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        <div class="heart-content">
+          <p id="counter-heart-text" class="heart-eyebrow"></p>
+          <p id="counter-days" class="heart-days" aria-live="polite"></p>
+          <p class="heart-days-label">ngày</p>
+        </div>
+      </div>
+
+      <!-- Couple -->
+      <div class="couple-row">
+        <div class="couple-person">
+          <img id="male-avatar" class="couple-avatar" alt="" referrerpolicy="no-referrer" />
+          <p id="male-name" class="couple-name"></p>
+        </div>
+        <div class="couple-heart" aria-hidden="true">❤️</div>
+        <div class="couple-person">
+          <img id="female-avatar" class="couple-avatar" alt="" referrerpolicy="no-referrer" />
+          <p id="female-name" class="couple-name"></p>
+        </div>
+      </div>
+
+      <!-- Optional short message -->
+      <p id="counter-message" class="counter-message" hidden></p>
+
+      <!-- Optional audio player — whole block stays hidden when the row has no audio -->
+      <div id="audio-block" class="audio-block" hidden>
+        <p id="audio-title" class="audio-title" hidden></p>
+        <div class="player-container">
+          <button id="playPauseButton" aria-label="Play/Pause Audio" type="button">
+            <i class="fa-solid fa-circle-play" id="playIcon"></i>
+          </button>
+          <div id="waveform"></div>
+          <div id="timeDisplay">0:00</div>
+        </div>
+      </div>
+
+      <footer class="counter-footer">
+        <span>Gửi từ CouplePix</span>
+      </footer>
+    </div>
+  </main>
+
+  <script src="./assets/counter-page.js"></script>
+</body>
+</html>

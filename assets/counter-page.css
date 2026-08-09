@@ -1,0 +1,285 @@
+/**
+ * counter-page.css — public Love Counter page.
+ *
+ * Look follows the original "Been Love Memory" Shopify template this page
+ * replaces: full-bleed background under a dark overlay, a pulsing heart with
+ * the day count inside, circular couple avatars, and a translucent audio
+ * block. State screens (loading / 404) mirror voice-page.css so the two
+ * recipient pages feel like one family.
+ */
+
+* { box-sizing: border-box; }
+
+/* Force [hidden] to always hide. Author styles like `display: flex` on state
+   containers would otherwise beat the browser's [hidden] { display: none } —
+   without this, the loading spinner, the 404 screen and the content can all
+   render stacked on one page. Same guard as voice-page.css. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family: 'Montserrat', -apple-system, sans-serif;
+  color: #fff;
+  background: #1a1024;
+}
+
+/* ── State screens (loading / 404) ─────────────────────────────────────── */
+.state-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 24px;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #ff5c5c;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.state-icon  { font-size: 44px; }
+.state-title { font-size: 20px; font-weight: 600; margin: 0; }
+.state-hint  { font-size: 14px; color: rgba(255, 255, 255, 0.7); margin: 0; }
+
+.home-link {
+  margin-top: 8px;
+  color: #fff;
+  font-size: 14px;
+  text-decoration: underline;
+}
+
+/* ── Stage: background + overlay + content ─────────────────────────────── */
+.counter-stage {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.counter-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  /* Fallback when the couple uploaded no background */
+  background-image: linear-gradient(160deg, #2b1631 0%, #6d2244 60%, #a2334f 100%);
+}
+
+.counter-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.counter-content {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 48px 20px 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.counter-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+/* ── Pulsing heart with the count inside ───────────────────────────────── */
+.svg-heart-container {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  margin: 18px auto;
+}
+
+.svg-heart {
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.heart-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 1;
+  animation: heart-content-pulse 2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.1); }
+}
+
+@keyframes heart-content-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%      { transform: translate(-50%, -50%) scale(1.1); }
+}
+
+.heart-eyebrow {
+  font-size: 0.85rem;
+  margin: 0;
+  max-width: 130px;
+  animation: heart-eyebrow-blink 5s infinite;
+}
+
+@keyframes heart-eyebrow-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.heart-days {
+  font-size: 3rem;
+  line-height: 1.1;
+  margin: 0;
+  font-weight: 700;
+}
+
+.heart-days-label {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* ── Couple ────────────────────────────────────────────────────────────── */
+.couple-row {
+  margin-top: 26px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 22px;
+}
+
+.couple-person { text-align: center; }
+
+.couple-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto 8px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.couple-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  max-width: 120px;
+  overflow-wrap: break-word;
+}
+
+.couple-heart {
+  font-size: 1.9rem;
+  align-self: center;
+}
+
+/* ── Optional message ──────────────────────────────────────────────────── */
+.counter-message {
+  margin: 22px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.92);
+  max-width: 420px;
+  overflow-wrap: break-word;
+}
+
+/* ── Audio block (hidden entirely when the row has no audio) ───────────── */
+.audio-block {
+  margin-top: 28px;
+  width: 100%;
+  max-width: 440px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.audio-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.player-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#playPauseButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 38px;
+  color: #fff;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+#waveform {
+  flex-grow: 1;
+  height: 64px;
+  min-width: 0;
+}
+
+#timeDisplay {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Decorative bars fallback when peaks are unavailable */
+.voice-bars-decorative {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.voice-bar {
+  flex: 1 0 2px;
+  height: 30%;
+  background: #878787;
+  border-radius: 1px;
+}
+
+.voice-bar:nth-child(3n)  { height: 62%; }
+.voice-bar:nth-child(5n)  { height: 45%; }
+.voice-bar:nth-child(7n)  { height: 78%; }
+.voice-bar:nth-child(11n) { height: 55%; }
+
+/* ── Footer ────────────────────────────────────────────────────────────── */
+.counter-footer {
+  margin-top: auto;
+  padding-top: 30px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Slightly smaller heart on very narrow screens so avatars keep room */
+@media (max-width: 360px) {
+  .svg-heart-container { width: 190px; height: 190px; }
+  .heart-days { font-size: 2.6rem; }
+}
