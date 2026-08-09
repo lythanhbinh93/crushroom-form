@@ -1107,12 +1107,44 @@ function saveCounterImage_(base64Data, filename, fallbackName, folderId) {
 }
 
 /**
+ * Which media a resubmission keeps from the existing row — pure, so the Node
+ * tests can extract and run it. Contract doc → "submitCounter keep-flags".
+ *
+ * A keep-flag is honoured only when BOTH hold: an existing row was found (a
+ * flag can never conjure media out of nothing — without a row the fresh-data
+ * requirement applies unchanged) and the existing cell actually has a file id
+ * (keeping "no background" is just no background). Returns per-slot
+ * { fileId, url } or null, same shape saveCounterImage_ produces, so the
+ * handler treats kept and fresh media identically downstream.
+ */
+function resolveKeptMedia_(params, existingRow) {
+    function kept(flag, fileField, urlField) {
+        if (!existingRow) return null;
+        if (String(params[flag] || '') !== '1') return null;
+        var fileId = String(existingRow[VOICE_SHEET_HEADERS.indexOf(fileField)] || '').trim();
+        if (!fileId) return null;
+        return { fileId: fileId, url: String(existingRow[VOICE_SHEET_HEADERS.indexOf(urlField)] || '') };
+    }
+    return {
+        male: kept('keepMale', 'male_image_file_id', 'male_image_url'),
+        female: kept('keepFemale', 'female_image_file_id', 'female_image_url'),
+        bg: kept('keepBg', 'bg_file_id', 'bg_url'),
+        audio: kept('keepAudio', 'audio_file_id', 'audio_url')
+    };
+}
+
+/**
  * POST action=submitCounter
  *
  * Required: phone, order_id, start_date, male_name, female_name,
  *           maleData, femaleData
  * Optional: bgData, audioData (+ audioFilename, audioMime, audio_title,
  *           peaks, audio_duration), title, heart_text, text_message
+ * Optional keep-flags (returning customers; see contract doc):
+ *           keepMale, keepFemale, keepBg, keepAudio = '1' reuses the existing
+ *           row's file for that slot instead of requiring fresh data. Fresh
+ *           data wins when both arrive. keepAudio also carries the row's
+ *           peaks + audio_duration forward — the client never had them.
  *
  * Upserts on (phone, order_id, 'counter'). A re-submission resets status to
  * pending for staff review but KEEPS the slug — see below.
@@ -1152,16 +1184,28 @@ function handleSubmitCounter_(e) {
             return jsonOut({ ok: false, error: 'VOICE_IMAGE_FOLDER_ID not configured' });
         }
 
+        // Row lookup BEFORE the Drive saves (same rule as replaceMedia): the
+        // keep-flags need the existing row to resolve, and a bad identity must
+        // not leave orphaned anyone-with-link files in the folder.
+        var sheet = ensureVoiceSheet_();
+        assertSheetWidth_(sheet);
+        var existing = voiceFindRowByKey_(phone, orderId, ROW_TYPE_COUNTER);
+        var keptMedia = resolveKeptMedia_(e.parameter, existing ? existing.row : null);
+
+        // Fresh data wins over a keep-flag: saveCounterImage_ runs first and
+        // the kept file only fills a slot the POST left empty.
         var stem = phone + '_' + orderId;
-        var male = saveCounterImage_(e.parameter.maleData, e.parameter.maleFilename, stem + '_male.jpg', imageFolderId);
+        var male = saveCounterImage_(e.parameter.maleData, e.parameter.maleFilename, stem + '_male.jpg', imageFolderId) || keptMedia.male;
         if (!male) return jsonOut({ ok: false, error: 'male photo required' });
-        var female = saveCounterImage_(e.parameter.femaleData, e.parameter.femaleFilename, stem + '_female.jpg', imageFolderId);
+        var female = saveCounterImage_(e.parameter.femaleData, e.parameter.femaleFilename, stem + '_female.jpg', imageFolderId) || keptMedia.female;
         if (!female) return jsonOut({ ok: false, error: 'female photo required' });
-        var bg = saveCounterImage_(e.parameter.bgData, e.parameter.bgFilename, stem + '_bg.jpg', imageFolderId);
+        var bg = saveCounterImage_(e.parameter.bgData, e.parameter.bgFilename, stem + '_bg.jpg', imageFolderId) || keptMedia.bg;
 
         // Audio is optional for a counter — the day count is the product.
         var audioFileId = '';
         var audioUrl = '';
+        var peaksCell = csvSafe_(String(e.parameter.peaks || ''));
+        var audioDurationCell = parseFloat(e.parameter.audio_duration || '0') || 0;
         var audioData = e.parameter.audioData || '';
         if (audioData) {
             if (!audioFolderId) return jsonOut({ ok: false, error: 'VOICE_AUDIO_FOLDER_ID not configured' });
@@ -1175,11 +1219,16 @@ function handleSubmitCounter_(e) {
             } catch (audioErr) {
                 return jsonOut({ ok: false, error: 'audio save failed: ' + audioErr });
             }
+        } else if (keptMedia.audio) {
+            // Kept audio carries the row's peaks + duration forward — the client
+            // never had them, and blank peaks would downgrade the published page
+            // to decorative bars. Read values re-enter through csvSafe_ because
+            // Sheets strips the stored apostrophe on getValues().
+            audioFileId = keptMedia.audio.fileId;
+            audioUrl = keptMedia.audio.url;
+            peaksCell = csvSafe_(String(existing.row[VOICE_SHEET_HEADERS.indexOf('peaks')] || ''));
+            audioDurationCell = parseFloat(existing.row[VOICE_SHEET_HEADERS.indexOf('audio_duration')] || '0') || 0;
         }
-
-        var sheet = ensureVoiceSheet_();
-        assertSheetWidth_(sheet);
-        var existing = voiceFindRowByKey_(phone, orderId, ROW_TYPE_COUNTER);
 
         // Keep the slug across a re-submission. The QR is printed on a physical
         // bracelet already in the customer's hands, so minting a new slug would
@@ -1205,8 +1254,8 @@ function handleSubmitCounter_(e) {
             status: 'pending',
             slug: keptSlug,
             published_at: keptPublishedAt,
-            peaks: csvSafe_(String(e.parameter.peaks || '')),
-            audio_duration: parseFloat(e.parameter.audio_duration || '0') || 0,
+            peaks: peaksCell,
+            audio_duration: audioDurationCell,
             type: ROW_TYPE_COUNTER,
             // Apostrophe-prefixed for the same reason as phone: without it Sheets
             // casts to a date cell, getValues hands back a Date, and JSON puts
