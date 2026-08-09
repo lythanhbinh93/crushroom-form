@@ -13,6 +13,7 @@
  *   GET  ?action=listVoice[&status=pending|published|archived|all][&type=voice|counter]
  *   GET  ?action=getVoice&id=SLUG
  *   GET  ?action=getCounter&id=SLUG
+ *   GET  ?action=getSubmission (phone, order_id, type; see contract doc)
  *   GET  ?action=audioProxy&id=FILEID
  *   POST action=initUpload     (phone, order_id, filename, mimeType, size)
  *   POST action=finishUpload   (phone, order_id, fileId, text_message, imgData, imgFilename)
@@ -174,6 +175,8 @@ function doGet(e) {
         // getVoice and audioProxy are recipient-facing: no admin login required.
         if (action === 'getVoice') return handleGetVoice_(e);
         if (action === 'getCounter') return handleGetCounter_(e);
+        // Customer-facing prefill read — same trust level as the public upsert.
+        if (action === 'getSubmission') return handleGetSubmission_(e);
         if (action === 'audioProxy') return handleAudioProxy_(e);
         return jsonOut({ ok: false, error: 'Invalid action' });
     } catch (err) {
@@ -1239,6 +1242,75 @@ function handleSubmitCounter_(e) {
         return jsonOut({ ok: false, error: String(err) });
     } finally {
         lock.releaseLock();
+    }
+}
+
+/**
+ * The only fields action=getSubmission may return, per row type — the form's
+ * prefill needs exactly what it can edit or preview, nothing else.
+ *
+ * The endpoint is reachable by anyone who can guess (phone, order_id), so this
+ * list is a security boundary like EDITABLE_FIELDS_BY_TYPE: the builder
+ * iterates THIS map, never the row's columns. `slug` is deliberately absent —
+ * it is the public-page capability token (the printed QR URL); the form only
+ * needs the has_slug boolean. `phone` is never echoed back either.
+ */
+var SUBMISSION_RESPONSE_FIELDS = {
+    voice: ['text_message', 'image_file_id', 'audio_file_id', 'status'],
+    counter: [
+        'start_date', 'male_name', 'female_name', 'title', 'heart_text',
+        'text_message', 'audio_title',
+        'male_image_file_id', 'female_image_file_id', 'bg_file_id',
+        'audio_file_id', 'status'
+    ]
+};
+
+/**
+ * Pure response builder for getSubmission — no Spreadsheet calls, so the Node
+ * test harness can extract and run it directly (Utilities is stubbed there for
+ * the hand-edited-Date-cell case toDateString_ handles).
+ */
+function buildSubmissionResponse_(row) {
+    var fields = SUBMISSION_RESPONSE_FIELDS[rowType_(row)];
+    var out = {};
+    fields.forEach(function (h) {
+        var v = row[VOICE_SHEET_HEADERS.indexOf(h)];
+        out[h] = (h === 'start_date')
+            ? toDateString_(v)
+            : String(v == null ? '' : v);
+    });
+    out.has_slug = !!String(row[VOICE_SHEET_HEADERS.indexOf('slug')] || '').trim();
+    return out;
+}
+
+/**
+ * GET action=getSubmission
+ * Identity (all required): phone, order_id, type — absent type is REJECTED,
+ * same strictness as editVoice: the resolve-to-voice default would hydrate
+ * the wrong product's row.
+ *
+ * Not-found is NOT an error — `{ ok:true, found:false }` — because a blank
+ * start is the normal new-customer path and must not produce client-side
+ * error noise. Read-only: no lock, no cells written, status untouched.
+ */
+function handleGetSubmission_(e) {
+    try {
+        var phone = normalizeVNPhone_(e.parameter.phone);
+        var orderId = String(e.parameter.order_id || '').trim();
+        var type = String(e.parameter.type || '').trim().toLowerCase();
+        if (!phone) return jsonOut({ ok: false, error: 'phone required' });
+        if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
+        if (!type) return jsonOut({ ok: false, error: 'type required' });
+        if (!Object.prototype.hasOwnProperty.call(SUBMISSION_RESPONSE_FIELDS, type)) {
+            return jsonOut({ ok: false, error: 'unknown_type' });
+        }
+
+        var found = voiceFindRowByKey_(phone, orderId, type);
+        if (!found) return jsonOut({ ok: true, found: false });
+
+        return jsonOut({ ok: true, found: true, submission: buildSubmissionResponse_(found.row) });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
     }
 }
 

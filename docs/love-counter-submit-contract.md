@@ -185,6 +185,72 @@ same staff-is-the-reviewer rule as `editVoice`.
 Crop geometries are the customer form's, verbatim — the admin must never
 produce a file the public page renders differently than a customer upload.
 
+## getSubmission (customer form) — returning-customer prefill
+
+`GET action=getSubmission&phone=&order_id=&type=` returns the caller's own
+prior submission so the upload form can hydrate its preview for editing.
+
+Identity (all required): `phone` (re-normalised via `normalizeVNPhone_`),
+`order_id`, `type` — absent `type` is REJECTED (`type required`), same
+strictness and same reason as `editVoice`: the resolve-to-voice default would
+hydrate the wrong product's row.
+
+**Not-found is not an error.** A blank start is the normal new-customer path:
+
+- found → `{ ok: true, found: true, submission: { ...whitelist... } }`
+- not found → `{ ok: true, found: false }`
+
+**Response whitelist** — built by the pure `buildSubmissionResponse_(row)`,
+which iterates THIS list, never the row's columns, so a column added later
+stays private until deliberately exposed (same principle as `getCounter`):
+
+| type | fields |
+|---|---|
+| counter | `start_date` (via `toDateString_` → `YYYY-MM-DD`), `male_name`, `female_name`, `title`, `heart_text`, `text_message`, `audio_title`, `male_image_file_id`, `female_image_file_id`, `bg_file_id`, `audio_file_id`, `status`, `has_slug` |
+| voice | `text_message`, `image_file_id`, `audio_file_id`, `status`, `has_slug` |
+
+Image file ids render client-side via the existing
+`drive.google.com/thumbnail?id=` pattern; `audio_file_id` presence drives the
+preview's audio chip (the form never streams).
+
+**The slug is NEVER returned.** It is the public-page capability token — the
+printed QR URL — and this endpoint is reachable by anyone who can guess
+`(phone, order_id)`. `has_slug` is a boolean derived from it, enough for the
+"mã QR giữ nguyên" messaging. `phone` is likewise never echoed back.
+
+Trust level (recorded, accepted): anyone holding `(phone, order_id)` can
+already OVERWRITE this row via the public resubmission upsert; this read
+returns strictly less than what an overwrite implies knowing. The standing
+no-auth posture is unchanged and remains the product's largest open item.
+
+Read-only — no lock, no status change, no cells written.
+
+## submitCounter keep-flags — returning-customer resubmission
+
+`submitCounter` is a whole-row upsert requiring `maleData`/`femaleData`, which
+would force a returning customer who only fixes the date to re-crop and
+re-upload every photo. Additive, optional params fix that:
+
+| Param | Effect when `1` AND an existing `(phone, order_id, counter)` row is found |
+|---|---|
+| `keepMale` | reuse the existing row's `male_image_file_id/_url` (+ thumbnail mirror pair) instead of requiring `maleData` |
+| `keepFemale` | reuse `female_image_file_id/_url` instead of requiring `femaleData` |
+| `keepBg` | reuse `bg_file_id/_url` instead of reading `bgData` |
+| `keepAudio` | reuse `audio_file_id/_url` **and the row's `peaks` + `audio_duration` + `audio_title` is still taken from the posted params** — the audio bytes are kept, the title remains editable |
+
+Rules, enforced server-side (pure `resolveKeptMedia_`, testable):
+
+- A keep-flag is **ignored when no existing row matches** — the fresh-data
+  requirement then applies unchanged (`male photo required`, …). A keep-flag
+  can never conjure media out of nothing.
+- Fresh data wins: `keepMale=1` + non-empty `maleData` saves the fresh image
+  (belt-and-braces — the form never sends both).
+- A kept slot whose existing cell is blank behaves as if the flag were absent
+  (relevant for optional bg/audio: keeping "no background" is just… no
+  background).
+- The new-customer path (no flags, no existing row) is byte-identical to the
+  original contract above. No existing param changed meaning.
+
 ## Out of scope this phase
 
 The milestone timeline (10 × avatar/link/text/position) from the current Shopify
