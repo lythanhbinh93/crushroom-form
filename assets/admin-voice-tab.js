@@ -27,6 +27,30 @@
   /** Duration (ms) before inline error auto-dismisses. */
   const ERROR_DISMISS_MS = 4000;
 
+  /**
+   * Public page per row type, used when a listVoice row carries no `url`
+   * (only publishVoice returns one; the list response has slug only).
+   * Must stay in step with VOICE_PAGE_BASE_URL / COUNTER_PAGE_BASE_URL in
+   * google-apps-script-voice.js.
+   *
+   * Null prototype: `type` is a hand-editable sheet cell, and a plain object
+   * literal would resolve `constructor` or `__proto__` to a truthy inherited
+   * value — producing a non-empty nonsense URL that slips past the empty-check
+   * and into a printed QR.
+   */
+  const PAGE_BASE_BY_TYPE = Object.assign(Object.create(null), {
+    voice: 'https://crushroom-form.vercel.app/voice.html?id=',
+    counter: 'https://crushroom-form.vercel.app/counter.html?id='
+  });
+
+  /**
+   * Types whose public page is not built yet. Publish and QR stay disabled for
+   * these: the URL would be well-formed, the QR would scan, and the page would
+   * 404 — and by then it is printed on a bracelet. Remove an entry the moment
+   * its page ships.
+   */
+  const TYPES_WITHOUT_PAGE = ['counter'];
+
   // ----------------------------------------------------------------
   // State
   // ----------------------------------------------------------------
@@ -172,11 +196,19 @@
     const group = document.createElement('div');
     group.className = 'voice-order-group';
 
+    // One order can hold both products, so the count is broken down by type
+    // rather than labelling everything "voice".
+    const counts = { voice: 0, counter: 0 };
+    groupRows.forEach(function (r) { counts[rowTypeOf(r)] = (counts[rowTypeOf(r)] || 0) + 1; });
+    const parts = [];
+    if (counts.voice) parts.push(counts.voice + ' voice');
+    if (counts.counter) parts.push(counts.counter + ' counter');
+
     const header = document.createElement('div');
     header.className = 'voice-order-header';
     header.innerHTML =
       'Đơn: <strong>' + escHtml(orderId) + '</strong>' +
-      '<span class="voice-order-badge">' + groupRows.length + ' voice</span>';
+      '<span class="voice-order-badge">' + escHtml(parts.join(' · ') || groupRows.length + ' mục') + '</span>';
     group.appendChild(header);
 
     groupRows.forEach(function (row) {
@@ -208,12 +240,26 @@
     const statusBadge = '<span class="voice-status-badge ' + escHtml(row.status || 'pending') + '">'
       + escHtml(row.status || 'pending') + '</span>';
 
+    // Two products share this list and a card carries no other visual cue as to
+    // which one it is — which matters, because the QR each publishes differs.
+    const type = rowTypeOf(row);
+    // Show the raw value for anything unrecognised rather than defaulting the
+    // label to "voice". A typo'd sheet cell would otherwise render a card that
+    // claims to be a voice gift while its Copy URL silently returns nothing.
+    const TYPE_LABELS = { voice: '🎙️ voice', counter: '❤️ counter' };
+    const typeLabel = Object.prototype.hasOwnProperty.call(TYPE_LABELS, type)
+      ? TYPE_LABELS[type]
+      : '⚠️ ' + type;
+    const typeBadge = '<span class="voice-type-badge voice-type-badge--' + escHtml(type) + '">'
+      + escHtml(typeLabel) + '</span>';
+
     body.innerHTML =
       '<div class="voice-card-meta">'
         + escHtml(row.phone || '—')
         + ' · ' + escHtml(row.order_id || '—')
         + ' · ' + dateStr
         + ' · ' + statusBadge
+        + ' · ' + typeBadge
       + '</div>'
       + '<div class="voice-card-text-preview">' + escHtml((row.text_message || '').slice(0, 120)) + '</div>';
 
@@ -298,8 +344,20 @@
   function buildActionButtons(container, row) {
     container.innerHTML = '';
     const status = row.status || 'pending';
+    // A row whose public page does not exist yet must not reach a QR. The URL
+    // would be well-formed and the QR would scan — to a 404, after it has been
+    // printed onto the product. Blocked at the button rather than trusted to
+    // staff memory.
+    const pageMissing = pageMissingFor_(row);
 
-    if (status === 'pending' || status === 'published') {
+    if (pageMissing) {
+      const note = document.createElement('span');
+      note.className = 'voice-card-blocked-note';
+      note.textContent = 'Trang ' + rowTypeOf(row) + ' chưa sẵn sàng — chưa thể publish';
+      container.appendChild(note);
+    }
+
+    if (!pageMissing && (status === 'pending' || status === 'published')) {
       const publishBtn = makeBtn(
         status === 'published' ? 'Re-publish' : 'Publish',
         'btn-voice-action btn-voice-publish'
@@ -308,7 +366,7 @@
       container.appendChild(publishBtn);
     }
 
-    if (status === 'published') {
+    if (!pageMissing && status === 'published') {
       const copyBtn = makeBtn('Copy URL', 'btn-voice-action btn-voice-copy-url');
       copyBtn.addEventListener('click', function () { copyUrl(getRowUrl(row)); });
       container.appendChild(copyBtn);
@@ -339,10 +397,13 @@
     btn.disabled = true;
     btn.textContent = '...';
 
+    // type is required: the server keys on (phone, order_id, type) and treats an
+    // absent type as voice, so omitting it makes a counter row unreachable.
     const body = new URLSearchParams({
       action: 'publishVoice',
       phone: row.phone || '',
-      order_id: row.order_id || ''
+      order_id: row.order_id || '',
+      type: rowTypeOf(row)
     });
 
     fetch(VOICE_GAS_URL, { method: 'POST', body: body })
@@ -358,7 +419,9 @@
         row.url = data.url;
         // Pre-warm CF edge caches so the first recipient hits hot caches for both
         // metadata JSON and audio bytes. Fire-and-forget: failure is non-fatal.
-        if (data.slug) {
+        // The /voice/ route is the voice page's metadata cache; a counter slug
+        // does not belong in it, and counter.html reads GAS directly.
+        if (data.slug && rowTypeOf(row) === 'voice') {
           fetch(VOICE_AUDIO_PROXY_URL + '/voice/' + encodeURIComponent(data.slug), {
             method: 'GET'
           }).catch(function () { /* ignore */ });
@@ -370,7 +433,16 @@
           }).catch(function () { /* ignore */ });
         }
         // Re-render just this card's actions + published URL
-        const cardEl = listEl.querySelector('[data-row-key="' + makeRowKey(row) + '"]');
+        // Matched by string equality rather than interpolated into a selector.
+        // An order_id containing a quote or backslash used to throw a
+        // SyntaxError here, inside the .then — which lands in the .catch and
+        // tells staff the publish FAILED when it actually succeeded, prompting
+        // a pointless retry.
+        const rowKey = makeRowKey(row);
+        const cardEl = Array.prototype.find.call(
+          listEl.querySelectorAll('[data-row-key]'),
+          function (el) { return el.dataset.rowKey === rowKey; }
+        );
         if (cardEl) {
           const actionsEl = cardEl.querySelector('.voice-card-actions');
           buildActionButtons(actionsEl, row);
@@ -410,7 +482,8 @@
       action: 'archiveVoice',
       phone: row.phone || '',
       order_id: row.order_id || '',
-      target_status: targetStatus
+      target_status: targetStatus,
+      type: rowTypeOf(row)
     });
 
     fetch(VOICE_GAS_URL, { method: 'POST', body: body })
@@ -563,19 +636,35 @@
     }
   }
 
-  // Public base URL for voice pages — used when listVoice rows don't carry `url`
-  // (only publishVoice returns it; list response has slug only).
-  const VOICE_PAGE_BASE = 'https://crushroom-form.vercel.app/voice.html?id=';
-
-  // Resolve a row's public URL: prefer the one returned by publishVoice; fall
-  // back to constructing it from slug (needed when row came from listVoice).
+  /**
+   * Resolve a row's public URL: prefer the one publishVoice returned, otherwise
+   * rebuild it from slug + type.
+   *
+   * The type matters because this URL gets printed onto a physical product. A
+   * single hardcoded base looked correct right after publishing — publishRow
+   * stores the server's url — and then silently reverted to the voice page on
+   * the next reload, when rows come back from listVoice without a url.
+   */
   function getRowUrl(row) {
-    return row.url || (row.slug ? VOICE_PAGE_BASE + row.slug : '');
+    if (row.url) return row.url;
+    if (!row.slug) return '';
+    const base = PAGE_BASE_BY_TYPE[rowTypeOf(row)];
+    // Anything not explicitly mapped resolves to no URL rather than a guessed
+    // one. Failing closed is the only safe direction when the output is printed.
+    return typeof base === 'string' && base ? base + row.slug : '';
+  }
+
+  /** True when this row's public page has not shipped yet. */
+  function pageMissingFor_(row) {
+    return TYPES_WITHOUT_PAGE.indexOf(rowTypeOf(row)) !== -1;
   }
 
   function openQrModal(slug, url) {
     qrSlug = slug || '';
-    qrUrl = url || (slug ? VOICE_PAGE_BASE + slug : '');
+    // Deliberately no fallback reconstruction here: callers already resolve the
+    // URL through getRowUrl, and guessing a base at this point is how a QR ends
+    // up pointing at the wrong page. No URL means no QR.
+    qrUrl = url || '';
     if (!qrUrl) {
       showToast('Không có URL để tạo QR', true);
       return;
@@ -699,8 +788,23 @@
     return btn;
   }
 
+  /**
+   * Row type, mirroring the server's blank-means-voice rule so rows written
+   * before the `type` column existed keep resolving correctly.
+   */
+  function rowTypeOf(row) {
+    const t = String(row && row.type ? row.type : '').trim().toLowerCase();
+    return t || 'voice';
+  }
+
+  /**
+   * DOM identity for a card. Type is part of it for the same reason it is part
+   * of the server-side key: one customer can buy a voice gift and a love
+   * counter on ONE order, and without type both cards share a key — so
+   * publishing the counter would rewrite the voice card's badge and URL.
+   */
   function makeRowKey(row) {
-    return (row.phone || '') + '|' + (row.order_id || '');
+    return (row.phone || '') + '|' + (row.order_id || '') + '|' + rowTypeOf(row);
   }
 
   function escHtml(s) {
