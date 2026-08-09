@@ -55,6 +55,9 @@ const ROW_TYPE_VOICE = 'voice';
 const ROW_TYPE_COUNTER = 'counter';
 const VOICE_RECIPIENT_EMAIL = 'crush@crushroom.vn';
 const VOICE_PAGE_BASE_URL = 'https://crushroom-form.vercel.app/voice.html?id=';
+// Love Counter rows publish to their own page — the two render nothing alike,
+// and a shared page would ship the waveform player to counter visitors.
+const COUNTER_PAGE_BASE_URL = 'https://crushroom-form.vercel.app/counter.html?id=';
 
 const scriptProp = PropertiesService.getScriptProperties();
 
@@ -210,6 +213,40 @@ function migrateCounterColumns() {
 }
 
 /**
+ * Widen a positional row array to the full header width, padding with ''.
+ *
+ * Row writes build a positional array and hand it to
+ * setValues(getRange(r, 1, 1, VOICE_SHEET_HEADERS.length)). setValues throws
+ * unless the array width matches the range width exactly, so every append to
+ * VOICE_SHEET_HEADERS would otherwise break every existing writer. Pad instead
+ * of hand-counting: the writer lists the values it knows, this fills the rest.
+ */
+function padRow_(values) {
+    var out = values.slice();
+    while (out.length < VOICE_SHEET_HEADERS.length) out.push('');
+    if (out.length > VOICE_SHEET_HEADERS.length) {
+        throw new Error('row has ' + out.length + ' values but only ' +
+            VOICE_SHEET_HEADERS.length + ' columns are defined');
+    }
+    return out;
+}
+
+/**
+ * Fail loudly if the live sheet is narrower than the code expects.
+ *
+ * Guards the case where code that knows about new columns is deployed before
+ * migrateCounterColumns() has widened the sheet. Without this the write still
+ * "succeeds" against a short header row and values land under the wrong names.
+ */
+function assertSheetWidth_(sheet) {
+    var width = sheet.getLastColumn();
+    if (width < VOICE_SHEET_HEADERS.length) {
+        throw new Error('sheet has ' + width + ' columns but code expects ' +
+            VOICE_SHEET_HEADERS.length + ' — run migrateCounterColumns() first');
+    }
+}
+
+/**
  * Row type, treating a blank cell as 'voice'.
  * Pre-existing rows predate the column and are never backfilled — backfilling
  * would rewrite production data for no gain.
@@ -221,18 +258,28 @@ function rowType_(row) {
 }
 
 /**
- * Find a row by (phone, order_id). Returns { rowIdx, row } or null.
+ * Find a row by (phone, order_id, type). Returns { rowIdx, row } or null.
+ *
+ * Type is part of the key because one customer can buy a voice gift and a love
+ * counter on the SAME order. Keyed on phone+order alone, both rows collide and
+ * the first match wins, so a submission or publish silently writes the wrong
+ * row. Omitting `type` means voice, which keeps every existing caller correct
+ * and matches pre-existing rows through rowType_'s blank-is-voice rule.
+ *
  * Normalizes stored phone before compare — Sheets auto-casts leading-zero strings
  * to numbers ("0918260494" → 918260494), so we re-normalize both sides.
  */
-function voiceFindRowByKey_(phone, orderId) {
+function voiceFindRowByKey_(phone, orderId, type) {
+    var wantType = String(type || ROW_TYPE_VOICE).trim().toLowerCase();
     var sheet = ensureVoiceSheet_();
     var data = sheet.getDataRange().getValues();
     var iPhone = VOICE_SHEET_HEADERS.indexOf('phone');
     var iOrder = VOICE_SHEET_HEADERS.indexOf('order_id');
     for (var i = 1; i < data.length; i++) {
         var rowPhone = normalizeVNPhone_(String(data[i][iPhone]));
-        if (rowPhone === phone && String(data[i][iOrder]) === orderId) {
+        if (rowPhone === phone &&
+            String(data[i][iOrder]) === orderId &&
+            rowType_(data[i]) === wantType) {
             return { rowIdx: i + 1, row: data[i] };
         }
     }
@@ -432,11 +479,15 @@ function handleFinishUpload_(e) {
             now, "'" + phone, csvSafe_(orderId), csvSafe_(textMessage),
             audioFileId, audioUrl, imageFileId, imageUrl,
             'pending', '', '',
-            csvSafe_(peaks), audioDuration
+            csvSafe_(peaks), audioDuration,
+            // `type` — written explicitly on new rows. Pre-existing rows keep a
+            // blank cell, which rowType_ reads as voice.
+            ROW_TYPE_VOICE
         ];
 
+        assertSheetWidth_(sheet);
         var rowIdx = existing ? existing.rowIdx : sheet.getLastRow() + 1;
-        sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([rowValues]);
+        sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([padRow_(rowValues)]);
 
         try {
             var subject = '[Voice Gift] New upload — order ' + orderId;
@@ -464,6 +515,9 @@ function handleFinishUpload_(e) {
 function handleListVoice_(e) {
     try {
         var statusFilter = String(e.parameter.status || 'pending').toLowerCase();
+        // Absent type means "every type", so the existing admin call keeps
+        // returning what it always did. Pass type=voice or type=counter to narrow.
+        var typeFilter = String(e.parameter.type || 'all').trim().toLowerCase();
         var sheet = ensureVoiceSheet_();
         var data = sheet.getDataRange().getValues();
         if (data.length < 2) return jsonOut({ ok: true, rows: [] });
@@ -474,8 +528,11 @@ function handleListVoice_(e) {
             var row = data[i];
             var rowStatus = String(row[iStatus]).toLowerCase();
             if (statusFilter !== 'all' && rowStatus !== statusFilter) continue;
+            if (typeFilter !== 'all' && rowType_(row) !== typeFilter) continue;
             var obj = {};
             VOICE_SHEET_HEADERS.forEach(function (h, idx) { obj[h] = row[idx]; });
+            // Explicit so the client never has to reproduce the blank-is-voice rule.
+            obj.type = rowType_(row);
             obj._rowIndex = i + 1;
             rows.push(obj);
         }
@@ -494,11 +551,13 @@ function handlePublishVoice_(e) {
     try {
         var phone = normalizeVNPhone_(e.parameter.phone);
         var orderId = String(e.parameter.order_id || '').trim();
+        // Absent type means voice, so the existing admin keeps working unchanged.
+        var type = String(e.parameter.type || ROW_TYPE_VOICE).trim().toLowerCase();
         if (!phone) return jsonOut({ ok: false, error: 'phone required' });
         if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
 
         var sheet = ensureVoiceSheet_();
-        var found = voiceFindRowByKey_(phone, orderId);
+        var found = voiceFindRowByKey_(phone, orderId, type);
         if (!found) return jsonOut({ ok: false, error: 'row_not_found' });
 
         var iSlug = VOICE_SHEET_HEADERS.indexOf('slug');
@@ -513,7 +572,10 @@ function handlePublishVoice_(e) {
         sheet.getRange(found.rowIdx, iStatus + 1).setValue('published');
         sheet.getRange(found.rowIdx, iPublishedAt + 1).setValue(now);
 
-        return jsonOut({ ok: true, slug: slug, url: VOICE_PAGE_BASE_URL + slug });
+        // Each type has its own public page, so the printed QR must point at the
+        // right one. Publish is where the slug becomes a URL, so it decides.
+        var baseUrl = (type === ROW_TYPE_COUNTER) ? COUNTER_PAGE_BASE_URL : VOICE_PAGE_BASE_URL;
+        return jsonOut({ ok: true, slug: slug, url: baseUrl + slug, type: type });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
     }
@@ -639,6 +701,7 @@ function handleArchiveVoice_(e) {
         var phone = normalizeVNPhone_(e.parameter.phone);
         var orderId = String(e.parameter.order_id || '').trim();
         var targetStatus = String(e.parameter.target_status || 'archived').trim().toLowerCase();
+        var type = String(e.parameter.type || ROW_TYPE_VOICE).trim().toLowerCase();
 
         if (!phone) return jsonOut({ ok: false, error: 'phone required' });
         if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
@@ -647,7 +710,7 @@ function handleArchiveVoice_(e) {
         }
 
         var sheet = ensureVoiceSheet_();
-        var found = voiceFindRowByKey_(phone, orderId);
+        var found = voiceFindRowByKey_(phone, orderId, type);
         if (!found) return jsonOut({ ok: false, error: 'row_not_found' });
 
         var iStatus = VOICE_SHEET_HEADERS.indexOf('status');
