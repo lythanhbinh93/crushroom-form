@@ -5,21 +5,37 @@
  * This gives the voice feature its own Sheet, its own Drive folders, its own quota,
  * its own web-app URL — fully isolated from the photo-upload pipeline.
  *
+ * Serves TWO products off one sheet, discriminated by the `type` column:
+ * voice gifts and love counters. A blank type means voice, so rows written
+ * before the column existed keep working untouched.
+ *
  * Endpoints:
- *   GET  ?action=listVoice[&status=pending|published|archived|all]
+ *   GET  ?action=listVoice[&status=pending|published|archived|all][&type=voice|counter]
  *   GET  ?action=getVoice&id=SLUG
- *   POST action=initUpload    (phone, order_id, filename, mimeType, size)
- *   POST action=finishUpload  (phone, order_id, fileId, text_message, imgData, imgFilename)
- *   POST action=publishVoice  (phone, order_id)
- *   POST action=archiveVoice  (phone, order_id, target_status)
+ *   GET  ?action=getCounter&id=SLUG
+ *   GET  ?action=audioProxy&id=FILEID
+ *   POST action=initUpload     (phone, order_id, filename, mimeType, size)
+ *   POST action=finishUpload   (phone, order_id, fileId, text_message, imgData, imgFilename)
+ *   POST action=submitCounter  (see docs/love-counter-submit-contract.md)
+ *   POST action=publishVoice   (phone, order_id[, type])
+ *   POST action=archiveVoice   (phone, order_id, target_status[, type])
+ *   POST action=updatePeaks    (slug, peaks, audio_duration)
  *
  * Setup (one-time, after paste into new GAS project):
  *   1. Run intialSetup() from the editor — binds Spreadsheet, creates Script Properties placeholders.
  *   2. Project Settings → Script Properties → fill:
  *        - VOICE_AUDIO_FOLDER_ID  (Drive folder ID for audio uploads)
- *        - VOICE_IMAGE_FOLDER_ID  (Drive folder ID for voice-gift images)
+ *        - VOICE_IMAGE_FOLDER_ID  (Drive folder ID for images, both products)
  *   3. Run authorizeUrlFetch() once to grant external_request scope.
  *   4. Deploy → New deployment → Web app → Execute as Me, Anyone access.
+ *
+ * REDEPLOYING: use Manage deployments and bump the version of the EXISTING
+ * deployment. A new deployment mints a new /exec URL, and five files hardcode
+ * the current one (voice-upload.js, voice-page.js, admin-voice-tab.js,
+ * love-counter-upload.js, cloudflare-worker-voice-proxy.js).
+ *
+ * After appending to VOICE_SHEET_HEADERS, run migrateCounterColumns() before
+ * deploying — see that function.
  */
 
 const VOICE_SHEET_NAME = 'voice_pages';
