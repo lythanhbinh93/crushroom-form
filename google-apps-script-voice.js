@@ -96,6 +96,7 @@ function doGet(e) {
         if (action === 'listVoice') return handleListVoice_(e);
         // getVoice and audioProxy are recipient-facing: no admin login required.
         if (action === 'getVoice') return handleGetVoice_(e);
+        if (action === 'getCounter') return handleGetCounter_(e);
         if (action === 'audioProxy') return handleAudioProxy_(e);
         return jsonOut({ ok: false, error: 'Invalid action' });
     } catch (err) {
@@ -108,6 +109,7 @@ function doPost(e) {
         const action = e.parameter && e.parameter.action;
         if (action === 'initUpload') return handleInitUpload_(e);
         if (action === 'finishUpload') return handleFinishUpload_(e);
+        if (action === 'submitCounter') return handleSubmitCounter_(e);
         if (action === 'publishVoice') return handlePublishVoice_(e);
         if (action === 'archiveVoice') return handleArchiveVoice_(e);
         if (action === 'updatePeaks') return handleUpdatePeaks_(e);
@@ -716,6 +718,253 @@ function handleArchiveVoice_(e) {
         var iStatus = VOICE_SHEET_HEADERS.indexOf('status');
         sheet.getRange(found.rowIdx, iStatus + 1).setValue(targetStatus);
         return jsonOut({ ok: true, status: targetStatus });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
+    }
+}
+
+// ============================================================
+//  LOVE COUNTER
+//  Additive only — nothing above this line changes for voice rows.
+//  Parameter contract: docs/love-counter-submit-contract.md
+// ============================================================
+
+/**
+ * Build a full-width row from a { headerName: value } object.
+ *
+ * Writers name their fields instead of counting positions. Column order then
+ * lives in exactly one place (VOICE_SHEET_HEADERS), which is the drift that
+ * silently broke three admin reads when it was allowed to live in two.
+ * Unlisted columns are written blank.
+ */
+function rowFromObject_(obj) {
+    return VOICE_SHEET_HEADERS.map(function (h) {
+        return Object.prototype.hasOwnProperty.call(obj, h) ? obj[h] : '';
+    });
+}
+
+/**
+ * Normalise a stored start_date back to 'YYYY-MM-DD'.
+ * Apostrophe-prefixed writes come back as a clean string, but a cell edited by
+ * hand in the Sheets UI comes back as a Date — resolve that in Vietnam time so
+ * it never slips a day.
+ */
+function toDateString_(v) {
+    if (v instanceof Date && !isNaN(v.getTime())) {
+        return Utilities.formatDate(v, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+    }
+    return String(v == null ? '' : v).trim();
+}
+
+/** Save one optional base64 image. Returns { fileId, url } or null when absent. */
+function saveCounterImage_(base64Data, filename, fallbackName, folderId) {
+    var data = String(base64Data || '');
+    if (!data) return null;
+    var name = String(filename || '').trim() || fallbackName;
+    var result = saveImageToDrive_(data, name, folderId);
+    try { setAnyoneCanView_(result.fileId); } catch (permErr) {
+        Logger.log('Warning: could not share ' + name + ': ' + permErr);
+    }
+    return result;
+}
+
+/**
+ * POST action=submitCounter
+ *
+ * Required: phone, order_id, start_date, male_name, female_name,
+ *           maleData, femaleData
+ * Optional: bgData, audioData (+ audioFilename, audioMime, audio_title,
+ *           peaks, audio_duration), title, heart_text, text_message
+ *
+ * Upserts on (phone, order_id, 'counter'). A re-submission resets status to
+ * pending for staff review but KEEPS the slug — see below.
+ */
+function handleSubmitCounter_(e) {
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) {
+        return jsonOut({ ok: false, error: 'busy, please retry' });
+    }
+    try {
+        var phone = normalizeVNPhone_(e.parameter.phone);
+        var orderId = String(e.parameter.order_id || '').trim();
+        var startDate = String(e.parameter.start_date || '').trim();
+        var maleName = String(e.parameter.male_name || '').trim().slice(0, 40);
+        var femaleName = String(e.parameter.female_name || '').trim().slice(0, 40);
+
+        if (!phone) return jsonOut({ ok: false, error: 'phone required' });
+        if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
+        if (!maleName || !femaleName) return jsonOut({ ok: false, error: 'both names required' });
+
+        // The form's min/max attributes are a UI affordance, not a guarantee —
+        // anything can POST here, so the same rules are enforced again.
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+            return jsonOut({ ok: false, error: 'start_date must be YYYY-MM-DD' });
+        }
+        var todayVN = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+        if (startDate > todayVN) {
+            return jsonOut({ ok: false, error: 'start_date cannot be in the future' });
+        }
+        if (startDate < '1900-01-01') {
+            return jsonOut({ ok: false, error: 'start_date is out of range' });
+        }
+
+        var imageFolderId = scriptProp.getProperty('VOICE_IMAGE_FOLDER_ID');
+        var audioFolderId = scriptProp.getProperty('VOICE_AUDIO_FOLDER_ID');
+        if (!imageFolderId) {
+            return jsonOut({ ok: false, error: 'VOICE_IMAGE_FOLDER_ID not configured' });
+        }
+
+        var stem = phone + '_' + orderId;
+        var male = saveCounterImage_(e.parameter.maleData, e.parameter.maleFilename, stem + '_male.jpg', imageFolderId);
+        if (!male) return jsonOut({ ok: false, error: 'male photo required' });
+        var female = saveCounterImage_(e.parameter.femaleData, e.parameter.femaleFilename, stem + '_female.jpg', imageFolderId);
+        if (!female) return jsonOut({ ok: false, error: 'female photo required' });
+        var bg = saveCounterImage_(e.parameter.bgData, e.parameter.bgFilename, stem + '_bg.jpg', imageFolderId);
+
+        // Audio is optional for a counter — the day count is the product.
+        var audioFileId = '';
+        var audioUrl = '';
+        var audioData = e.parameter.audioData || '';
+        if (audioData) {
+            if (!audioFolderId) return jsonOut({ ok: false, error: 'VOICE_AUDIO_FOLDER_ID not configured' });
+            try {
+                var audioMime = String(e.parameter.audioMime || 'audio/mpeg').trim();
+                var audioName = String(e.parameter.audioFilename || (stem + '.m4a')).trim();
+                var audioBlob = Utilities.newBlob(Utilities.base64Decode(audioData), audioMime, audioName);
+                audioFileId = DriveApp.getFolderById(audioFolderId).createFile(audioBlob).getId();
+                try { setAnyoneCanView_(audioFileId); } catch (_) { }
+                audioUrl = 'https://drive.google.com/file/d/' + audioFileId + '/view?usp=sharing';
+            } catch (audioErr) {
+                return jsonOut({ ok: false, error: 'audio save failed: ' + audioErr });
+            }
+        }
+
+        var sheet = ensureVoiceSheet_();
+        assertSheetWidth_(sheet);
+        var existing = voiceFindRowByKey_(phone, orderId, ROW_TYPE_COUNTER);
+
+        // Keep the slug across a re-submission. The QR is printed on a physical
+        // bracelet already in the customer's hands, so minting a new slug would
+        // permanently brick it. Status still returns to pending so staff review
+        // the changed content before it goes back up.
+        var iSlug = VOICE_SHEET_HEADERS.indexOf('slug');
+        var iPublishedAt = VOICE_SHEET_HEADERS.indexOf('published_at');
+        var keptSlug = existing ? String(existing.row[iSlug] || '') : '';
+        var keptPublishedAt = existing ? String(existing.row[iPublishedAt] || '') : '';
+
+        var values = rowFromObject_({
+            timestamp: new Date().toISOString(),
+            // Apostrophe forces text so the leading zero survives.
+            phone: "'" + phone,
+            order_id: csvSafe_(orderId),
+            text_message: csvSafe_(String(e.parameter.text_message || '').slice(0, 200)),
+            audio_file_id: audioFileId,
+            audio_url: audioUrl,
+            // The male avatar doubles as the row thumbnail, so the existing admin
+            // card renders counter rows with no admin-side change.
+            image_file_id: male.fileId,
+            image_url: male.url,
+            status: 'pending',
+            slug: keptSlug,
+            published_at: keptPublishedAt,
+            peaks: csvSafe_(String(e.parameter.peaks || '')),
+            audio_duration: parseFloat(e.parameter.audio_duration || '0') || 0,
+            type: ROW_TYPE_COUNTER,
+            // Apostrophe-prefixed for the same reason as phone: without it Sheets
+            // casts to a date cell, getValues hands back a Date, and JSON puts
+            // Vietnam midnight into the PREVIOUS day in UTC.
+            start_date: "'" + startDate,
+            male_name: csvSafe_(maleName),
+            female_name: csvSafe_(femaleName),
+            male_image_file_id: male.fileId,
+            male_image_url: male.url,
+            female_image_file_id: female.fileId,
+            female_image_url: female.url,
+            bg_file_id: bg ? bg.fileId : '',
+            bg_url: bg ? bg.url : '',
+            title: csvSafe_(String(e.parameter.title || '').slice(0, 120)),
+            heart_text: csvSafe_(String(e.parameter.heart_text || '').slice(0, 60)),
+            audio_title: csvSafe_(String(e.parameter.audio_title || '').slice(0, 120))
+        });
+
+        var rowIdx = existing ? existing.rowIdx : sheet.getLastRow() + 1;
+        sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([values]);
+
+        try {
+            MailApp.sendEmail(
+                VOICE_RECIPIENT_EMAIL,
+                '[Love Counter] New submission — order ' + orderId,
+                'Phone: ' + phone + '\n'
+                + 'Order ID: ' + orderId + '\n'
+                + 'Couple: ' + maleName + ' & ' + femaleName + '\n'
+                + 'Start date: ' + startDate + '\n'
+                + 'Has audio: ' + (audioFileId ? 'yes' : 'no') + '\n'
+                + 'Admin: https://crushroom-form.vercel.app/admin.html#voice\n'
+            );
+        } catch (mailErr) {
+            Logger.log('MailApp failed (quota?): ' + mailErr);
+        }
+
+        return jsonOut({ ok: true, rowIndex: rowIdx, updated: !!existing });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
+    } finally {
+        lock.releaseLock();
+    }
+}
+
+/**
+ * GET action=getCounter&id=SLUG
+ * Public JSON for a published counter page; not_found otherwise.
+ *
+ * Fields are listed explicitly rather than echoing the row, so a column added
+ * later stays private until it is deliberately exposed here.
+ */
+function handleGetCounter_(e) {
+    try {
+        var slug = String(e.parameter.id || '').trim();
+        if (!slug) return jsonOut({ ok: false, error: 'id (slug) required' });
+
+        var found = voiceFindRowBySlug_(slug);
+        if (!found) return jsonOut({ ok: false, error: 'not_found' });
+
+        // A voice slug must not resolve through the counter endpoint, or the
+        // page would render an empty counter for a real voice gift.
+        if (rowType_(found.row) !== ROW_TYPE_COUNTER) {
+            return jsonOut({ ok: false, error: 'not_found' });
+        }
+
+        var iStatus = VOICE_SHEET_HEADERS.indexOf('status');
+        if (String(found.row[iStatus]) !== 'published') {
+            return jsonOut({ ok: false, error: 'not_found' });
+        }
+
+        var obj = {};
+        VOICE_SHEET_HEADERS.forEach(function (h, idx) { obj[h] = found.row[idx]; });
+
+        return jsonOut({
+            ok: true,
+            // Raw YYYY-MM-DD. The page computes the day count client-side, so it
+            // keeps ticking over instead of freezing behind a cached render.
+            start_date: toDateString_(obj.start_date),
+            male_name: obj.male_name,
+            female_name: obj.female_name,
+            male_image_url: obj.male_image_url,
+            male_image_file_id: obj.male_image_file_id,
+            female_image_url: obj.female_image_url,
+            female_image_file_id: obj.female_image_file_id,
+            bg_url: obj.bg_url,
+            bg_file_id: obj.bg_file_id,
+            title: obj.title,
+            heart_text: obj.heart_text,
+            text_message: obj.text_message,
+            audio_title: obj.audio_title,
+            audio_url: obj.audio_url,
+            audio_file_id: obj.audio_file_id,
+            peaks: obj.peaks || '',
+            audio_duration: obj.audio_duration || 0,
+            published_at: obj.published_at
+        });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
     }
