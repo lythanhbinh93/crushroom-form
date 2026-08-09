@@ -1,5 +1,5 @@
 /**
- * counter-page.js — renders the public Love Counter page.
+ * counter-page.js — controller for the public Love Counter page.
  *
  * Flow:
  *  1. Parse ?id=SLUG from URL.
@@ -8,7 +8,10 @@
  *     product's traffic a 1-2 s cold GAS round-trip is acceptable. The day
  *     count is computed CLIENT-SIDE precisely so nothing here depends on when
  *     the page was fetched or cached.
- *  3. Render background, title, heart with live day count, couple, message.
+ *  3. Render background, title, heart with live day count, couple, message —
+ *     the static paint lives in assets/counter-render.js (window.CounterRender),
+ *     SHARED with the upload form's live preview so the preview can never
+ *     drift from this page. That script must load before this one.
  *  4. Audio (optional): stream from the Worker /<fileId> route — counter audio
  *     is saved into the same Drive folder as voice audio, so the existing
  *     streaming proxy serves it unchanged. WaveSurfer peaks fast path with the
@@ -20,6 +23,8 @@
  * diff go through Date.UTC, so DST anywhere is irrelevant.
  * See docs/love-counter-submit-contract.md.
  */
+
+var CR = window.CounterRender;
 
 var COUNTER_GAS_URL = 'https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec';
 // Streaming audio proxy — same Worker the voice page uses.
@@ -44,37 +49,12 @@ var elPlayBtn    = document.getElementById('playPauseButton');
 var elPlayIcon   = document.getElementById('playIcon');
 var elTime       = document.getElementById('timeDisplay');
 
-// ── Helpers (same shapes as voice-page.js) ─────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────
+// URL/time/format helpers all live in CounterRender now — one copy for this
+// page and the form preview.
 
 function getSlug() {
   return (new URLSearchParams(window.location.search).get('id') || '').trim();
-}
-
-/** Drive share URL → thumbnail endpoint, the one Drive serves reliably to <img>. */
-function normalizeThumbUrl(url, size) {
-  if (!url) return '';
-  var s = String(url).trim();
-  var m = s.match(/[-\w]{25,}/);
-  if (!m || s.indexOf('drive.google.com') === -1) return s;
-  return 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + (size || 800);
-}
-
-function extractDriveFileId(url) {
-  if (!url) return '';
-  var s = String(url).trim();
-  var m = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)\//);
-  if (m) return m[1];
-  if (s.indexOf('drive.google.com') !== -1) {
-    var m2 = s.match(/[-\w]{25,}/);
-    if (m2) return m2[0];
-  }
-  return '';
-}
-
-function formatTime(seconds) {
-  var minutes = Math.floor(seconds / 60);
-  var secs = Math.floor(seconds % 60);
-  return minutes + ':' + (secs < 10 ? '0' : '') + secs;
 }
 
 function showError() {
@@ -83,28 +63,7 @@ function showError() {
   elError.hidden   = false;
 }
 
-// ── Day count ──────────────────────────────────────────────────────────────
-
-/** Today's date in Vietnam as 'YYYY-MM-DD' (en-CA formats exactly that). */
-function todayInVN() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(new Date());
-}
-
-/**
- * Inclusive days between two 'YYYY-MM-DD' strings: same day → 1.
- * Never new Date('YYYY-MM-DD') — that parses as UTC midnight and shifts a day
- * for any viewer west of UTC. Date.UTC on split components is exact.
- */
-function loveDays(startStr, todayStr) {
-  var a = String(startStr).split('-').map(Number);
-  var b = String(todayStr).split('-').map(Number);
-  return Math.round(
-    (Date.UTC(b[0], b[1] - 1, b[2]) - Date.UTC(a[0], a[1] - 1, a[2])) / 86400000
-  ) + 1;
-}
+// ── Day count (stateful — rollover repaints — so it stays page-side) ──────
 
 var startDate = '';
 var renderedForDay = '';
@@ -117,10 +76,10 @@ function refreshDays() {
     elDays.textContent = '—';
     return;
   }
-  var today = todayInVN();
+  var today = CR.todayInVN();
   if (today === renderedForDay) return;
   renderedForDay = today;
-  var n = loveDays(startDate, today);
+  var n = CR.loveDays(startDate, today);
   elDays.textContent = n > 0 ? String(n) : '—';
 }
 
@@ -139,37 +98,18 @@ function armDayRollover() {
 
 // ── Render ─────────────────────────────────────────────────────────────────
 
-/**
- * Only accept the exact thumbnail form normalizeThumbUrl rebuilds. A substring
- * check on 'drive.google.com' would pass a crafted value straight through to a
- * CSS url() / img src; the rebuilt prefix + [-\w] id is safe by construction.
- */
-function isDriveThumbUrl(src) {
-  return typeof src === 'string' &&
-    src.indexOf('https://drive.google.com/thumbnail?id=') === 0;
-}
-
 function renderCounter(data) {
-  // Background — inline style beats the CSS gradient fallback only when set.
-  var bgSrc = normalizeThumbUrl(data.bg_url || '', 1600);
-  if (isDriveThumbUrl(bgSrc)) {
-    elBg.style.backgroundImage = 'url("' + bgSrc + '")';
-  }
-
-  // All customer strings land via textContent — never innerHTML.
-  elTitle.textContent = (data.title || '').trim() || '❤️ Been Love Memory ❤️';
-  elHeartText.textContent = (data.heart_text || '').trim();
-  elMaleName.textContent = (data.male_name || '').trim();
-  elFemaleName.textContent = (data.female_name || '').trim();
-
-  setAvatar(elMaleImg, data.male_image_url);
-  setAvatar(elFemaleImg, data.female_image_url);
-
-  var msg = (data.text_message || '').trim();
-  if (msg) {
-    elMessage.textContent = msg;
-    elMessage.hidden = false;
-  }
+  // Static paint is the shared renderer's job — same call the form preview makes.
+  CR.renderCounterInto({
+    bg: elBg,
+    title: elTitle,
+    heartText: elHeartText,
+    maleName: elMaleName,
+    femaleName: elFemaleName,
+    maleImg: elMaleImg,
+    femaleImg: elFemaleImg,
+    message: elMessage
+  }, data);
 
   startDate = String(data.start_date || '').trim();
   refreshDays();
@@ -182,20 +122,12 @@ function renderCounter(data) {
   loadAudio(data);
 }
 
-function setAvatar(imgEl, url) {
-  var src = normalizeThumbUrl(url || '', 400);
-  if (isDriveThumbUrl(src)) {
-    imgEl.src = src;
-    imgEl.onerror = function () { imgEl.removeAttribute('src'); };
-  }
-}
-
 // ── Audio (optional; fast path + fallback, same as voice-page.js) ──────────
 
 var wavesurfer = null;
 
 function loadAudio(data) {
-  var audioFileId = data.audio_file_id || extractDriveFileId(data.audio_url || '');
+  var audioFileId = data.audio_file_id || CR.extractDriveFileId(data.audio_url || '');
   // No audio on a counter is a normal state, not an error — the block stays hidden.
   if (!audioFileId) return;
 
@@ -241,7 +173,7 @@ function initWaveSurferWithPeaks(streamUrl, peaks, duration) {
       duration: duration
     });
 
-    elTime.textContent = formatTime(duration);
+    elTime.textContent = CR.formatTime(duration);
 
     elPlayBtn.addEventListener('click', function () {
       wavesurfer.playPause();
@@ -257,14 +189,14 @@ function initWaveSurferWithPeaks(streamUrl, peaks, duration) {
     wavesurfer.on('finish', function () {
       elPlayIcon.classList.remove('fa-circle-pause');
       elPlayIcon.classList.add('fa-circle-play');
-      elTime.textContent = formatTime(duration);
+      elTime.textContent = CR.formatTime(duration);
     });
     var lastUpdate = 0;
     wavesurfer.on('audioprocess', function () {
       if (!wavesurfer.isPlaying()) return;
       var now = Date.now();
       if (now - lastUpdate > 200) {
-        elTime.textContent = formatTime(wavesurfer.getCurrentTime());
+        elTime.textContent = CR.formatTime(wavesurfer.getCurrentTime());
         lastUpdate = now;
       }
     });
@@ -307,7 +239,7 @@ function renderDecorativeBarsWithPlayer(streamUrl) {
 
   elTime.textContent = '--:--';
   audio.addEventListener('loadedmetadata', function () {
-    elTime.textContent = formatTime(audio.duration);
+    elTime.textContent = CR.formatTime(audio.duration);
   });
   audio.addEventListener('error', function () {
     // Optional feature failed — hide the block rather than show a broken player.
@@ -328,14 +260,14 @@ function renderDecorativeBarsWithPlayer(streamUrl) {
   audio.addEventListener('ended', function () {
     elPlayIcon.classList.remove('fa-circle-pause');
     elPlayIcon.classList.add('fa-circle-play');
-    elTime.textContent = formatTime(audio.duration);
+    elTime.textContent = CR.formatTime(audio.duration);
   });
   var lastUpdate = 0;
   audio.addEventListener('timeupdate', function () {
     if (audio.paused) return;
     var now = Date.now();
     if (now - lastUpdate > 200) {
-      elTime.textContent = formatTime(audio.currentTime);
+      elTime.textContent = CR.formatTime(audio.currentTime);
       lastUpdate = now;
     }
   });

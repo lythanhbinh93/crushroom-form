@@ -1,6 +1,7 @@
 /**
  * Regression tests for the Love Counter day count, loading the REAL functions
- * out of assets/counter-page.js.
+ * out of assets/counter-render.js (the renderer shared by the public page and
+ * the upload form's live preview).
  *
  * The count is the product: it is engraved into a QR on a physical bracelet,
  * so an off-by-one is what a customer notices first. Rules under test, from
@@ -17,17 +18,19 @@
 const fs = require('fs');
 const path = require('path');
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'assets', 'counter-page.js'), 'utf8');
+const src = fs.readFileSync(path.join(__dirname, '..', 'assets', 'counter-render.js'), 'utf8');
 
 function grab(re) {
   const m = src.match(re);
-  if (!m) throw new Error('could not locate in counter-page.js: ' + re);
+  if (!m) throw new Error('could not locate in counter-render.js: ' + re);
   return m[0];
 }
+// Closing-brace anchor is indented two spaces: the functions live inside the
+// module's IIFE. A bare \n} would run past the function into the IIFE's tail.
 const H = new Function(
   [
-    grab(/function todayInVN\(\) \{[\s\S]*?\n\}/),
-    grab(/function loveDays\(startStr, todayStr\) \{[\s\S]*?\n\}/)
+    grab(/function todayInVN\(\) \{[\s\S]*?\n  \}/),
+    grab(/function loveDays\(startStr, todayStr\) \{[\s\S]*?\n  \}/)
   ].join('\n') + ';return { todayInVN, loveDays };'
 )();
 
