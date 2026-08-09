@@ -192,15 +192,17 @@
     card.dataset.rowKey = makeRowKey(row);
 
     // --- Thumbnail ---
-    const thumbId = extractDriveId(row.image_id || row.image_url || '');
+    // image_file_id is the sheet column; the URL fallback stays for older rows.
+    const thumbId = extractDriveId(row.image_file_id || row.image_url || '');
     const thumbEl = buildThumbEl(thumbId);
 
     // --- Body ---
     const body = document.createElement('div');
     body.className = 'voice-card-body';
 
-    const dateStr = row.uploaded_at
-      ? new Date(row.uploaded_at).toLocaleString('vi-VN')
+    // The sheet column is `timestamp`; listVoice returns it under that name.
+    const dateStr = row.timestamp
+      ? new Date(row.timestamp).toLocaleString('vi-VN')
       : '—';
 
     const statusBadge = '<span class="voice-status-badge ' + escHtml(row.status || 'pending') + '">'
@@ -213,11 +215,11 @@
         + ' · ' + dateStr
         + ' · ' + statusBadge
       + '</div>'
-      + '<div class="voice-card-text-preview">' + escHtml((row.message_text || '').slice(0, 120)) + '</div>';
+      + '<div class="voice-card-text-preview">' + escHtml((row.text_message || '').slice(0, 120)) + '</div>';
 
     // Audio player — proxied via audioProxy to avoid CORS issues
-    if (row.audio_id || row.audio_url) {
-      const audioId = extractDriveId(row.audio_id || row.audio_url || '');
+    if (row.audio_file_id || row.audio_url) {
+      const audioId = extractDriveId(row.audio_file_id || row.audio_url || '');
       if (audioId) {
         const audioWrap = document.createElement('div');
         audioWrap.className = 'voice-card-audio';
@@ -517,8 +519,10 @@
         return r.json();
       })
       .then(function (j) {
-        if (!j || !j.ok || !j.base64) throw new Error((j && j.error) || 'audioProxy: no data');
-        const bytes = Uint8Array.from(atob(j.base64), function (c) { return c.charCodeAt(0); });
+        // The voice GAS audioProxy returns { ok, mime, data } — not `base64`.
+        // (The photo GAS imageProxy in admin.js does use `base64`; different endpoint.)
+        if (!j || !j.ok || !j.data) throw new Error((j && j.error) || 'audioProxy: no data');
+        const bytes = Uint8Array.from(atob(j.data), function (c) { return c.charCodeAt(0); });
         const blob = new Blob([bytes], { type: j.mime || 'audio/mpeg' });
         return URL.createObjectURL(blob);
       });
