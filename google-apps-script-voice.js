@@ -23,14 +23,36 @@
  */
 
 const VOICE_SHEET_NAME = 'voice_pages';
+// Columns are addressed by name via indexOf everywhere, never by position, so
+// this list may be APPENDED to safely. Never reorder or remove — existing rows
+// are positional on disk. After appending, run migrateCounterColumns() once to
+// widen the live sheet; ensureVoiceSheet_ only writes headers for a NEW sheet.
 const VOICE_SHEET_HEADERS = [
     'timestamp', 'phone', 'order_id', 'text_message',
     'audio_file_id', 'audio_url', 'image_file_id', 'image_url',
     'status', 'slug', 'published_at',
     // Pre-computed by customer's browser during upload so recipient page
     // can render waveform instantly without re-decoding the audio.
-    'peaks', 'audio_duration'
+    'peaks', 'audio_duration',
+
+    // ── Love Counter ────────────────────────────────────────────────────────
+    // Row discriminator. Blank on every pre-existing row, which is read as
+    // 'voice' rather than backfilled — see rowType_().
+    'type',
+    // Raw 'YYYY-MM-DD', written apostrophe-prefixed. Without the apostrophe
+    // Sheets casts it to a date cell, getValues() hands back a JS Date, and
+    // JSON.stringify serialises Vietnam midnight as the PREVIOUS day.
+    'start_date',
+    'male_name', 'female_name',
+    'male_image_file_id', 'male_image_url',
+    'female_image_file_id', 'female_image_url',
+    'bg_file_id', 'bg_url',
+    'title', 'heart_text', 'audio_title'
 ];
+
+// Values written into `type`. A blank cell means VOICE — see rowType_().
+const ROW_TYPE_VOICE = 'voice';
+const ROW_TYPE_COUNTER = 'counter';
 const VOICE_RECIPIENT_EMAIL = 'crush@crushroom.vn';
 const VOICE_PAGE_BASE_URL = 'https://crushroom-form.vercel.app/voice.html?id=';
 
@@ -140,6 +162,62 @@ function ensureVoiceSheet_() {
         sheet.setFrozenRows(1);
     }
     return sheet;
+}
+
+/**
+ * ONE-TIME (idempotent): widen the existing sheet with any headers added to
+ * VOICE_SHEET_HEADERS since it was created.
+ *
+ * ensureVoiceSheet_ writes the header row only when the sheet does not exist,
+ * so appending names in code does nothing to a live sheet on its own. Run this
+ * from the editor after any append, BEFORE deploying code that reads or writes
+ * the new columns — otherwise indexOf returns a position past the sheet's real
+ * width and values land in the wrong cells.
+ *
+ * Safe to re-run: it only appends names that are genuinely missing, and never
+ * reorders, renames or clears anything. Existing data is untouched.
+ */
+function migrateCounterColumns() {
+    var sheet = ensureVoiceSheet_();
+    var lastCol = sheet.getLastColumn();
+    var existing = lastCol > 0
+        ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); })
+        : [];
+
+    var missing = VOICE_SHEET_HEADERS.filter(function (h) { return existing.indexOf(h) === -1; });
+
+    if (!missing.length) {
+        Logger.log('Nothing to do — all ' + VOICE_SHEET_HEADERS.length + ' headers already present.');
+        return;
+    }
+
+    // Guard: the code list must be a superset of the sheet, in the same order
+    // for the shared prefix. If the sheet has a column the code does not know
+    // about, positions have diverged and blind appending would corrupt reads.
+    for (var i = 0; i < existing.length; i++) {
+        if (existing[i] && VOICE_SHEET_HEADERS[i] !== existing[i]) {
+            throw new Error(
+                'ABORTED — column ' + (i + 1) + ' is "' + existing[i] + '" in the sheet but "' +
+                VOICE_SHEET_HEADERS[i] + '" in code. Reconcile by hand; do not append.'
+            );
+        }
+    }
+
+    sheet.getRange(1, existing.length + 1, 1, missing.length).setValues([missing]);
+    sheet.setFrozenRows(1);
+    Logger.log('Added ' + missing.length + ' column(s): ' + missing.join(', '));
+    Logger.log('Sheet now has ' + sheet.getLastColumn() + ' columns; code expects ' + VOICE_SHEET_HEADERS.length + '.');
+}
+
+/**
+ * Row type, treating a blank cell as 'voice'.
+ * Pre-existing rows predate the column and are never backfilled — backfilling
+ * would rewrite production data for no gain.
+ */
+function rowType_(row) {
+    var i = VOICE_SHEET_HEADERS.indexOf('type');
+    var v = (i === -1 || row[i] === undefined) ? '' : String(row[i]).trim().toLowerCase();
+    return v || ROW_TYPE_VOICE;
 }
 
 /**
