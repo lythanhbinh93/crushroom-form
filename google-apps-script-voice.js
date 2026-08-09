@@ -72,10 +72,15 @@ const VOICE_SHEET_HEADERS = [
 const ROW_TYPE_VOICE = 'voice';
 const ROW_TYPE_COUNTER = 'counter';
 const VOICE_RECIPIENT_EMAIL = 'crush@crushroom.vn';
-const VOICE_PAGE_BASE_URL = 'https://crushroom-form.vercel.app/voice.html?id=';
+// Branded custom domain, attached to the same Vercel deployment. URLs minted
+// before the switch (crushroom-form.vercel.app) keep working — Vercel serves
+// both hosts — so already-printed QRs are unaffected. Do NOT deploy a change
+// to these bases unless the domain actually serves the app: publish is where
+// a slug becomes a printed QR, and a dead host cannot be corrected afterwards.
+const VOICE_PAGE_BASE_URL = 'https://qr.crushroom.vn/voice.html?id=';
 // Love Counter rows publish to their own page — the two render nothing alike,
 // and a shared page would ship the waveform player to counter visitors.
-const COUNTER_PAGE_BASE_URL = 'https://crushroom-form.vercel.app/counter.html?id=';
+const COUNTER_PAGE_BASE_URL = 'https://qr.crushroom.vn/counter.html?id=';
 
 const scriptProp = PropertiesService.getScriptProperties();
 
@@ -515,7 +520,7 @@ function handleFinishUpload_(e) {
             var subject = '[Voice Gift] New upload — order ' + orderId;
             var body = 'Phone: ' + phone + '\n'
                 + 'Order ID: ' + orderId + '\n'
-                + 'Admin: https://crushroom-form.vercel.app/admin.html#voice\n'
+                + 'Admin: https://qr.crushroom.vn/admin.html#voice\n'
                 + 'Message preview: ' + textMessage.slice(0, 200) + '\n';
             MailApp.sendEmail(VOICE_RECIPIENT_EMAIL, subject, body);
         } catch (mailErr) {
@@ -1180,7 +1185,7 @@ function handleSubmitCounter_(e) {
                 + 'Couple: ' + maleName + ' & ' + femaleName + '\n'
                 + 'Start date: ' + startDate + '\n'
                 + 'Has audio: ' + (audioFileId ? 'yes' : 'no') + '\n'
-                + 'Admin: https://crushroom-form.vercel.app/admin.html#voice\n'
+                + 'Admin: https://qr.crushroom.vn/admin.html#voice\n'
             );
         } catch (mailErr) {
             Logger.log('MailApp failed (quota?): ' + mailErr);

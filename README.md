@@ -22,7 +22,7 @@ Web app giúp đặt tên ảnh theo đơn hàng từ file Excel, giảm sai só
 
 Tìm và xem ảnh khách hàng đã upload.
 
-**Link**: https://crushroom-form.vercel.app/admin.html
+**Link**: https://qr.crushroom.vn/admin.html
 
 **Tính năng**:
 - **Tìm kiếm theo SĐT**: Nhập số điện thoại → xem grid ảnh
@@ -34,7 +34,7 @@ Tìm và xem ảnh khách hàng đã upload.
 
 Form upload ảnh + crop cho khách hàng (nhúng trong Shopify hoặc dùng standalone).
 
-**Link**: https://crushroom-form.vercel.app/couplepix.html (standalone)  
+**Link**: https://qr.crushroom.vn/couplepix.html (standalone)  
 **Shopify**: Nhúng file `templates/couplepix.liquid` vào theme
 
 **Tính năng**:
@@ -46,7 +46,7 @@ Form upload ảnh + crop cho khách hàng (nhúng trong Shopify hoặc dùng sta
 
 Tính toán ngày sản xuất xong và ngày khách nhận hàng theo tỉnh thành.
 
-**Link**: https://crushroom-form.vercel.app/check-date.html
+**Link**: https://qr.crushroom.vn/check-date.html
 
 **Quy tắc**:
 - Cutoff: 17:00 (sau 17h = tính ngày hôm sau)
@@ -63,9 +63,9 @@ Tính toán ngày sản xuất xong và ngày khách nhận hàng theo tỉnh th
 Hệ thống cho phép khách hàng gửi lời nhắn âm thanh + ảnh + text → staff duyệt và phát hành trang quà tặng có QR code.
 
 **Links**:
-- Upload form (gửi cho khách): `https://crushroom-form.vercel.app/voice-upload.html?phone=X&order=Y`
-- Admin Voice tab: `https://crushroom-form.vercel.app/admin.html#voice`
-- Public gift page: `https://crushroom-form.vercel.app/voice.html?id=SLUG`
+- Upload form (gửi cho khách): `https://qr.crushroom.vn/voice-upload.html?phone=X&order=Y`
+- Admin Voice tab: `https://qr.crushroom.vn/admin.html#voice`
+- Public gift page: `https://qr.crushroom.vn/voice.html?id=SLUG`
 
 **GAS Backend** (riêng biệt với GAS chính):
 ```
@@ -94,7 +94,7 @@ https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga
 
 Trang điều khiển nội bộ — liên kết đến các công cụ.
 
-**Link**: https://crushroom-form.vercel.app/
+**Link**: https://qr.crushroom.vn/
 
 **Giao diện**: B&W minimalist (card grid)
 
@@ -241,7 +241,7 @@ Format: `A. BBBB_XX_YY.ext`
   - Bảng hiển thị: Slot #, Tên Output, Last4, SKU, Note
   - Cột "Chọn Ảnh": Dropdown chọn URL từ Google Drive
   - Nút "Tự động map ảnh theo thứ tự" để map nhanh
-- Link đến [Admin Panel](https://crushroom-form.vercel.app/admin.html) để xem ảnh
+- Link đến [Admin Panel](https://qr.crushroom.vn/admin.html) để xem ảnh
 
 #### Bước 4: Tải Ảnh & Export
 - Kiểm tra các slot chưa map

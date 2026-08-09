@@ -39,8 +39,8 @@
    * and into a printed QR.
    */
   const PAGE_BASE_BY_TYPE = Object.assign(Object.create(null), {
-    voice: 'https://crushroom-form.vercel.app/voice.html?id=',
-    counter: 'https://crushroom-form.vercel.app/counter.html?id='
+    voice: 'https://qr.crushroom.vn/voice.html?id=',
+    counter: 'https://qr.crushroom.vn/counter.html?id='
   });
 
   /**

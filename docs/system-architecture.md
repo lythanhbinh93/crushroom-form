@@ -267,7 +267,7 @@ Customer fills form (phone, order, audio, image, text)
 Staff clicks Publish on admin #voice tab
 → POST publishVoice (phone, order_id)
 → GAS: generates slug (e.g. "abc123"), sets status=published
-→ GAS: writes URL = https://crushroom-form.vercel.app/voice.html?id=SLUG
+→ GAS: writes URL = https://qr.crushroom.vn/voice.html?id=SLUG
 → Returns { ok: true, slug, url }
 → Admin shows QR code (qr-code-styling) + Copy URL button
 → Staff sends URL / QR to customer

@@ -117,7 +117,9 @@ For future GAS endpoint URL or API keys:
 
 **Trigger**: Git push to main branch
 
-**URL**: `https://crushroom-form.vercel.app/`
+**URL**: `https://qr.crushroom.vn/` (custom domain, CNAME to Vercel)
+
+`https://crushroom-form.vercel.app/` remains attached to the same deployment: QR codes printed before the domain switch resolve there forever, so never detach it. New publishes mint `qr.crushroom.vn` URLs (`VOICE_PAGE_BASE_URL`/`COUNTER_PAGE_BASE_URL` in google-apps-script-voice.js + `PAGE_BASE_BY_TYPE` in assets/admin-voice-tab.js).
 
 ### Monitoring
 
