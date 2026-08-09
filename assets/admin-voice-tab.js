@@ -2,7 +2,7 @@
  * admin-voice-tab.js
  * Voice pages tab controller for admin.html.
  * Handles: list, preview (audio + image + text), publish, QR render,
- * QR download, copy URL, archive, restore.
+ * QR download, copy URL, archive, restore, field edit.
  *
  * Depends on: qr-code-styling CDN (window.QRCodeStyling) loaded before this file.
  * Exposes: window.voiceTabActivated (called by admin.js tab switcher on activate).
@@ -52,6 +52,30 @@
    */
   const TYPES_WITHOUT_PAGE = [];
 
+  /**
+   * Client mirror of the server's EDITABLE_FIELDS_BY_TYPE whitelist
+   * (google-apps-script-voice.js). The server one is authoritative — a field
+   * listed here but not there is silently ignored, which shows up as a stale
+   * value after Refresh. Contract: docs/love-counter-submit-contract.md.
+   *
+   * Maps editable field → the modal input's element id. Null prototype for the
+   * same reason as PAGE_BASE_BY_TYPE: `type` is a hand-editable sheet cell.
+   */
+  const EDIT_FIELDS_BY_TYPE = Object.assign(Object.create(null), {
+    voice: {
+      text_message: 'voice-edit-text-message-voice'
+    },
+    counter: {
+      start_date: 'voice-edit-start-date',
+      male_name: 'voice-edit-male-name',
+      female_name: 'voice-edit-female-name',
+      title: 'voice-edit-title-field',
+      heart_text: 'voice-edit-heart-text',
+      audio_title: 'voice-edit-audio-title',
+      text_message: 'voice-edit-text-message-counter'
+    }
+  });
+
   // ----------------------------------------------------------------
   // State
   // ----------------------------------------------------------------
@@ -82,6 +106,13 @@
   const copyQrBtn = $('voice-copy-qr-btn');
   const closeQrBtn    = $('voice-close-qr-btn');
   const toastEl       = $('toast');
+  const editModal     = $('voice-edit-modal');
+  const editIdentity  = $('voice-edit-identity');
+  const editErrorEl   = $('voice-edit-error');
+  const editSaveBtn   = $('voice-edit-save-btn');
+  const editCancelBtn = $('voice-edit-cancel-btn');
+  const editGroupVoice   = $('voice-edit-fields-voice');
+  const editGroupCounter = $('voice-edit-fields-counter');
 
   // ----------------------------------------------------------------
   // Boot — called from admin.js after DOMContentLoaded
@@ -123,6 +154,13 @@
 
     // QR download
     copyQrBtn.addEventListener('click', copyQrToClipboard);
+
+    // Edit modal
+    editCancelBtn.addEventListener('click', closeEditModal);
+    editModal.addEventListener('click', function (e) {
+      if (e.target === editModal) closeEditModal();
+    });
+    editSaveBtn.addEventListener('click', saveEdit);
   }
 
   // ----------------------------------------------------------------
@@ -377,6 +415,14 @@
       container.appendChild(qrBtn);
     }
 
+    // Edit only for types whose field set is known — a typo'd sheet cell must
+    // not open a modal that would then post fields for the wrong product.
+    if (status !== 'archived' && Object.prototype.hasOwnProperty.call(EDIT_FIELDS_BY_TYPE, rowTypeOf(row))) {
+      const editBtn = makeBtn('Edit', 'btn-voice-action btn-voice-edit');
+      editBtn.addEventListener('click', function () { openEditModal(row); });
+      container.appendChild(editBtn);
+    }
+
     if (status !== 'archived') {
       const archBtn = makeBtn('Archive', 'btn-voice-action btn-voice-archive');
       archBtn.addEventListener('click', function () { archiveRow(row, archBtn, 'archived'); });
@@ -503,6 +549,188 @@
         console.error('[voice] archiveRow error:', err);
         showError('Thao tác thất bại: ' + err.message);
       });
+  }
+
+  // ----------------------------------------------------------------
+  // Edit modal — field-level fixes without a customer re-submission
+  // Contract: docs/love-counter-submit-contract.md → "editVoice"
+  // ----------------------------------------------------------------
+
+  let editingRow = null;
+  // True while an editVoice POST is in flight. Blocks user-initiated closes:
+  // GAS cold starts take seconds, and a failure landing in an already-hidden
+  // modal would be invisible — staff would walk away believing the edit saved.
+  let editSaving = false;
+
+  /**
+   * Normalise whatever listVoice returned for start_date into a value an
+   * <input type="date"> accepts. Apostrophe-prefixed writes come back as a
+   * clean 'YYYY-MM-DD', but a cell hand-edited in the Sheets UI serialises as
+   * an ISO datetime (VN midnight = previous day 17:00 UTC) — resolve those in
+   * VN time. Garbage prefills as empty rather than "Invalid Date".
+   */
+  function toDateInputValue(v) {
+    const s = String(v == null ? '' : v).trim();
+    // Date-ONLY strings pass through. An ISO datetime must NOT take this path:
+    // slicing '2020-03-13T17:00:00.000Z' yields the previous VN day.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (!s) return '';
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(d);
+  }
+
+  /**
+   * Build the editVoice POST body: identity plus only the fields whose value
+   * actually changed. Pure (row + form values in, plain object out) so the
+   * test harness can extract it. Returns null when nothing changed — the modal
+   * closes without a request.
+   *
+   * `type` is always included: editVoice rejects requests without it, because
+   * the other actions' absent-type-means-voice default would resolve a counter
+   * edit onto the wrong row.
+   */
+  function buildEditPayload(row, formValues) {
+    const type = rowTypeOf(row);
+    if (!Object.prototype.hasOwnProperty.call(EDIT_FIELDS_BY_TYPE, type)) return null;
+    const payload = {
+      action: 'editVoice',
+      phone: row.phone || '',
+      order_id: row.order_id || '',
+      type: type
+    };
+    let changed = 0;
+    Object.keys(EDIT_FIELDS_BY_TYPE[type]).forEach(function (field) {
+      if (!Object.prototype.hasOwnProperty.call(formValues, field)) return;
+      const next = String(formValues[field] == null ? '' : formValues[field]).trim();
+      const current = field === 'start_date'
+        ? toDateInputValue(row.start_date)
+        : String(row[field] == null ? '' : row[field]).trim();
+      if (next === current) return;
+      payload[field] = next;
+      changed++;
+    });
+    return changed ? payload : null;
+  }
+
+  function openEditModal(row) {
+    const type = rowTypeOf(row);
+    const fieldMap = EDIT_FIELDS_BY_TYPE[type];
+    if (!fieldMap) return; // gated at the button; double-checked here
+    editingRow = row;
+    editIdentity.textContent = (row.phone || '—') + ' · ' + (row.order_id || '—') + ' · ' + type;
+    editGroupVoice.hidden = type !== 'voice';
+    editGroupCounter.hidden = type !== 'counter';
+    Object.keys(fieldMap).forEach(function (field) {
+      const input = $(fieldMap[field]);
+      if (!input) return;
+      input.value = field === 'start_date'
+        ? toDateInputValue(row.start_date)
+        : String(row[field] == null ? '' : row[field]);
+    });
+    // The server rejects future dates in VN time; mirror that in the picker.
+    const dateInput = $(EDIT_FIELDS_BY_TYPE.counter.start_date);
+    if (dateInput) {
+      dateInput.max = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+    }
+    hideEditError();
+    editModal.style.display = 'flex';
+  }
+
+  function gatherEditValues(type) {
+    const out = {};
+    const fieldMap = EDIT_FIELDS_BY_TYPE[type] || {};
+    Object.keys(fieldMap).forEach(function (field) {
+      const input = $(fieldMap[field]);
+      if (input) out[field] = input.value;
+    });
+    return out;
+  }
+
+  function closeEditModal() {
+    if (editSaving) return;
+    editModal.style.display = 'none';
+    editingRow = null;
+    hideEditError();
+  }
+
+  function showEditError(msg) {
+    editErrorEl.textContent = msg;
+    editErrorEl.hidden = false;
+  }
+
+  function hideEditError() {
+    editErrorEl.hidden = true;
+    editErrorEl.textContent = '';
+  }
+
+  function saveEdit() {
+    if (!editingRow) return;
+    const row = editingRow;
+    const type = rowTypeOf(row);
+    const payload = buildEditPayload(row, gatherEditValues(type));
+    if (!payload) {
+      closeEditModal();
+      showToast('Không có thay đổi');
+      return;
+    }
+    // Mirror of the server's required-non-empty rules, for a message clearer
+    // than a round-trip error. The server enforces them regardless.
+    if (payload.male_name === '' || payload.female_name === '') {
+      showEditError('Tên không được để trống');
+      return;
+    }
+    if (payload.start_date === '') {
+      showEditError('Ngày bắt đầu không được để trống');
+      return;
+    }
+    editSaving = true;
+    editSaveBtn.disabled = true;
+    editSaveBtn.textContent = '...';
+    fetch(VOICE_GAS_URL, { method: 'POST', body: new URLSearchParams(payload) })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'editVoice failed');
+        // Merge the clean form values — NOT the server's cell values, which
+        // carry the apostrophe prefix — into the local row, then redraw.
+        (data.updated || []).forEach(function (field) {
+          if (Object.prototype.hasOwnProperty.call(payload, field)) row[field] = payload[field];
+        });
+        rerenderCardPreview(row);
+        editSaving = false;
+        closeEditModal();
+        showToast(type === 'voice' && row.status === 'published'
+          ? 'Đã lưu — trang public cập nhật sau tối đa ~60 phút (cache)'
+          : 'Đã lưu');
+      })
+      .catch(function (err) {
+        console.error('[voice] saveEdit error:', err);
+        editSaving = false;
+        showEditError('Lưu thất bại: ' + err.message);
+      })
+      .then(function () {
+        editSaveBtn.disabled = false;
+        editSaveBtn.textContent = 'Lưu';
+      });
+  }
+
+  /**
+   * Redraw the one card element a local row mutation affects. Matched by
+   * string equality on the row key, never selector interpolation — an order_id
+   * containing a quote would throw mid-then and misreport the save as failed.
+   */
+  function rerenderCardPreview(row) {
+    const rowKey = makeRowKey(row);
+    const cardEl = Array.prototype.find.call(
+      listEl.querySelectorAll('[data-row-key]'),
+      function (el) { return el.dataset.rowKey === rowKey; }
+    );
+    if (!cardEl) return;
+    const preview = cardEl.querySelector('.voice-card-text-preview');
+    if (preview) preview.textContent = String(row.text_message || '').slice(0, 120);
   }
 
   // ----------------------------------------------------------------

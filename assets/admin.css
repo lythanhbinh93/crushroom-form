@@ -1224,6 +1224,7 @@ body {
 .btn-voice-copy-url { background: linear-gradient(135deg, #0084ff 0%, #0078e7 100%); color: #fff; }
 .btn-voice-show-qr  { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #fff; }
 .btn-voice-secondary { background: #f3f4f6; color: #374151; }
+.btn-voice-edit { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: #fff; }
 .btn-voice-download-qr { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
 
 /* QR Modal */
@@ -1287,6 +1288,79 @@ body {
   display: flex;
   gap: 10px;
   justify-content: center;
+}
+
+/* Edit modal */
+.voice-edit-box {
+  max-width: 420px;
+  text-align: left;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.voice-edit-box .voice-modal-title,
+.voice-edit-box .voice-modal-slug {
+  text-align: center;
+}
+
+.voice-edit-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 12px 0 4px;
+}
+
+.voice-edit-optional {
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.voice-edit-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  /* Form controls do not inherit the body font on their own. */
+  font-family: inherit;
+  color: #222;
+  background: #fff;
+}
+
+.voice-edit-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+}
+
+textarea.voice-edit-input {
+  resize: vertical;
+}
+
+.voice-edit-pair {
+  display: flex;
+  gap: 10px;
+}
+
+.voice-edit-pair > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-edit-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.voice-edit-box .voice-modal-actions {
+  margin-top: 18px;
 }
 
 

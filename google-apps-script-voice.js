@@ -20,6 +20,7 @@
  *   POST action=publishVoice   (phone, order_id[, type])
  *   POST action=archiveVoice   (phone, order_id, target_status[, type])
  *   POST action=updatePeaks    (slug, peaks, audio_duration)
+ *   POST action=editVoice      (phone, order_id, type + whitelisted fields; see contract doc)
  *
  * Setup (one-time, after paste into new GAS project):
  *   1. Run intialSetup() from the editor — binds Spreadsheet, creates Script Properties placeholders.
@@ -129,6 +130,7 @@ function doPost(e) {
         if (action === 'publishVoice') return handlePublishVoice_(e);
         if (action === 'archiveVoice') return handleArchiveVoice_(e);
         if (action === 'updatePeaks') return handleUpdatePeaks_(e);
+        if (action === 'editVoice') return handleEditVoice_(e);
         return jsonOut({ ok: false, error: 'Invalid action' });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
@@ -743,6 +745,122 @@ function handleArchiveVoice_(e) {
         return jsonOut({ ok: true, status: targetStatus });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
+    }
+}
+
+// ============================================================
+//  ADMIN FIELD EDIT
+//  Parameter contract: docs/love-counter-submit-contract.md → "editVoice"
+// ============================================================
+
+/**
+ * The only fields action=editVoice may touch, per row type.
+ * Everything else — identity (phone, order_id, type), lifecycle (status, slug,
+ * published_at), file IDs/URLs, peaks — is unreachable by construction:
+ * validateEditFields_ iterates THIS map, never the request's keys.
+ * Length caps mirror handleSubmitCounter_ / handleFinishUpload_.
+ */
+var EDITABLE_FIELDS_BY_TYPE = {
+    voice: {
+        text_message: { max: 1000, required: false }
+    },
+    counter: {
+        start_date: { date: true, required: true },
+        male_name: { max: 40, required: true },
+        female_name: { max: 40, required: true },
+        title: { max: 120, required: false },
+        heart_text: { max: 60, required: false },
+        audio_title: { max: 120, required: false },
+        text_message: { max: 200, required: false }
+    }
+};
+
+/**
+ * Pure validation core for editVoice — no Spreadsheet/Utilities calls, so the
+ * Node test harness can extract and run it directly.
+ *
+ * Partial-update semantics: a field absent from params stays untouched; a field
+ * sent as an empty string clears the cell when the rule allows it and errors
+ * when it is required. todayVN is passed in as 'YYYY-MM-DD'.
+ *
+ * Returns { errors: [message...], updates: { field: cellValue } } with cell
+ * values already csvSafe_'d / apostrophe-prefixed, ready for setValue.
+ */
+function validateEditFields_(type, params, todayVN) {
+    if (!Object.prototype.hasOwnProperty.call(EDITABLE_FIELDS_BY_TYPE, type)) {
+        return { errors: ['unknown_type'], updates: {} };
+    }
+    var spec = EDITABLE_FIELDS_BY_TYPE[type];
+    var errors = [];
+    var updates = {};
+    Object.keys(spec).forEach(function (field) {
+        if (!Object.prototype.hasOwnProperty.call(params, field)) return;
+        var rule = spec[field];
+        var raw = String(params[field] == null ? '' : params[field]).trim();
+        if (!raw) {
+            if (rule.required) { errors.push(field + ' cannot be empty'); return; }
+            updates[field] = '';
+            return;
+        }
+        if (rule.date) {
+            // Same three rules as handleSubmitCounter_ — anything can POST here.
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) { errors.push('start_date must be YYYY-MM-DD'); return; }
+            if (raw > todayVN) { errors.push('start_date cannot be in the future'); return; }
+            if (raw < '1900-01-01') { errors.push('start_date is out of range'); return; }
+            // Apostrophe-prefixed like submitCounter: without it Sheets casts to
+            // a date cell and JSON serialises VN midnight as the previous day.
+            updates[field] = "'" + raw;
+            return;
+        }
+        updates[field] = csvSafe_(raw.slice(0, rule.max));
+    });
+    return { errors: errors, updates: updates };
+}
+
+/**
+ * POST action=editVoice
+ * Identity (all required): phone, order_id, type — type is explicit here,
+ * unlike publish/archive: an edit aimed at a counter row that silently landed
+ * on the blank-type voice row would corrupt the wrong product.
+ *
+ * Writes are per-cell, never a row rewrite, so an edit cannot clobber columns
+ * it does not know about. Status/slug are deliberately untouched: a staff edit
+ * is already reviewed, so a published row stays published.
+ */
+function handleEditVoice_(e) {
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) {
+        return jsonOut({ ok: false, error: 'busy, please retry' });
+    }
+    try {
+        var phone = normalizeVNPhone_(e.parameter.phone);
+        var orderId = String(e.parameter.order_id || '').trim();
+        var type = String(e.parameter.type || '').trim().toLowerCase();
+        if (!phone) return jsonOut({ ok: false, error: 'phone required' });
+        if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
+        if (!type) return jsonOut({ ok: false, error: 'type required' });
+
+        var todayVN = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+        var result = validateEditFields_(type, e.parameter, todayVN);
+        if (result.errors.length) return jsonOut({ ok: false, error: result.errors[0] });
+
+        var fields = Object.keys(result.updates);
+        if (!fields.length) return jsonOut({ ok: false, error: 'nothing_to_update' });
+
+        var sheet = ensureVoiceSheet_();
+        assertSheetWidth_(sheet);
+        var found = voiceFindRowByKey_(phone, orderId, type);
+        if (!found) return jsonOut({ ok: false, error: 'row_not_found' });
+
+        fields.forEach(function (field) {
+            var col = VOICE_SHEET_HEADERS.indexOf(field);
+            sheet.getRange(found.rowIdx, col + 1).setValue(result.updates[field]);
+        });
+        return jsonOut({ ok: true, updated: fields });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
+    } finally {
+        lock.releaseLock();
     }
 }
 

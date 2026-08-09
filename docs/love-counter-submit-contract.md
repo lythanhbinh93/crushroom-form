@@ -113,6 +113,46 @@ order overwrites the earlier submission, because identity is the lookup key and
 writes are upserts. Revisit with per-submission IDs only if a real multi-unit
 order appears.
 
+## editVoice (admin) — staff field edits
+
+`POST action=editVoice` lets the admin panel correct text/date fields on an
+existing row without a customer re-submission and without hand-editing the
+sheet (which drops the `start_date` apostrophe and bypasses `csvSafe_`).
+
+Identity params (all required): `phone`, `order_id`, `type`. Unlike
+publish/archive, `editVoice` REJECTS an absent type (`type required`) — the
+other actions' resolve-to-voice default is exactly the wrong-row hazard an
+edit must not inherit.
+
+**Partial update:** only POSTed fields change. The server iterates its
+whitelist, never the request keys, so `status`, `slug`, `phone`, file IDs and
+every other column are unreachable by construction.
+
+| type | field | rule |
+|---|---|---|
+| voice | `text_message` | ≤1000, clearable |
+| counter | `start_date` | `YYYY-MM-DD`, not future (VN time), ≥ `1900-01-01`, **required non-empty**, written apostrophe-prefixed |
+| counter | `male_name` | ≤40, required non-empty |
+| counter | `female_name` | ≤40, required non-empty |
+| counter | `title` | ≤120, clearable |
+| counter | `heart_text` | ≤60, clearable |
+| counter | `audio_title` | ≤120, clearable |
+| counter | `text_message` | ≤200, clearable |
+
+"Clearable" = sending the field as an empty string blanks the cell. Omitting
+the field leaves it untouched. Over-limit values are truncated with `.slice()`,
+matching `submitCounter`. All text goes through `csvSafe_`.
+
+Response: `{ ok: true, updated: ["male_name", ...] }` or
+`{ ok: false, error: "..." }` (`row_not_found`, `nothing_to_update`, or a named
+validation error).
+
+**Status is NOT reset.** A staff edit is already reviewed; a published row
+stays published and the live page picks the change up on next fetch
+(`getCounter` is uncached → instant; the voice page metadata sits behind the CF
+worker cache for up to its TTL). Contrast: customer re-submission resets status
+to `pending`.
+
 ## Out of scope this phase
 
 The milestone timeline (10 × avatar/link/text/position) from the current Shopify

@@ -172,6 +172,49 @@
     </div>
   </div>
 
+  <!-- Edit Modal — field set toggled per row type by admin-voice-tab.js -->
+  <div id="voice-edit-modal" class="voice-modal-overlay" style="display: none;" role="dialog" aria-modal="true">
+    <div class="voice-modal-box voice-edit-box">
+      <h3 class="voice-modal-title" id="voice-edit-title">Sửa nội dung</h3>
+      <p class="voice-modal-slug" id="voice-edit-identity"></p>
+
+      <div id="voice-edit-fields-voice" hidden>
+        <label class="voice-edit-label" for="voice-edit-text-message-voice">Lời nhắn</label>
+        <textarea id="voice-edit-text-message-voice" class="voice-edit-input" rows="5" maxlength="1000"></textarea>
+      </div>
+
+      <div id="voice-edit-fields-counter" hidden>
+        <label class="voice-edit-label" for="voice-edit-start-date">Ngày bắt đầu yêu</label>
+        <input type="date" id="voice-edit-start-date" class="voice-edit-input" min="1900-01-01">
+        <div class="voice-edit-pair">
+          <div>
+            <label class="voice-edit-label" for="voice-edit-male-name">Tên nam</label>
+            <input type="text" id="voice-edit-male-name" class="voice-edit-input" maxlength="40">
+          </div>
+          <div>
+            <label class="voice-edit-label" for="voice-edit-female-name">Tên nữ</label>
+            <input type="text" id="voice-edit-female-name" class="voice-edit-input" maxlength="40">
+          </div>
+        </div>
+        <label class="voice-edit-label" for="voice-edit-title-field">Tiêu đề trang <span class="voice-edit-optional">(trống = mặc định)</span></label>
+        <input type="text" id="voice-edit-title-field" class="voice-edit-input" maxlength="120">
+        <label class="voice-edit-label" for="voice-edit-heart-text">Chữ trong tim <span class="voice-edit-optional">(tuỳ chọn)</span></label>
+        <input type="text" id="voice-edit-heart-text" class="voice-edit-input" maxlength="60">
+        <label class="voice-edit-label" for="voice-edit-audio-title">Tiêu đề audio <span class="voice-edit-optional">(tuỳ chọn)</span></label>
+        <input type="text" id="voice-edit-audio-title" class="voice-edit-input" maxlength="120">
+        <label class="voice-edit-label" for="voice-edit-text-message-counter">Lời nhắn ngắn <span class="voice-edit-optional">(tuỳ chọn)</span></label>
+        <textarea id="voice-edit-text-message-counter" class="voice-edit-input" rows="3" maxlength="200"></textarea>
+      </div>
+
+      <p class="voice-edit-error" id="voice-edit-error" hidden></p>
+
+      <div class="voice-modal-actions">
+        <button class="btn-voice-action btn-voice-publish" id="voice-edit-save-btn">Lưu</button>
+        <button class="btn-voice-action btn-voice-secondary" id="voice-edit-cancel-btn">Huỷ</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast for clipboard copy feedback -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
