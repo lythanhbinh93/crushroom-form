@@ -17,7 +17,7 @@
 
   /**
    * @param {Object} opts
-   *   sheetEl   — the fixed bottom sheet (gets .lc-collapsed at review)
+   *   sheetEl   — the fixed bottom sheet (.lc-collapsed = grab-tap peek at review)
    *   grabEl    — the grab-handle button (toggles collapse at review)
    *   dotsEl    — container for the progress dots
    *   stepEls   — array of step sections, in order
@@ -48,8 +48,12 @@
         el.hidden = Number(el.getAttribute('data-step')) !== i;
       });
       renderDots();
-      // Review: collapse so the full page is visible — the page IS the review.
-      sheetEl.classList.toggle('lc-collapsed', i === reviewStep);
+      // The review step arrives EXPANDED: the submit button must be visible
+      // without a discovery tap (auto-collapsing hid it below the 64px peek).
+      // The review pane is short, so most of the page still shows above it;
+      // tapping the grab collapses for the full-page look, and any earlier
+      // step always clears a leftover collapse.
+      if (i !== reviewStep) sheetEl.classList.remove('lc-collapsed');
       sheetEl.scrollTop = 0;
       if (opts.onStep) opts.onStep(i);
     }
