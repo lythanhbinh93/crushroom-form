@@ -98,6 +98,23 @@ Trang điều khiển nội bộ — liên kết đến các công cụ.
 
 **Giao diện**: B&W minimalist (card grid)
 
+## 🌐 Domains & routing
+
+Two hosts, one deployment. `vercel.json` splits them.
+
+| Host | Serves |
+|---|---|
+| `qr.crushroom.vn` | **Only** the 4 customer QR pages: `/counter`, `/voice`, `/voice-upload`, `/love-counter-upload` (plus `/assets/**`). Anything else redirects to `/qr-404`. |
+| `crushroom-form.vercel.app` | The staff tools: `/admin`, `/index`, `/couplepix`, `/check-date`. |
+
+The QR-host rule is an **allow-list**, so any new page is hidden there by default —
+to expose one on the QR domain, add it to the `source` pattern in `vercel.json`.
+This keeps staff tools off the domain printed on customer orders.
+
+> This is host separation, not authentication. `admin.html` has no login, so
+> anyone who knows the `vercel.app` URL can still open it. Add Vercel password
+> protection (or a real auth gate) if the panel needs to be private.
+
 ## 🚀 Setup & Local Development
 
 ### Photo Naming Helper (Streamlit)

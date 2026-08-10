@@ -2,9 +2,9 @@
   "cleanUrls": true,
   "redirects": [
     {
-      "source": "/(.*)",
-      "has": [{ "type": "host", "value": "crushroom-form.vercel.app" }],
-      "destination": "https://qr.crushroom.vn/$1",
+      "source": "/((?!counter|voice|voice-upload|love-counter-upload|qr-404|assets/|favicon).*)",
+      "has": [{ "type": "host", "value": "qr.crushroom.vn" }],
+      "destination": "/qr-404",
       "permanent": false
     }
   ]
