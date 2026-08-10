@@ -107,6 +107,10 @@ Two hosts, one deployment. `vercel.json` splits them.
 | `qr.crushroom.vn` | **Only** the 4 customer QR pages: `/counter`, `/voice`, `/voice-upload`, `/love-counter-upload` (plus `/assets/**`). Anything else redirects to `/qr-404`. |
 | `crushroom-form.vercel.app` | The staff tools: `/admin`, `/index`, `/couplepix`, `/check-date`. |
 
+The two customer upload forms also redirect **off** the staff host —
+`crushroom-form.vercel.app/voice-upload` and `/love-counter-upload` send the
+visitor to `qr.crushroom.vn`, so each customer form has one canonical URL.
+
 The QR-host rule is an **allow-list**, so any new page is hidden there by default —
 to expose one on the QR domain, add it to the `source` pattern in `vercel.json`.
 This keeps staff tools off the domain printed on customer orders.
