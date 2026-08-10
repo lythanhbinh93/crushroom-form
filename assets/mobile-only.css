@@ -1,0 +1,41 @@
+/* ── Phone-width presentation ─────────────────────────────────────────────
+   The four QR pages (counter, voice, and their two upload forms) are reached
+   by scanning a code, so they are designed for a phone. On a wider screen the
+   content is clamped to a phone-sized column and centred instead of stretching
+   across the viewport. Desktop is not blocked — the pages stay fully usable,
+   they just render at phone width.
+
+   Load this LAST: several rules below override a wider max-width declared at
+   the same specificity in the page stylesheets, so they win on order.
+   ------------------------------------------------------------------------- */
+
+:root {
+  --mobile-max: 430px;
+}
+
+/* Public pages — these shells are in normal flow, so a max-width centres them.
+   .counter-bg is absolute inset:0 inside .counter-stage, so the background
+   clamps along with the stage rather than staying full-bleed. */
+.counter-stage,
+.gift-card,
+.state-screen {
+  max-width: var(--mobile-max);
+  margin-inline: auto;
+}
+
+/* Upload pages — both live-preview stages are position:fixed with inset:0.
+   That pins left AND right, so a max-width alone cannot centre them; re-anchor
+   to the middle and give an explicit width instead. */
+.lc-preview-stage,
+.vc-preview-stage {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: min(100%, var(--mobile-max));
+}
+
+/* The bottom sheet already centres itself via left/right:0 + margin auto,
+   so it only needs the narrower cap. */
+.lc-sheet {
+  max-width: var(--mobile-max);
+}
