@@ -426,6 +426,31 @@ function saveImageToDrive_(base64Data, filename, folderId) {
     return { fileId: file.getId(), url: file.getUrl() };
 }
 
+/**
+ * Canonical Drive file name: <phone>_<order>[_slot].<ext>.
+ *
+ * Every save path names files this way and IGNORES client-supplied filenames:
+ * staff locate a customer's media in the Drive folders by searching the phone
+ * number, and a device name like "IMG_3121.jpeg" or "Ghi âm.m4a" makes that
+ * impossible. Slot names match MEDIA_SLOTS_BY_TYPE so a submit and a later
+ * replaceMedia produce identical names. Nothing reads files by name (the
+ * sheet stores file IDs), so re-submissions may repeat a name — Drive keeps
+ * both files and the newest is the live one.
+ */
+function driveFileName_(phone, orderId, slot, ext) {
+    return phone + '_' + orderId + (slot ? '_' + slot : '') + '.' + ext;
+}
+
+/** Audio file extension from the posted MIME type (default m4a). */
+function audioExtFromMime_(mime) {
+    var m = String(mime || '').toLowerCase();
+    if (m.indexOf('mpeg') !== -1 || m.indexOf('mp3') !== -1) return 'mp3';
+    if (m.indexOf('wav') !== -1) return 'wav';
+    if (m.indexOf('ogg') !== -1 || m.indexOf('opus') !== -1) return 'ogg';
+    if (m.indexOf('webm') !== -1) return 'webm';
+    return 'm4a';
+}
+
 /** Set a Drive file to anyone-with-link viewer. */
 function setAnyoneCanView_(fileId) {
     DriveApp.getFileById(fileId).setSharing(
@@ -479,7 +504,11 @@ function handleInitUpload_(e) {
         var audioFolderId = scriptProp.getProperty('VOICE_AUDIO_FOLDER_ID');
         if (!audioFolderId) return jsonOut({ ok: false, error: 'VOICE_AUDIO_FOLDER_ID not configured in Script Properties' });
 
-        var uploadUrl = createResumableUploadSession_(filename, mimeType, size, audioFolderId);
+        // `filename` stays a required param (contract), but the Drive name is
+        // always the canonical phone-searchable one.
+        var uploadUrl = createResumableUploadSession_(
+            driveFileName_(phone, orderId, 'audio', audioExtFromMime_(mimeType)),
+            mimeType, size, audioFolderId);
         return jsonOut({ ok: true, uploadUrl: uploadUrl, sessionId: phone + '_' + orderId });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
@@ -507,11 +536,13 @@ function handleFinishUpload_(e) {
         var orderId = String(e.parameter.order_id || '').trim();
         var audioFileId = String(e.parameter.fileId || '').trim();
         var audioData = e.parameter.audioData || '';
-        var audioFilename = String(e.parameter.audioFilename || (phone + '_' + orderId + '.m4a')).trim();
         var audioMime = String(e.parameter.audioMime || 'audio/mpeg').trim();
+        // audioFilename/imgFilename params are accepted but ignored — Drive
+        // names are canonical (phone-searchable), see driveFileName_.
+        var audioFilename = driveFileName_(phone, orderId, 'audio', audioExtFromMime_(audioMime));
         var textMessage = String(e.parameter.text_message || '').slice(0, 1000);
         var imgData = e.parameter.imgData || '';
-        var imgFilename = String(e.parameter.imgFilename || (phone + '_' + orderId + '.jpg')).trim();
+        var imgFilename = driveFileName_(phone, orderId, 'image', 'jpg');
         var peaks = String(e.parameter.peaks || '');
         var audioDuration = parseFloat(e.parameter.audio_duration || '0') || 0;
 
@@ -1058,19 +1089,19 @@ function handleReplaceMedia_(e) {
         if (!isRemove) {
             var data = String(e.parameter.data || '');
             if (!data) return jsonOut({ ok: false, error: 'data required' });
-            var stem = phone + '_' + orderId + '_' + slot;
+            // The filename param is accepted but ignored — Drive names are
+            // canonical (phone-searchable), see driveFileName_.
             if (spec.kind === 'image') {
                 var imageFolderId = scriptProp.getProperty('VOICE_IMAGE_FOLDER_ID');
                 if (!imageFolderId) return jsonOut({ ok: false, error: 'VOICE_IMAGE_FOLDER_ID not configured' });
-                var name = String(e.parameter.filename || '').trim() || (stem + '.jpg');
-                var saved = saveImageToDrive_(data, name, imageFolderId);
+                var saved = saveImageToDrive_(data, driveFileName_(phone, orderId, slot, 'jpg'), imageFolderId);
                 fileId = saved.fileId;
                 url = saved.url;
             } else {
                 var audioFolderId = scriptProp.getProperty('VOICE_AUDIO_FOLDER_ID');
                 if (!audioFolderId) return jsonOut({ ok: false, error: 'VOICE_AUDIO_FOLDER_ID not configured' });
                 var mime = String(e.parameter.mime || 'audio/mpeg').trim();
-                var audioName = String(e.parameter.filename || '').trim() || (stem + '.m4a');
+                var audioName = driveFileName_(phone, orderId, slot, audioExtFromMime_(mime));
                 var blob = Utilities.newBlob(Utilities.base64Decode(data), mime, audioName);
                 fileId = DriveApp.getFolderById(audioFolderId).createFile(blob).getId();
                 url = 'https://drive.google.com/file/d/' + fileId + '/view?usp=sharing';
@@ -1131,10 +1162,9 @@ function toDateString_(v) {
 }
 
 /** Save one optional base64 image. Returns { fileId, url } or null when absent. */
-function saveCounterImage_(base64Data, filename, fallbackName, folderId) {
+function saveCounterImage_(base64Data, name, folderId) {
     var data = String(base64Data || '');
     if (!data) return null;
-    var name = String(filename || '').trim() || fallbackName;
     var result = saveImageToDrive_(data, name, folderId);
     try { setAnyoneCanView_(result.fileId); } catch (permErr) {
         Logger.log('Warning: could not share ' + name + ': ' + permErr);
@@ -1238,13 +1268,14 @@ function handleSubmitCounter_(e) {
         var keptMedia = resolveKeptMedia_(e.parameter, existing ? existing.row : null);
 
         // Fresh data wins over a keep-flag: saveCounterImage_ runs first and
-        // the kept file only fills a slot the POST left empty.
-        var stem = phone + '_' + orderId;
-        var male = saveCounterImage_(e.parameter.maleData, e.parameter.maleFilename, stem + '_male.jpg', imageFolderId) || keptMedia.male;
+        // the kept file only fills a slot the POST left empty. The *Filename
+        // params are accepted but ignored — Drive names are canonical
+        // (phone-searchable), see driveFileName_.
+        var male = saveCounterImage_(e.parameter.maleData, driveFileName_(phone, orderId, 'male', 'jpg'), imageFolderId) || keptMedia.male;
         if (!male) return jsonOut({ ok: false, error: 'male photo required' });
-        var female = saveCounterImage_(e.parameter.femaleData, e.parameter.femaleFilename, stem + '_female.jpg', imageFolderId) || keptMedia.female;
+        var female = saveCounterImage_(e.parameter.femaleData, driveFileName_(phone, orderId, 'female', 'jpg'), imageFolderId) || keptMedia.female;
         if (!female) return jsonOut({ ok: false, error: 'female photo required' });
-        var bg = saveCounterImage_(e.parameter.bgData, e.parameter.bgFilename, stem + '_bg.jpg', imageFolderId) || keptMedia.bg;
+        var bg = saveCounterImage_(e.parameter.bgData, driveFileName_(phone, orderId, 'bg', 'jpg'), imageFolderId) || keptMedia.bg;
 
         // Audio is optional for a counter — the day count is the product.
         var audioFileId = '';
@@ -1256,7 +1287,7 @@ function handleSubmitCounter_(e) {
             if (!audioFolderId) return jsonOut({ ok: false, error: 'VOICE_AUDIO_FOLDER_ID not configured' });
             try {
                 var audioMime = String(e.parameter.audioMime || 'audio/mpeg').trim();
-                var audioName = String(e.parameter.audioFilename || (stem + '.m4a')).trim();
+                var audioName = driveFileName_(phone, orderId, 'audio', audioExtFromMime_(audioMime));
                 var audioBlob = Utilities.newBlob(Utilities.base64Decode(audioData), audioMime, audioName);
                 audioFileId = DriveApp.getFolderById(audioFolderId).createFile(audioBlob).getId();
                 try { setAnyoneCanView_(audioFileId); } catch (_) { }

@@ -105,7 +105,9 @@ console.log('\n-- fresh-wins precedence lives in the handler: pin the OR order -
 // keeps that order for all three image slots so a refactor cannot flip it.
 const handlerSrc = grab(/function handleSubmitCounter_\(e\) \{[\s\S]*?\n\}/);
 ['male', 'female', 'bg'].forEach(function (slot) {
-  const re = new RegExp('saveCounterImage_\\([^)]*\\) \\|\\| keptMedia\\.' + slot);
+  // The save call nests driveFileName_(…) parens, so anchor on the slot's
+  // Data param and stay on the one line the call occupies.
+  const re = new RegExp('saveCounterImage_\\(e\\.parameter\\.' + slot + 'Data,[^\\n]*\\) \\|\\| keptMedia\\.' + slot);
   ok(slot + ' resolves fresh-first (save || kept)', re.test(handlerSrc));
 });
 ok('fresh audio branches before kept audio',

@@ -31,7 +31,7 @@ resumable PUT is blocked by browser CORS (see
 | `male_name` | yes | string | Male partner, rendered on the left. Mirrors the old template's `male_name` metafield. |
 | `female_name` | yes | string | Female partner, rendered on the right. Mirrors `female_name`. |
 | `maleData` | yes | base64, no `data:` prefix | 400×400 JPEG q0.85, circular crop. |
-| `maleFilename` | yes | string | Original filename, for the sheet reference. |
+| `maleFilename` | yes | string | Accepted but **ignored for the Drive name** — see "Drive file naming" below. |
 | `femaleData` | yes | base64 | As above. |
 | `femaleFilename` | yes | string | |
 | `title` | no | string ≤120 | Defaults to `❤️ Been Love Memory ❤️` at render time if blank. |
@@ -49,6 +49,19 @@ resumable PUT is blocked by browser CORS (see
 Audio is **optional** for the Love Counter — the day count is the product, the
 voice is a bonus. The public page hides the whole player block when
 `audio_file_id` is empty.
+
+## Drive file naming
+
+The server names every saved file `<phone>_<order>[_slot].<ext>`
+(`driveFileName_`), e.g. `0912345678_DH123_male.jpg`,
+`0912345678_DH123_audio.mp3` — slot names match `MEDIA_SLOTS_BY_TYPE`, audio
+extension follows `audioMime`. The `*Filename` params (and `finishUpload`'s
+`imgFilename`/`audioFilename`, `replaceMedia`'s `filename`) are still accepted
+so payload shapes don't change, but their values never become the Drive name:
+staff find a customer's media by searching the phone number in the Drive
+folder, and device names like `IMG_3121.jpeg` made that impossible. Nothing
+reads files by name (the sheet stores file IDs), so a re-submission may repeat
+a name — Drive keeps both files.
 
 ## Date handling — the one trap
 
