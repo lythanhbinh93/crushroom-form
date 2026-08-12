@@ -24,6 +24,16 @@
   /** localStorage key for filter persistence. */
   const FILTER_KEY = 'voicePagesFilter';
 
+  /**
+   * localStorage prefix for the instant-paint list cache (one entry per
+   * status filter). GAS listVoice takes 3s on a good day and 8-18s on
+   * spikes, so the tab renders the last-seen list immediately and swaps in
+   * the fresh response when it lands.
+   */
+  const LIST_CACHE_PREFIX = 'voiceListCache:';
+  /** Ignore an instant-paint entry older than this — stale enough to mislead. */
+  const LIST_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
   /** Duration (ms) before inline error auto-dismisses. */
   const ERROR_DISMISS_MS = 4000;
 
@@ -129,6 +139,11 @@
   let qrSlug = '';         // slug shown in open QR modal
   let qrUrl = '';          // URL shown in open QR modal
   let hasLoaded = false;   // whether tab has been loaded at least once
+  // Monotonic id of the newest loadVoiceList call. A GAS spike can hold an
+  // old request in flight across a filter switch; without this guard its late
+  // callbacks would render the wrong filter's rows and persist them under the
+  // new filter's cache key.
+  let loadSeq = 0;
 
   // ----------------------------------------------------------------
   // DOM references (resolved once after DOMContentLoaded)
@@ -187,8 +202,9 @@
       b.classList.toggle('active', b.dataset.status === currentFilter);
     });
 
-    // Refresh button
-    refreshBtn.addEventListener('click', loadVoiceList);
+    // Refresh button — explicit refresh means "show me the truth", so it
+    // bypasses the edge cache too.
+    refreshBtn.addEventListener('click', function () { loadVoiceList({ fresh: true }); });
 
     // Backfill peaks for legacy rows
     if (backfillBtn) backfillBtn.addEventListener('click', backfillPeaks);
@@ -236,33 +252,119 @@
   // Data fetching
   // ----------------------------------------------------------------
 
-  function loadVoiceList() {
+  /**
+   * opts.fresh: bypass every cache layer (worker edge + instant paint) and
+   * repopulate them — used by the Refresh button and after mutations, so an
+   * operator never sees a stale list for a change they just made.
+   */
+  function loadVoiceList(opts) {
+    const fresh = !!(opts && opts.fresh);
+    // Capture the filter this request is FOR: the callbacks below may land
+    // after the operator has switched filters, and must never mix state.
+    const requested = currentFilter;
+    const seq = ++loadSeq;
     hasLoaded = true;
-    showLoading(true);
     hideError();
-    listEl.innerHTML = '';
-    emptyEl.style.display = 'none';
 
-    const url = VOICE_GAS_URL + '?action=listVoice&status=' + encodeURIComponent(currentFilter);
-    fetch(url)
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
+    // Instant paint: render the last-seen list now, replace it when the
+    // network answers. The big spinner only appears on a first-ever load.
+    let painted = false;
+    if (!fresh) {
+      const cached = readListCache(requested);
+      if (cached) {
+        rows = cached;
+        renderVoiceList(rows);
+        painted = true;
+      }
+    }
+    if (painted) {
+      setRefreshing(true);
+    } else {
+      showLoading(true);
+      listEl.innerHTML = '';
+      emptyEl.style.display = 'none';
+    }
+
+    fetchList(requested, fresh)
       .then(function (data) {
+        if (seq !== loadSeq) return; // superseded by a newer load
         showLoading(false);
+        setRefreshing(false);
         if (!data.ok) {
-          showError(data.error || 'GAS trả về lỗi không xác định');
+          // A painted (cached) list beats an error screen — but say the data
+          // on screen may be old, or the operator acts on a stale list.
+          if (painted) showToast('Không làm mới được — đang hiển thị dữ liệu cũ', true);
+          else showError(data.error || 'GAS trả về lỗi không xác định');
           return;
         }
         rows = Array.isArray(data.rows) ? data.rows : [];
+        writeListCache(requested, rows);
         renderVoiceList(rows);
       })
       .catch(function (err) {
+        if (seq !== loadSeq) return; // superseded by a newer load
         showLoading(false);
+        setRefreshing(false);
         console.error('[voice] loadVoiceList error:', err);
-        showError('Không kết nối được — ' + err.message);
+        if (painted) showToast('Không làm mới được — đang hiển thị dữ liệu cũ', true);
+        else showError('Không kết nối được — ' + err.message);
       });
+  }
+
+  /**
+   * Worker-first list fetch with a direct-GAS fallback, so the tab keeps
+   * working (at today's speed) until the worker with /admin/list is
+   * deployed — and through any worker outage after.
+   */
+  function fetchList(statusFilter, fresh) {
+    const workerUrl = VOICE_AUDIO_PROXY_URL + '/admin/list?status=' +
+      encodeURIComponent(statusFilter) + (fresh ? '&fresh=1' : '');
+    return fetch(workerUrl)
+      .then(function (r) {
+        if (!r.ok) throw new Error('worker HTTP ' + r.status);
+        return r.json();
+      })
+      .catch(function () {
+        const url = VOICE_GAS_URL + '?action=listVoice&status=' + encodeURIComponent(statusFilter);
+        return fetch(url).then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        });
+      });
+  }
+
+  function readListCache(statusFilter) {
+    try {
+      const raw = localStorage.getItem(LIST_CACHE_PREFIX + statusFilter);
+      if (!raw) return null;
+      const entry = JSON.parse(raw);
+      if (!entry || !Array.isArray(entry.rows)) return null;
+      if (Date.now() - (entry.ts || 0) > LIST_CACHE_MAX_AGE_MS) return null;
+      return entry.rows;
+    } catch (e) { return null; }
+  }
+
+  function writeListCache(statusFilter, rowList) {
+    try {
+      localStorage.setItem(LIST_CACHE_PREFIX + statusFilter,
+        JSON.stringify({ ts: Date.now(), rows: rowList }));
+    } catch (e) { /* quota/private mode — instant paint just won't happen */ }
+  }
+
+  /**
+   * After a mutation that edits `rows` in place (publish, edit, replaceMedia):
+   * persist the updated rows for the next instant paint and re-warm the
+   * worker's edge cache in the background so other operators see the change.
+   */
+  function bustListCache() {
+    writeListCache(currentFilter, rows);
+    fetch(VOICE_AUDIO_PROXY_URL + '/admin/list?status=' +
+      encodeURIComponent(currentFilter) + '&fresh=1').catch(function () { /* ignore */ });
+  }
+
+  function setRefreshing(on) {
+    refreshBtn.disabled = on;
+    refreshBtn.textContent = on ? '↺ Đang làm mới…' : '↺ Refresh';
   }
 
   // ----------------------------------------------------------------
@@ -523,6 +625,7 @@
         row.status = 'published';
         row.slug = data.slug;
         row.url = data.url;
+        bustListCache();
         // Pre-warm CF edge caches so the first recipient hits hot caches for both
         // metadata JSON and audio bytes. Fire-and-forget: failure is non-fatal.
         // The /voice/ route is the voice page's metadata cache; a counter slug
@@ -601,7 +704,7 @@
         if (!data.ok) throw new Error(data.error || 'archiveVoice failed');
         showToast(targetStatus === 'pending' ? 'Đã restore về Pending' : 'Đã archive');
         // Reload list so the row disappears / reappears in correct filter
-        loadVoiceList();
+        loadVoiceList({ fresh: true });
       })
       .catch(function (err) {
         btn.disabled = false;
@@ -761,6 +864,7 @@
           if (Object.prototype.hasOwnProperty.call(payload, field)) row[field] = payload[field];
         });
         rerenderCardPreview(row);
+        bustListCache();
         editSaving = false;
         closeEditModal();
         showToast(type === 'voice' && row.status === 'published'
@@ -1056,6 +1160,7 @@
     if (cardEl) cardEl.replaceWith(buildVoiceCard(row));
     // Only touch the modal when it is still showing THIS row.
     if (editingRow === row) renderMediaButtons(row);
+    bustListCache();
   }
 
   /**
@@ -1110,7 +1215,7 @@
         backfillBtn.disabled = false;
         backfillBtn.textContent = origLabel;
         showToast('Backfill xong: ' + done + ' OK, ' + failed + ' lỗi');
-        loadVoiceList();
+        loadVoiceList({ fresh: true });
         return;
       }
       backfillBtn.textContent = 'Backfill ' + (i + 1) + '/' + todo.length;
