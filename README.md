@@ -22,7 +22,7 @@ Web app giúp đặt tên ảnh theo đơn hàng từ file Excel, giảm sai só
 
 Tìm và xem ảnh khách hàng đã upload.
 
-**Link**: https://qr.crushroom.vn/admin
+**Link**: https://admin.crushroom.vn/admin
 
 **Tính năng**:
 - **Tìm kiếm theo SĐT**: Nhập số điện thoại → xem grid ảnh
@@ -34,7 +34,7 @@ Tìm và xem ảnh khách hàng đã upload.
 
 Form upload ảnh + crop cho khách hàng (nhúng trong Shopify hoặc dùng standalone).
 
-**Link**: https://qr.crushroom.vn/couplepix (standalone)  
+**Link**: https://admin.crushroom.vn/couplepix (standalone)  
 **Shopify**: Nhúng file `templates/couplepix.liquid` vào theme
 
 **Tính năng**:
@@ -46,7 +46,7 @@ Form upload ảnh + crop cho khách hàng (nhúng trong Shopify hoặc dùng sta
 
 Tính toán ngày sản xuất xong và ngày khách nhận hàng theo tỉnh thành.
 
-**Link**: https://qr.crushroom.vn/check-date
+**Link**: https://admin.crushroom.vn/check-date
 
 **Quy tắc**:
 - Cutoff: 17:00 (sau 17h = tính ngày hôm sau)
@@ -64,7 +64,7 @@ Hệ thống cho phép khách hàng gửi lời nhắn âm thanh + ảnh + text 
 
 **Links**:
 - Upload form (gửi cho khách): `https://qr.crushroom.vn/voice-upload?phone=X&order=Y`
-- Admin Voice tab: `https://qr.crushroom.vn/admin#voice`
+- Admin Voice tab: `https://admin.crushroom.vn/admin#voice`
 - Public gift page: `https://qr.crushroom.vn/voice?id=SLUG`
 
 **GAS Backend** (riêng biệt với GAS chính):
@@ -94,22 +94,22 @@ https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga
 
 Trang điều khiển nội bộ — liên kết đến các công cụ.
 
-**Link**: https://qr.crushroom.vn/
+**Link**: https://admin.crushroom.vn/
 
 **Giao diện**: B&W minimalist (card grid)
 
 ## 🌐 Domains & routing
 
-Two hosts, one deployment. `vercel.json` splits them.
+Three hosts, one deployment. `vercel.json` splits them.
 
 | Host | Serves |
 |---|---|
 | `qr.crushroom.vn` | **Only** the 4 customer QR pages: `/counter`, `/voice`, `/voice-upload`, `/love-counter-upload` (plus `/assets/**`). Anything else redirects to `/qr-404`. |
-| `crushroom-form.vercel.app` | The staff tools: `/admin`, `/index`, `/couplepix`, `/check-date`. |
+| `admin.crushroom.vn` | The staff tools: `/admin`, `/index`, `/couplepix`, `/check-date`. The 4 customer pages redirect from here to `qr.crushroom.vn`. |
+| `crushroom-form.vercel.app` | Legacy host — nothing is served here anymore. The 4 customer pages redirect to `qr.crushroom.vn` (old printed QRs keep working, query string preserved); everything else redirects to `admin.crushroom.vn`. **Never detach this domain** — QRs printed before the domain switch resolve through it. |
 
-The two customer upload forms also redirect **off** the staff host —
-`crushroom-form.vercel.app/voice-upload` and `/love-counter-upload` send the
-visitor to `qr.crushroom.vn`, so each customer form has one canonical URL.
+The customer pages redirect **off** both staff-reachable hosts, so each
+customer page has exactly one canonical URL on `qr.crushroom.vn`.
 
 The QR-host rule is an **allow-list**, so any new page is hidden there by default —
 to expose one on the QR domain, add it to the `source` pattern in `vercel.json`.
@@ -262,7 +262,7 @@ Format: `A. BBBB_XX_YY.ext`
   - Bảng hiển thị: Slot #, Tên Output, Last4, SKU, Note
   - Cột "Chọn Ảnh": Dropdown chọn URL từ Google Drive
   - Nút "Tự động map ảnh theo thứ tự" để map nhanh
-- Link đến [Admin Panel](https://qr.crushroom.vn/admin) để xem ảnh
+- Link đến [Admin Panel](https://admin.crushroom.vn/admin) để xem ảnh
 
 #### Bước 4: Tải Ảnh & Export
 - Kiểm tra các slot chưa map

@@ -8,9 +8,21 @@
       "permanent": false
     },
     {
-      "source": "/(voice-upload|love-counter-upload)",
+      "source": "/(love-counter-upload|voice-upload|counter|voice)",
+      "has": [{ "type": "host", "value": "admin.crushroom.vn" }],
+      "destination": "https://qr.crushroom.vn/$1",
+      "permanent": false
+    },
+    {
+      "source": "/(love-counter-upload|voice-upload|counter|voice)",
       "has": [{ "type": "host", "value": "crushroom-form.vercel.app" }],
       "destination": "https://qr.crushroom.vn/$1",
+      "permanent": false
+    },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "crushroom-form.vercel.app" }],
+      "destination": "https://admin.crushroom.vn/$1",
       "permanent": false
     }
   ]

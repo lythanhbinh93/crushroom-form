@@ -75,7 +75,9 @@ const VOICE_SHEET_HEADERS = [
 // Values written into `type`. A blank cell means VOICE — see rowType_().
 const ROW_TYPE_VOICE = 'voice';
 const ROW_TYPE_COUNTER = 'counter';
-const ADMIN_URL = 'https://qr.crushroom.vn/admin#voice';
+// Staff host — qr.crushroom.vn allow-lists only the 4 customer pages, so an
+// admin link pointed there would land on the QR 404.
+const ADMIN_URL = 'https://admin.crushroom.vn/admin#voice';
 // Branded custom domain, attached to the same Vercel deployment. URLs minted
 // before the switch (crushroom-form.vercel.app) keep working — Vercel serves
 // both hosts — so already-printed QRs are unaffected. Do NOT deploy a change

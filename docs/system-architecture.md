@@ -479,7 +479,9 @@ Filename2: photo2.png
 
 **DNS**:
 - `crushroomapp.streamlit.app` → Streamlit app
-- `crushroom-form.vercel.app` → Vercel (static + routing)
+- `qr.crushroom.vn` → Vercel (customer QR pages only, allow-listed)
+- `admin.crushroom.vn` → Vercel (staff tools)
+- `crushroom-form.vercel.app` → Vercel (legacy; redirects to the two hosts above)
 - `script.google.com/macros/s/[ID]/exec` → GAS endpoint
 
 ## Unresolved Questions
