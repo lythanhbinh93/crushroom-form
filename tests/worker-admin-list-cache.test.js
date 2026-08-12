@@ -110,5 +110,35 @@ ok('cache writes use the filter captured at request time, not the live one',
 ok('worker MISS path returns structured JSON on upstream failure',
    /status: 502/.test(adminHandler));
 
-console.log('\n' + pass + ' passed, ' + fail + ' failed');
-process.exit(fail ? 1 : 0);
+(async function () {
+  console.log('\n-- GAS interstitial retry (real fetchGasWithRetry, stubbed fetch) --');
+  const retrySrc = grab(workerSrc, /async function fetchGasWithRetry\(url, tries\) \{[\s\S]*?\n\}/, 'fetchGasWithRetry');
+  // setTimeout stub fires immediately so the test does not sleep.
+  const F = new Function('fetch', 'setTimeout', retrySrc + '; return fetchGasWithRetry;');
+  const HTML = '<!DOCTYPE html><html>gas interstitial</html>';
+  const GOOD = '{"ok":true,"rows":[]}';
+  const NOTFOUND = '{"ok":false,"error":"not_found"}';
+
+  let calls = 0;
+  let f = F(async () => { calls++; const c = calls; return { status: 200, text: async () => (c < 3 ? HTML : GOOD) }; }, (cb) => cb());
+  const healed = await f('u', 3);
+  ok('interstitial retries until JSON lands', calls === 3 && healed.body === GOOD);
+
+  calls = 0;
+  f = F(async () => { calls++; return { status: 200, text: async () => NOTFOUND }; }, (cb) => cb());
+  const nf = await f('u', 3);
+  ok('a real not_found JSON returns on the FIRST try, no retry', calls === 1 && nf.body === NOTFOUND);
+
+  calls = 0;
+  f = F(async () => { calls++; return { status: 200, text: async () => HTML }; }, (cb) => cb());
+  const gaveUp = await f('u', 3);
+  ok('gives up after N tries, returning the last body', calls === 3 && gaveUp.body === HTML);
+
+  ok('voice meta fetches GAS through the retry helper',
+     /fetchGasWithRetry\(\s*`\$\{GAS_VOICE_URL\}\?action=getVoice/.test(workerSrc));
+  ok('admin list fetches GAS through the retry helper',
+     /fetchGasWithRetry\(upstreamUrl, 3\)/.test(workerSrc));
+
+  console.log('\n' + pass + ' passed, ' + fail + ' failed');
+  process.exit(fail ? 1 : 0);
+})();

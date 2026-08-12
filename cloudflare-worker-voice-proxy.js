@@ -112,8 +112,8 @@ async function handleAdminList(url, ctx) {
   const refresh = async () => {
     const upstreamUrl = `${GAS_VOICE_URL}?action=listVoice&status=${plan.status}` +
       (plan.type !== 'all' ? `&type=${plan.type}` : '');
-    const upstream = await fetch(upstreamUrl, { redirect: 'follow' });
-    const body = await upstream.text();
+    const upstream = await fetchGasWithRetry(upstreamUrl, 3);
+    const body = upstream.body;
     // Cache only parseable ok:true JSON — GAS transiently serves HTML 404
     // interstitials with status 200, and persisting one would blank the tab
     // for every operator until eviction.
@@ -166,6 +166,27 @@ async function handleAdminList(url, ctx) {
   }
 }
 
+/**
+ * GAS transiently serves an HTML interstitial WITH HTTP 200 several times a
+ * day (seen thrice on 2026-08-12 alone). The flap is per-request, so retrying
+ * usually lands on a healthy instance. Any parseable JSON — including a real
+ * {ok:false,"not_found"} — returns immediately; only non-JSON retries.
+ * Returns { body, status } of the last attempt.
+ */
+async function fetchGasWithRetry(url, tries) {
+  let last = { body: '', status: 502 };
+  for (let i = 0; i < tries; i++) {
+    const r = await fetch(url, { redirect: 'follow' });
+    const body = await r.text();
+    last = { body, status: r.status };
+    if (r.status === 200) {
+      try { JSON.parse(body); return last; } catch (_) { /* interstitial — retry */ }
+    }
+    if (i < tries - 1) await new Promise(function (res) { setTimeout(res, 350); });
+  }
+  return last;
+}
+
 async function handleVoiceMeta(req, slug) {
   if (!/^[\w-]{6,16}$/.test(slug)) {
     return new Response(JSON.stringify({ ok: false, error: 'bad slug' }), {
@@ -194,11 +215,9 @@ async function handleVoiceMeta(req, slug) {
     return new Response(cached.body, { status: cached.status, headers });
   }
 
-  const upstream = await fetch(
-    `${GAS_VOICE_URL}?action=getVoice&id=${encodeURIComponent(slug)}`,
-    { method: 'GET', redirect: 'follow' }
-  );
-  const body = await upstream.text();
+  const upstream = await fetchGasWithRetry(
+    `${GAS_VOICE_URL}?action=getVoice&id=${encodeURIComponent(slug)}`, 3);
+  const body = upstream.body;
 
   // Cache ONLY a parseable {ok:true} payload. HTTP status is useless as a
   // gate here (see namespace note above), and errors must stay uncached so
