@@ -4,6 +4,7 @@
  *
  * Routes:
  *   GET /voice/<slug>     → cached JSON proxy of GAS getVoice (60min edge TTL)
+ *   GET /gift/<slug>      → same, for GAS getGift (link/image gifts)
  *   GET /admin/list       → cached JSON proxy of GAS listVoice for the admin
  *                           voice tab (serve-cached + background revalidate;
  *                           ?fresh=1 bypasses and repopulates)
@@ -30,9 +31,12 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname;
 
-    // Metadata route: /voice/<slug>
+    // Metadata routes: /voice/<slug> (voice gifts), /gift/<slug> (link/image)
     if (path.startsWith('/voice/')) {
-      return handleVoiceMeta(req, path.slice('/voice/'.length));
+      return handleGasMeta(path.slice('/voice/'.length), 'getVoice', 'voice-meta2');
+    }
+    if (path.startsWith('/gift/')) {
+      return handleGasMeta(path.slice('/gift/'.length), 'getGift', 'gift-meta1');
     }
 
     // Admin list route: /admin/list
@@ -187,7 +191,19 @@ async function fetchGasWithRetry(url, tries) {
   return last;
 }
 
-async function handleVoiceMeta(req, slug) {
+/**
+ * Shared cached-metadata proxy for the GAS read-by-slug endpoints
+ * (getVoice → /voice/, getGift → /gift/).
+ *
+ * Explicit Cache API: more reliable than cf.cacheTtl for GAS responses
+ * (GAS 302-redirects to session-token URLs which break cf-key caching).
+ * Namespaces are versioned: v1 cached ANY HTTP-200 body, and GAS answers
+ * HTTP 200 even for {ok:false,"not_found"} — so a QR scanned minutes
+ * before publish poisoned the edge (1h) and the phone (10min) with
+ * not_found and the printed link looked dead. Bumping a namespace orphans
+ * every old entry on deploy; good entries re-warm on first hit.
+ */
+async function handleGasMeta(slug, action, namespace) {
   if (!/^[\w-]{6,16}$/.test(slug)) {
     return new Response(JSON.stringify({ ok: false, error: 'bad slug' }), {
       status: 400,
@@ -195,15 +211,8 @@ async function handleVoiceMeta(req, slug) {
     });
   }
 
-  // Explicit Cache API: more reliable than cf.cacheTtl for GAS responses
-  // (GAS 302-redirects to session-token URLs which break cf-key caching).
-  // Namespace is versioned: v1 cached ANY HTTP-200 body, and GAS answers
-  // HTTP 200 even for {ok:false,"not_found"} — so a QR scanned minutes
-  // before publish poisoned the edge (1h) and the phone (10min) with
-  // not_found and the printed link looked dead. voice-meta2 orphans every
-  // v1 entry on deploy; good entries re-warm on first hit.
   const cache = caches.default;
-  const cacheKey = new Request(`https://voice-proxy.crushroom.workers.dev/__cache__/voice-meta2/${slug}`, {
+  const cacheKey = new Request(`https://voice-proxy.crushroom.workers.dev/__cache__/${namespace}/${slug}`, {
     method: 'GET',
   });
 
@@ -216,7 +225,7 @@ async function handleVoiceMeta(req, slug) {
   }
 
   const upstream = await fetchGasWithRetry(
-    `${GAS_VOICE_URL}?action=getVoice&id=${encodeURIComponent(slug)}`, 3);
+    `${GAS_VOICE_URL}?action=${action}&id=${encodeURIComponent(slug)}`, 3);
   const body = upstream.body;
 
   // Cache ONLY a parseable {ok:true} payload. HTTP status is useless as a

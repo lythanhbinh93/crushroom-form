@@ -1,0 +1,93 @@
+/* gift-page.css — public page for link / image gifts.
+   Same visual family as voice.html: black stage, Montserrat, centered card. */
+
+/* display:block on the elements below would otherwise defeat the hidden
+   attribute (same guard the lc-sheet layer carries). */
+.gp-page [hidden],
+.gp-card [hidden] {
+  display: none !important;
+}
+
+.gp-page {
+  margin: 0;
+  min-height: 100vh;
+  background: #000;
+  color: #fff;
+  font-family: 'Montserrat', -apple-system, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.gp-state {
+  padding: 40vh 24px 0;
+  text-align: center;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.gp-state-sub {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.gp-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 28px 20px 32px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+#gp-image {
+  width: 100%;
+  border-radius: 12px;
+  display: block;
+}
+
+#gp-text {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.gp-embed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gp-iframe {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+}
+
+.gp-iframe-youtube {
+  aspect-ratio: 16 / 9;
+}
+
+.gp-iframe-spotify {
+  height: 352px;
+}
+
+.gp-link {
+  font-size: 0.82rem;
+  color: #a78bfa;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.gp-footer {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 8px;
+}

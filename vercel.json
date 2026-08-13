@@ -2,19 +2,19 @@
   "cleanUrls": true,
   "redirects": [
     {
-      "source": "/((?!counter|voice|voice-upload|love-counter-upload|gift-upload|qr-404|assets/|favicon).*)",
+      "source": "/((?!counter|voice|voice-upload|love-counter-upload|gift-upload|link-upload|image-upload|gift|qr-404|assets/|favicon).*)",
       "has": [{ "type": "host", "value": "qr.crushroom.vn" }],
       "destination": "/qr-404",
       "permanent": false
     },
     {
-      "source": "/(love-counter-upload|voice-upload|gift-upload|counter|voice)",
+      "source": "/(love-counter-upload|voice-upload|gift-upload|link-upload|image-upload|counter|voice|gift)",
       "has": [{ "type": "host", "value": "admin.crushroom.vn" }],
       "destination": "https://qr.crushroom.vn/$1",
       "permanent": false
     },
     {
-      "source": "/(love-counter-upload|voice-upload|gift-upload|counter|voice)",
+      "source": "/(love-counter-upload|voice-upload|gift-upload|link-upload|image-upload|counter|voice|gift)",
       "has": [{ "type": "host", "value": "crushroom-form.vercel.app" }],
       "destination": "https://qr.crushroom.vn/$1",
       "permanent": false

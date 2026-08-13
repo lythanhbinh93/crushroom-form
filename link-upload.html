@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gửi bài hát / video làm quà tặng QR">
+  <title>Gửi bài hát / video</title>
+
+  <!-- External Libraries CSS (same CDN versions as couplepix.html) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@20.3.0/build/css/intlTelInput.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/croppie/2.6.5/croppie.min.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Layer sandwich, same recipe as voice-upload.html:
+       1. voice-upload.css — shared form system (crop modal, buttons, banners)
+       2. gift-page.css    — the REAL gift page's stylesheet for the backdrop
+       3. love-counter-upload.css — the shared lc-sheet stepper layer -->
+  <link rel="stylesheet" href="./assets/voice-upload.css">
+  <link rel="stylesheet" href="./assets/gift-page.css">
+  <link rel="stylesheet" href="./assets/love-counter-upload.css">
+  <!-- Phone-width presentation for these QR pages. Must load last. -->
+  <link rel="stylesheet" href="./assets/mobile-only.css">
+
+  <!-- External Libraries JS (same CDN versions as couplepix.html) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/croppie/2.6.5/croppie.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@20.3.0/build/js/intlTelInput.min.js"></script>
+</head>
+<body class="lc-form-page gp-page">
+
+  <!-- ===== LIVE PREVIEW — static skeleton of gift.html, assembling as the
+       customer fills the sheet (same approach as voice-upload.html). ===== -->
+  <main class="gp-card vc-preview-stage" aria-label="Xem trước trang quà tặng">
+    <div class="audio-image">
+      <img id="pv-image" alt="" referrerpolicy="no-referrer" hidden />
+      <button type="button" class="vc-photo-placeholder" id="pv-photo-add" aria-label="Thêm ảnh kèm theo">＋<small>Ảnh kèm theo (tuỳ chọn)</small></button>
+    </div>
+    <p id="pv-text" class="vc-dim">Lời nhắn của bạn sẽ hiện ở đây</p>
+    <div id="pv-link-chip" class="gp-link" hidden></div>
+    <footer class="gp-footer"><span>Gửi từ CouplePix</span></footer>
+  </main>
+
+  <!-- ===== BOTTOM-SHEET STEPPER ===== -->
+  <form id="gift-form" class="lc-sheet" data-gift-type="link" method="post" action="" novalidate>
+    <button type="button" class="lc-grab-zone" id="lc-grab" aria-label="Mở/thu gọn bảng nhập">
+      <span class="lc-grab"></span>
+    </button>
+    <div class="lc-stepdots" id="lc-stepdots" aria-hidden="true"></div>
+
+    <div class="lc-prefill-banner" id="prefill-banner" hidden></div>
+
+    <!-- STEP 0 — identity -->
+    <section class="lc-step" data-step="0" data-require="phone">
+      <h2 class="lc-step-title">Xác nhận đơn hàng</h2>
+      <p class="lc-step-sub">Nhập SĐT đặt hàng — nếu bạn đã gửi trước đó qua link của shop, bản cũ sẽ hiện lên để sửa tiếp.</p>
+
+      <div class="lc-field">
+        <label for="phone-input">Số điện thoại đặt hàng <span class="lc-req">*</span></label>
+        <input type="tel" id="phone-input" placeholder="091 234 56 78" autocomplete="tel">
+        <small class="lc-error" id="phone-error" hidden></small>
+      </div>
+
+      <div class="lc-field" id="order-field" style="display:none;">
+        <label for="order-input">Mã đơn hàng</label>
+        <input type="text" id="order-input" autocomplete="off">
+      </div>
+
+      <button type="button" class="lc-btn" id="step0-next">Bắt đầu tạo →</button>
+    </section>
+
+    <!-- STEP 1 — the link (REQUIRED — it IS the gift) -->
+    <section class="lc-step" data-step="1" data-require="link" hidden>
+      <h2 class="lc-step-title">Bài hát / video của bạn <span class="lc-req">*</span></h2>
+      <p class="lc-step-sub">Dán link YouTube hoặc Spotify — người nhận quét QR sẽ nghe/xem ngay trên trang quà.</p>
+
+      <div class="lc-field">
+        <label for="link-input">Link YouTube / Spotify <span class="lc-req">*</span></label>
+        <input type="url" id="link-input" inputmode="url" placeholder="https://youtu.be/… hoặc https://open.spotify.com/…" autocomplete="off">
+        <small class="lc-hint-inline" id="link-service"></small>
+        <small class="lc-error" id="link-error" hidden></small>
+      </div>
+
+      <button type="button" class="lc-btn lc-next" data-goto="2">Tiếp tục →</button>
+      <button type="button" class="lc-btn lc-btn-ghost lc-back" data-goto="0">← Quay lại</button>
+    </section>
+
+    <!-- STEP 2 — photo (optional decoration) -->
+    <section class="lc-step" data-step="2" data-require="none" hidden>
+      <h2 class="lc-step-title">Ảnh kèm theo <span class="lc-opt">(tuỳ chọn)</span></h2>
+      <p class="lc-step-sub">Chạm để chọn &amp; cắt ảnh — ảnh hiện ngay lên trang phía sau.</p>
+
+      <div class="lc-picks">
+        <div class="lc-pick dropzone" id="image-dropzone">
+          <div class="dropzone--content">
+            <div class="dropzone--placeholder lc-pick-placeholder" id="image-placeholder">
+              <span class="lc-pick-emoji" aria-hidden="true">🖼️</span>
+              <span class="lc-pick-label">Ảnh vuông</span>
+              <button type="button" class="dropzone--placeholder--button lc-pick-btn" id="image-trigger-btn">Chọn ảnh</button>
+            </div>
+            <div class="dropzone--preview--area lc-pick-done" id="image-preview-area" style="display:none;">
+              <div class="img-preview vc-image-preview" id="image-preview"></div>
+              <span class="lc-pick-change">Đổi ảnh</span>
+              <button type="button" class="lc-pick-remove" id="image-remove-btn" aria-label="Xoá ảnh">✕</button>
+            </div>
+          </div>
+          <input type="file" id="image-input" accept="image/*" style="display:none;">
+        </div>
+      </div>
+      <small class="lc-error" id="image-error" hidden></small>
+
+      <button type="button" class="lc-btn lc-next" data-goto="3">Tiếp tục →</button>
+      <button type="button" class="lc-btn lc-btn-ghost lc-back" data-goto="1">← Quay lại</button>
+    </section>
+
+    <!-- STEP 3 — message (optional) -->
+    <section class="lc-step" data-step="3" data-require="none" hidden>
+      <h2 class="lc-step-title">Lời nhắn <span class="lc-opt">(tuỳ chọn)</span></h2>
+      <p class="lc-step-sub">Người nhận sẽ đọc lời nhắn này ngay trên trang quà.</p>
+
+      <div class="lc-field">
+        <label for="text-message">Lời nhắn</label>
+        <textarea id="text-message" rows="4" maxlength="1000" placeholder="Nhập lời nhắn của bạn…"></textarea>
+        <small class="lc-hint-inline"><span id="char-count">0</span>/1000</small>
+      </div>
+
+      <button type="button" class="lc-btn lc-next" data-goto="4">Tiếp tục →</button>
+      <button type="button" class="lc-btn lc-btn-ghost lc-back" data-goto="2">← Quay lại</button>
+    </section>
+
+    <!-- STEP 4 — review & submit -->
+    <section class="lc-step" data-step="4" data-require="none" hidden>
+      <h2 class="lc-step-title">Xem lại &amp; gửi</h2>
+      <p class="lc-step-sub">Đây chính xác là trang người nhận sẽ thấy khi quét QR. Chạm thanh kéo để xem toàn trang.</p>
+
+      <button type="submit" id="submit-btn" class="lc-btn" disabled>
+        <span id="submit-spinner" class="spinner" style="display:none;"></span>
+        <span id="submit-label">Gửi món quà 💌</span>
+      </button>
+      <button type="button" class="lc-btn lc-btn-ghost lc-back" data-goto="1">← Sửa lại</button>
+      <div class="lc-error" id="submit-error" hidden></div>
+    </section>
+
+    <div id="success-panel" class="lc-success" style="display:none;">
+      <div class="lc-success-icon" aria-hidden="true">✅</div>
+      <h3 class="lc-success-title">Đã gửi thành công!</h3>
+      <p class="lc-success-message">Cảm ơn bạn. Shop sẽ xử lý và gửi link QR cho bạn trong ít giờ tới.</p>
+    </div>
+
+    <div id="locked-panel" class="lc-success" style="display:none;">
+      <div class="lc-success-icon" aria-hidden="true">🔒</div>
+      <h3 class="lc-success-title">Quà của bạn đã được phát hành</h3>
+      <p class="lc-success-message">Trang quà tặng gắn với mã QR đã in nên không thể tự chỉnh sửa. Nếu cần thay đổi nội dung, vui lòng liên hệ CSKH của shop để được hỗ trợ.</p>
+    </div>
+  </form>
+
+  <!-- Custom JavaScript -->
+  <script src="./assets/upload-sheet.js"></script>
+  <script src="./assets/simple-gift-upload.js"></script>
+</body>
+</html>

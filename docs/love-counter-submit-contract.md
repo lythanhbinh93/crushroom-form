@@ -50,6 +50,22 @@ Audio is **optional** for the Love Counter — the day count is the product, the
 voice is a bonus. The public page hides the whole player block when
 `audio_file_id` is empty.
 
+## submitGift (`link` / `image` gifts)
+
+`POST action=submitGift` upserts the two simple gift types on
+`(phone, order_id, type)`. Required: `phone`, `order_id`,
+`type ∈ {link, image}`. For `link`: `media_link` — https, host allowlisted to
+YouTube/Spotify (`GIFT_LINK_HOSTS`; server-side boundary, mirrored client-side
+for inline validation only). For `image`: `imgData` (base64 JPEG,
+400×400 q0.85 crop) or `keepImage=1`. Optional both: `text_message` (≤1000),
+`imgData`/`keepImage` on link gifts (decoration). Same rules as every submit
+handler: publish-lock, keep-flags fail closed via `resolveKeptSlot_`, fresh
+data wins, slug + published_at kept, canonical Drive names, csvSafe_/apostrophe
+cell hygiene. `GET action=getGift&id=SLUG` serves the published page (type,
+text_message, media_link, image fields, published_at — never slug/phone);
+both types publish to `gift.html?id=` (`GIFT_PAGE_BASE_URL`). `media_link` is
+staff-editable through `editVoice` with the same allowlist validation.
+
 ## Publish-lock (`published_locked`)
 
 Both customer submit handlers (`submitCounter`, `finishUpload`) reject with

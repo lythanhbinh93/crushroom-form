@@ -79,14 +79,15 @@ ok('background refresh rides waitUntil', /ctx\.waitUntil\(refresh\(\)\)/.test(ad
 ok('client responses are no-store (edge owns freshness)',
    /'Cache-Control': 'no-store'/.test(adminHandler));
 
-const metaHandler = grab(workerSrc, /async function handleVoiceMeta\([\s\S]*?\n\}/, 'handleVoiceMeta');
-ok('voice-meta caches only parsed ok:true JSON (not HTTP 200)',
+const metaHandler = grab(workerSrc, /async function handleGasMeta\([\s\S]*?\n\}/, 'handleGasMeta');
+ok('gas-meta caches only parsed ok:true JSON (not HTTP 200)',
    /okJson = JSON\.parse\(body\)\.ok === true/.test(metaHandler) &&
    /if \(okJson\) \{\s*await cache\.put/.test(metaHandler));
-ok('voice-meta cache namespace is bumped past the poisoned v1',
-   metaHandler.indexOf('__cache__/voice-meta2/') !== -1 &&
-   metaHandler.indexOf('__cache__/voice-meta/') === -1);
-ok('voice-meta errors reach the browser as no-store',
+ok('voice route uses the post-poisoning v2 namespace; gift has its own',
+   /handleGasMeta\([\s\S]{0,60}'getVoice', 'voice-meta2'\)/.test(workerSrc) &&
+   /handleGasMeta\([\s\S]{0,60}'getGift', 'gift-meta1'\)/.test(workerSrc) &&
+   workerSrc.indexOf('__cache__/voice-meta/') === -1);
+ok('gas-meta errors reach the browser as no-store',
    /okJson \? 'public, max-age=600, s-maxage=3600' : 'no-store'/.test(metaHandler));
 
 console.log('\n-- admin tab source pins --');
@@ -134,8 +135,8 @@ ok('worker MISS path returns structured JSON on upstream failure',
   const gaveUp = await f('u', 3);
   ok('gives up after N tries, returning the last body', calls === 3 && gaveUp.body === HTML);
 
-  ok('voice meta fetches GAS through the retry helper',
-     /fetchGasWithRetry\(\s*`\$\{GAS_VOICE_URL\}\?action=getVoice/.test(workerSrc));
+  ok('gas-meta fetches GAS through the retry helper',
+     /fetchGasWithRetry\(\s*`\$\{GAS_VOICE_URL\}\?action=\$\{action\}/.test(workerSrc));
   ok('admin list fetches GAS through the retry helper',
      /fetchGasWithRetry\(upstreamUrl, 3\)/.test(workerSrc));
 

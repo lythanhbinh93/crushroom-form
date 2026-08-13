@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Một món quà nhỏ dành cho bạn">
+  <meta name="robots" content="noindex">
+  <title>Món quà dành cho bạn</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./assets/gift-page.css">
+  <!-- Phone-width presentation for these QR pages. Must load last. -->
+  <link rel="stylesheet" href="./assets/mobile-only.css">
+</head>
+<body class="gp-page">
+
+  <div id="gp-loading" class="gp-state">Đang mở món quà…</div>
+
+  <div id="gp-error" class="gp-state" hidden>
+    <p>😔 Không tìm thấy trang quà này.</p>
+    <p class="gp-state-sub">Link có thể chưa được phát hành — thử lại sau ít phút nhé.</p>
+  </div>
+
+  <main id="gp-root" class="gp-card" hidden>
+    <!-- referrerpolicy=no-referrer bypasses Google's hotlink 429, same as voice.html -->
+    <img id="gp-image" alt="Ảnh kèm món quà" referrerpolicy="no-referrer" hidden />
+    <p id="gp-text" hidden></p>
+    <div id="gp-embed" class="gp-embed" hidden></div>
+    <footer class="gp-footer">
+      <span>Gửi từ CouplePix</span>
+      <span id="gp-date"></span>
+    </footer>
+  </main>
+
+  <script src="./assets/gift-page.js"></script>
+</body>
+</html>

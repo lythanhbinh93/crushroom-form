@@ -50,7 +50,10 @@
    */
   const PAGE_BASE_BY_TYPE = Object.assign(Object.create(null), {
     voice: 'https://qr.crushroom.vn/voice?id=',
-    counter: 'https://qr.crushroom.vn/counter?id='
+    counter: 'https://qr.crushroom.vn/counter?id=',
+    // The two simple gift types share one public page.
+    link: 'https://qr.crushroom.vn/gift?id=',
+    image: 'https://qr.crushroom.vn/gift?id='
   });
 
   /**
@@ -83,6 +86,13 @@
       heart_text: 'voice-edit-heart-text',
       audio_title: 'voice-edit-audio-title',
       text_message: 'voice-edit-text-message-counter'
+    },
+    link: {
+      media_link: 'voice-edit-media-link',
+      text_message: 'voice-edit-text-message-link'
+    },
+    image: {
+      text_message: 'voice-edit-text-message-image'
     }
   });
 
@@ -124,6 +134,24 @@
         output: { width: 675, height: 1200 }, quality: 0.82
       },
       audio: { label: 'Đổi audio', kind: 'audio', removable: true }
+    },
+    // Same square geometry as voice.image — a staff replacement must render
+    // exactly like a customer upload on gift.html.
+    link: {
+      image: {
+        label: 'Đổi ảnh', kind: 'image', removable: true,
+        viewport: { width: 280, height: 280, type: 'square' },
+        boundary: { width: 300, height: 380 },
+        output: { width: 400, height: 400 }, quality: 0.85
+      }
+    },
+    image: {
+      image: {
+        label: 'Đổi ảnh', kind: 'image',
+        viewport: { width: 280, height: 280, type: 'square' },
+        boundary: { width: 300, height: 380 },
+        output: { width: 400, height: 400 }, quality: 0.85
+      }
     }
   });
 
@@ -170,8 +198,11 @@
   const editErrorEl   = $('voice-edit-error');
   const editSaveBtn   = $('voice-edit-save-btn');
   const editCancelBtn = $('voice-edit-cancel-btn');
-  const editGroupVoice   = $('voice-edit-fields-voice');
-  const editGroupCounter = $('voice-edit-fields-counter');
+  // One field-group container per editable type: voice-edit-fields-<type>.
+  const editGroupsByType = {};
+  Object.keys(EDIT_FIELDS_BY_TYPE).forEach(function (t) {
+    editGroupsByType[t] = $('voice-edit-fields-' + t);
+  });
   const mediaButtonsEl   = $('voice-edit-media-buttons');
   const mediaImageInput  = $('voice-edit-image-input');
   const mediaAudioInput  = $('voice-edit-audio-input');
@@ -446,7 +477,7 @@
     // Show the raw value for anything unrecognised rather than defaulting the
     // label to "voice". A typo'd sheet cell would otherwise render a card that
     // claims to be a voice gift while its Copy URL silently returns nothing.
-    const TYPE_LABELS = { voice: '🎙️ voice', counter: '❤️ counter' };
+    const TYPE_LABELS = { voice: '🎙️ voice', counter: '❤️ counter', link: '🎵 link', image: '🖼️ image' };
     const typeLabel = Object.prototype.hasOwnProperty.call(TYPE_LABELS, type)
       ? TYPE_LABELS[type]
       : '⚠️ ' + type;
@@ -781,8 +812,9 @@
     if (!fieldMap) return; // gated at the button; double-checked here
     editingRow = row;
     editIdentity.textContent = (row.phone || '—') + ' · ' + (row.order_id || '—') + ' · ' + type;
-    editGroupVoice.hidden = type !== 'voice';
-    editGroupCounter.hidden = type !== 'counter';
+    Object.keys(editGroupsByType).forEach(function (t) {
+      if (editGroupsByType[t]) editGroupsByType[t].hidden = t !== type;
+    });
     Object.keys(fieldMap).forEach(function (field) {
       const input = $(fieldMap[field]);
       if (!input) return;
@@ -867,7 +899,8 @@
         bustListCache();
         editSaving = false;
         closeEditModal();
-        showToast(type === 'voice' && row.status === 'published'
+        // Voice AND gift pages read through the worker's edge cache (≤60min).
+        showToast(type !== 'counter' && row.status === 'published'
           ? 'Đã lưu — trang public cập nhật sau tối đa ~60 phút (cache)'
           : 'Đã lưu');
       })

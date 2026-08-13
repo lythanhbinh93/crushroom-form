@@ -45,6 +45,10 @@ ok('voice card routes to voice-upload',
    T.some(t => t.key === 'voice' && t.page === 'voice-upload'));
 ok('counter card routes to love-counter-upload',
    T.some(t => t.key === 'counter' && t.page === 'love-counter-upload'));
+ok('link card routes to link-upload',
+   T.some(t => t.key === 'link' && t.page === 'link-upload'));
+ok('image card routes to image-upload',
+   T.some(t => t.key === 'image' && t.page === 'image-upload'));
 
 console.log('\n-- types filter --');
 ok('no types param shows everything', keys(H.guChooserCards(T, null)) === keys(T));

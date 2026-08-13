@@ -13,11 +13,13 @@
  *   GET  ?action=listVoice[&status=pending|published|archived|all][&type=voice|counter]
  *   GET  ?action=getVoice&id=SLUG
  *   GET  ?action=getCounter&id=SLUG
+ *   GET  ?action=getGift&id=SLUG
  *   GET  ?action=getSubmission (phone, order_id, type; see contract doc)
  *   GET  ?action=audioProxy&id=FILEID
  *   POST action=initUpload     (phone, order_id, filename, mimeType, size)
  *   POST action=finishUpload   (phone, order_id, fileId, text_message, imgData, imgFilename)
  *   POST action=submitCounter  (see docs/love-counter-submit-contract.md)
+ *   POST action=submitGift     (link/image gifts; see contract doc)
  *   POST action=publishVoice   (phone, order_id[, type])
  *   POST action=archiveVoice   (phone, order_id, target_status[, type])
  *   POST action=updatePeaks    (slug, peaks, audio_duration)
@@ -69,12 +71,22 @@ const VOICE_SHEET_HEADERS = [
     'male_image_file_id', 'male_image_url',
     'female_image_file_id', 'female_image_url',
     'bg_file_id', 'bg_url',
-    'title', 'heart_text', 'audio_title'
+    'title', 'heart_text', 'audio_title',
+
+    // ── Simple gift types (link / image) ───────────────────────────────────
+    // Validated https URL for `link` rows (YouTube/Spotify allowlist — see
+    // isAllowedGiftLink_). Blank on every other type.
+    'media_link'
 ];
 
 // Values written into `type`. A blank cell means VOICE — see rowType_().
 const ROW_TYPE_VOICE = 'voice';
 const ROW_TYPE_COUNTER = 'counter';
+// Simple gift types: a music/video link, or a single photo. Both publish to
+// the shared gift.html page — unlike voice/counter they render little enough
+// that one page serves both.
+const ROW_TYPE_LINK = 'link';
+const ROW_TYPE_IMAGE = 'image';
 // Staff host — qr.crushroom.vn allow-lists only the 4 customer pages, so an
 // admin link pointed there would land on the QR 404.
 const ADMIN_URL = 'https://admin.crushroom.vn/admin#voice';
@@ -87,6 +99,8 @@ const VOICE_PAGE_BASE_URL = 'https://qr.crushroom.vn/voice?id=';
 // Love Counter rows publish to their own page — the two render nothing alike,
 // and a shared page would ship the waveform player to counter visitors.
 const COUNTER_PAGE_BASE_URL = 'https://qr.crushroom.vn/counter?id=';
+// link + image rows share this one.
+const GIFT_PAGE_BASE_URL = 'https://qr.crushroom.vn/gift?id=';
 
 const scriptProp = PropertiesService.getScriptProperties();
 
@@ -177,6 +191,7 @@ function doGet(e) {
         // getVoice and audioProxy are recipient-facing: no admin login required.
         if (action === 'getVoice') return handleGetVoice_(e);
         if (action === 'getCounter') return handleGetCounter_(e);
+        if (action === 'getGift') return handleGetGift_(e);
         // Customer-facing prefill read — same trust level as the public upsert.
         if (action === 'getSubmission') return handleGetSubmission_(e);
         if (action === 'audioProxy') return handleAudioProxy_(e);
@@ -192,6 +207,7 @@ function doPost(e) {
         if (action === 'initUpload') return handleInitUpload_(e);
         if (action === 'finishUpload') return handleFinishUpload_(e);
         if (action === 'submitCounter') return handleSubmitCounter_(e);
+        if (action === 'submitGift') return handleSubmitGift_(e);
         if (action === 'publishVoice') return handlePublishVoice_(e);
         if (action === 'archiveVoice') return handleArchiveVoice_(e);
         if (action === 'updatePeaks') return handleUpdatePeaks_(e);
@@ -748,7 +764,9 @@ function handlePublishVoice_(e) {
 
         // Each type has its own public page, so the printed QR must point at the
         // right one. Publish is where the slug becomes a URL, so it decides.
-        var baseUrl = (type === ROW_TYPE_COUNTER) ? COUNTER_PAGE_BASE_URL : VOICE_PAGE_BASE_URL;
+        var baseUrl = (type === ROW_TYPE_COUNTER) ? COUNTER_PAGE_BASE_URL
+            : (type === ROW_TYPE_LINK || type === ROW_TYPE_IMAGE) ? GIFT_PAGE_BASE_URL
+            : VOICE_PAGE_BASE_URL;
         return jsonOut({ ok: true, slug: slug, url: baseUrl + slug, type: type });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
@@ -936,8 +954,32 @@ var EDITABLE_FIELDS_BY_TYPE = {
         heart_text: { max: 60, required: false },
         audio_title: { max: 120, required: false },
         text_message: { max: 200, required: false }
+    },
+    link: {
+        media_link: { link: true, required: true },
+        text_message: { max: 1000, required: false }
+    },
+    image: {
+        text_message: { max: 1000, required: false }
     }
 };
+
+/**
+ * Hosts a `link` gift may point at. HTTPS only, exact host match — the link
+ * renders as an embed on the public page, so this list is a security boundary
+ * like the field whitelists: anything can POST here.
+ */
+var GIFT_LINK_HOSTS = [
+    'youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com',
+    'music.youtube.com', 'open.spotify.com'
+];
+
+/** Pure, so the Node tests extract and run it. */
+function isAllowedGiftLink_(url) {
+    var m = String(url || '').trim().match(/^https:\/\/([^\/\?#]+)(?:[\/\?#]|$)/i);
+    if (!m) return false;
+    return GIFT_LINK_HOSTS.indexOf(m[1].toLowerCase()) !== -1;
+}
 
 /**
  * Pure validation core for editVoice — no Spreadsheet/Utilities calls, so the
@@ -974,6 +1016,13 @@ function validateEditFields_(type, params, todayVN) {
             // Apostrophe-prefixed like submitCounter: without it Sheets casts to
             // a date cell and JSON serialises VN midnight as the previous day.
             updates[field] = "'" + raw;
+            return;
+        }
+        if (rule.link) {
+            // Same allowlist as handleSubmitGift_ — a staff edit must not be
+            // able to point the embed anywhere a customer couldn't.
+            if (!isAllowedGiftLink_(raw)) { errors.push(field + ' must be a YouTube/Spotify https link'); return; }
+            updates[field] = csvSafe_(raw.slice(0, 500));
             return;
         }
         updates[field] = csvSafe_(raw.slice(0, rule.max));
@@ -1053,6 +1102,14 @@ var MEDIA_SLOTS_BY_TYPE = {
         female: { fileField: 'female_image_file_id', urlField: 'female_image_url', kind: 'image' },
         bg: { fileField: 'bg_file_id', urlField: 'bg_url', kind: 'image' },
         audio: { fileField: 'audio_file_id', urlField: 'audio_url', kind: 'audio', removable: true }
+    },
+    // The photo IS an image gift, so it is not removable there; on a link
+    // gift the photo is optional decoration.
+    link: {
+        image: { fileField: 'image_file_id', urlField: 'image_url', kind: 'image', removable: true }
+    },
+    image: {
+        image: { fileField: 'image_file_id', urlField: 'image_url', kind: 'image' }
     }
 };
 
@@ -1429,7 +1486,9 @@ var SUBMISSION_RESPONSE_FIELDS = {
         'text_message', 'audio_title',
         'male_image_file_id', 'female_image_file_id', 'bg_file_id',
         'audio_file_id', 'status'
-    ]
+    ],
+    link: ['text_message', 'media_link', 'image_file_id', 'status'],
+    image: ['text_message', 'image_file_id', 'status']
 };
 
 /**
@@ -1531,6 +1590,156 @@ function handleGetCounter_(e) {
             audio_file_id: obj.audio_file_id,
             peaks: obj.peaks || '',
             audio_duration: obj.audio_duration || 0,
+            published_at: obj.published_at
+        });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
+    }
+}
+
+// ============================================================
+//  SIMPLE GIFTS (link / image)
+//  Additive only — nothing above this line changes for other rows.
+//  Parameter contract: docs/love-counter-submit-contract.md → "submitGift"
+// ============================================================
+
+/**
+ * POST action=submitGift
+ *
+ * Required: phone, order_id, type ∈ {link, image}
+ *   type=link  → media_link (https YouTube/Spotify, see GIFT_LINK_HOSTS);
+ *                imgData optional decoration
+ *   type=image → imgData (base64 JPEG) or keepImage=1 — the photo IS the gift
+ * Optional: text_message (≤1000), keepImage=1 (returning customers)
+ *
+ * Upserts on (phone, order_id, type). Same rules as the other submit
+ * handlers: publish-lock, keep-flags fail closed, fresh data wins, slug kept
+ * across resubmission, apostrophe/csvSafe_ cell hygiene.
+ */
+function handleSubmitGift_(e) {
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) {
+        return jsonOut({ ok: false, error: 'busy, please retry' });
+    }
+    try {
+        var phone = normalizeVNPhone_(e.parameter.phone);
+        var orderId = String(e.parameter.order_id || '').trim();
+        var type = String(e.parameter.type || '').trim().toLowerCase();
+        var textMessage = String(e.parameter.text_message || '').slice(0, 1000);
+        var mediaLink = String(e.parameter.media_link || '').trim().slice(0, 500);
+        var imgData = e.parameter.imgData || '';
+
+        if (!phone) return jsonOut({ ok: false, error: 'phone required' });
+        if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
+        if (type !== ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE) {
+            return jsonOut({ ok: false, error: 'unknown_type' });
+        }
+        if (type === ROW_TYPE_LINK) {
+            if (!mediaLink) return jsonOut({ ok: false, error: 'media_link required' });
+            if (!isAllowedGiftLink_(mediaLink)) {
+                return jsonOut({ ok: false, error: 'media_link must be a YouTube/Spotify https link' });
+            }
+        } else {
+            mediaLink = '';
+        }
+
+        // Row lookup BEFORE the Drive save, then the publish-lock — same
+        // orphaned-file rule as every other submit handler.
+        var sheet = ensureVoiceSheet_();
+        assertSheetWidth_(sheet);
+        var existing = voiceFindRowByKey_(phone, orderId, type);
+        if (isRowPublishLocked_(existing)) {
+            return jsonOut({ ok: false, error: 'published_locked' });
+        }
+        var keptImage = resolveKeptSlot_(e.parameter, existing ? existing.row : null,
+            'keepImage', 'image_file_id', 'image_url');
+
+        var image = null;
+        if (imgData) {
+            var imageFolderId = scriptProp.getProperty('VOICE_IMAGE_FOLDER_ID');
+            if (!imageFolderId) return jsonOut({ ok: false, error: 'VOICE_IMAGE_FOLDER_ID not configured' });
+            image = saveCounterImage_(imgData, driveFileName_(phone, orderId, 'image', 'jpg'), imageFolderId);
+        }
+        // Fresh data wins; the kept file only fills a slot the POST left empty.
+        if (!image) image = keptImage;
+        if (type === ROW_TYPE_IMAGE && !image) {
+            return jsonOut({ ok: false, error: 'photo required' });
+        }
+
+        // Keep the slug across a re-submission — the QR is printed.
+        var iSlugG = VOICE_SHEET_HEADERS.indexOf('slug');
+        var iPublishedAtG = VOICE_SHEET_HEADERS.indexOf('published_at');
+        var keptSlug = existing ? String(existing.row[iSlugG] || '') : '';
+        var keptPublishedAt = existing ? String(existing.row[iPublishedAtG] || '') : '';
+
+        var values = rowFromObject_({
+            timestamp: new Date().toISOString(),
+            phone: "'" + phone,
+            order_id: csvSafe_(orderId),
+            text_message: csvSafe_(textMessage),
+            image_file_id: image ? image.fileId : '',
+            image_url: image ? image.url : '',
+            status: 'pending',
+            slug: keptSlug,
+            published_at: keptPublishedAt,
+            type: type,
+            media_link: csvSafe_(mediaLink)
+        });
+
+        var rowIdx = existing ? existing.rowIdx : sheet.getLastRow() + 1;
+        sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([values]);
+
+        notifyLark_(
+            (type === ROW_TYPE_LINK ? '🎵 Link Gift' : '🖼️ Image Gift') + ' mới — đơn ' + orderId,
+            'turquoise', [
+                '**SĐT:** ' + phone,
+                '**Đơn:** ' + orderId,
+                type === ROW_TYPE_LINK ? '**Link:** ' + mediaLink : '**Ảnh:** có',
+                '**Lời nhắn:** ' + (textMessage.slice(0, 200) || '(trống)'),
+                existing ? '_(khách gửi lại — chờ duyệt lại)_' : ''
+            ].filter(Boolean));
+
+        return jsonOut({ ok: true, rowIndex: rowIdx, updated: !!existing });
+    } catch (err) {
+        return jsonOut({ ok: false, error: String(err) });
+    } finally {
+        lock.releaseLock();
+    }
+}
+
+/**
+ * GET action=getGift&id=SLUG
+ * Public JSON for a published link/image gift; not_found otherwise. Explicit
+ * field list like getVoice/getCounter — a column added later stays private
+ * until deliberately exposed. `type` IS exposed: gift.html renders by it.
+ */
+function handleGetGift_(e) {
+    try {
+        var slug = String(e.parameter.id || '').trim();
+        if (!slug) return jsonOut({ ok: false, error: 'id (slug) required' });
+
+        var found = voiceFindRowBySlug_(slug);
+        if (!found) return jsonOut({ ok: false, error: 'not_found' });
+
+        var type = rowType_(found.row);
+        if (type !== ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE) {
+            return jsonOut({ ok: false, error: 'not_found' });
+        }
+
+        var iStatus = VOICE_SHEET_HEADERS.indexOf('status');
+        if (String(found.row[iStatus]) !== 'published') {
+            return jsonOut({ ok: false, error: 'not_found' });
+        }
+
+        var obj = {};
+        VOICE_SHEET_HEADERS.forEach(function (h, idx) { obj[h] = found.row[idx]; });
+        return jsonOut({
+            ok: true,
+            type: type,
+            text_message: obj.text_message,
+            media_link: obj.media_link || '',
+            image_url: obj.image_url,
+            image_file_id: obj.image_file_id,
             published_at: obj.published_at
         });
     } catch (err) {

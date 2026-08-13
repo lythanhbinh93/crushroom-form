@@ -21,8 +21,17 @@ var GIFT_TYPES = [
     key: 'counter', page: 'love-counter-upload', icon: '❤️',
     title: 'Love Counter',
     desc: 'Trang đếm ngày yêu nhau với ảnh hai bạn, ảnh nền và nhạc riêng.'
+  },
+  {
+    key: 'link', page: 'link-upload', icon: '🎵',
+    title: 'Bài hát / video',
+    desc: 'Dán link YouTube hoặc Spotify — người nhận quét QR để nghe và xem ngay.'
+  },
+  {
+    key: 'image', page: 'image-upload', icon: '🖼️',
+    title: 'Tấm ảnh kỷ niệm',
+    desc: 'Một tấm ảnh đẹp kèm lời nhắn của bạn.'
   }
-  // Phase 2: { key: 'link', ... }, { key: 'image', ... }
   // Phase 3: { key: 'video', ... }
 ];
 
