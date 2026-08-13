@@ -50,6 +50,19 @@ Audio is **optional** for the Love Counter — the day count is the product, the
 voice is a bonus. The public page hides the whole player block when
 `audio_file_id` is empty.
 
+## Publish-lock (`published_locked`)
+
+Both customer submit handlers (`submitCounter`, `finishUpload`) reject with
+`{ ok:false, error:"published_locked" }` when the existing row for the same
+`(phone, order_id, type)` has `status === "published"` — the printed QR is
+live, so the customer form can never overwrite a published gift. The check
+runs BEFORE any Drive save (no orphaned files). Pending/archived rows keep
+resubmit-with-kept-slug; archive→restore (status back to `pending`) unlocks.
+Staff endpoints (`editVoice`, `replaceMedia`, `publishVoice`, `archiveVoice`)
+are deliberately ungated — staff are the post-publish edit path. The forms
+also read `status` from `getSubmission` and show a locked panel instead of
+the steps.
+
 ## Drive file naming
 
 The server names every saved file `<phone>_<order>[_slot].<ext>`

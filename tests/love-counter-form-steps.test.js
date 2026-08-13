@@ -30,8 +30,9 @@ const H = new Function(
   [
     grab(/function lcIsValidDateString\(v, todayVN\) \{[\s\S]*?\n\}/),
     grab(/function lcValidateStep\(step, s\) \{[\s\S]*?\n\}/),
-    grab(/function lcBuildSubmitPayload\(s, defaultTitle\) \{[\s\S]*?\n\}/)
-  ].join('\n') + ';return { lcIsValidDateString, lcValidateStep, lcBuildSubmitPayload };'
+    grab(/function lcBuildSubmitPayload\(s, defaultTitle\) \{[\s\S]*?\n\}/),
+    grab(/function lcIsLocked\(sub\) \{[\s\S]*?\n\}/)
+  ].join('\n') + ';return { lcIsValidDateString, lcValidateStep, lcBuildSubmitPayload, lcIsLocked };'
 )();
 
 let pass = 0, fail = 0;
@@ -112,6 +113,16 @@ ok('fresh crop wins: data keys present, no keep flag for that slot',
    mixed.maleData === 'NEWDATA' && !('keepMale' in mixed) && mixed.keepFemale === '1');
 ok('keep flags never appear for a plain new customer',
    !('keepMale' in p) && !('keepFemale' in p) && !('keepBg' in p) && !('keepAudio' in p));
+
+console.log('\n-- publish-lock predicate --');
+ok('published submission locks the form', H.lcIsLocked({ status: 'published' }));
+ok('pending submission does not lock', !H.lcIsLocked({ status: 'pending' }));
+ok('archived does not lock (restore path stays open)', !H.lcIsLocked({ status: 'archived' }));
+ok('missing submission never locks', !H.lcIsLocked(null));
+ok('hydration is skipped for a locked submission (source pin)',
+   /lcIsLocked\(resp\.submission\)[\s\S]{0,80}else hydrateFromSubmission/.test(src));
+ok('server published_locked maps to the locked panel (source pin)',
+   /published_locked'\) \{[\s\S]{0,120}showLockedPanel\(\)/.test(src));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

@@ -63,6 +63,7 @@ Tính toán ngày sản xuất xong và ngày khách nhận hàng theo tỉnh th
 Hệ thống cho phép khách hàng gửi lời nhắn âm thanh + ảnh + text → staff duyệt và phát hành trang quà tặng có QR code.
 
 **Links**:
+- **Chooser (link duy nhất gửi khách):** `https://qr.crushroom.vn/gift-upload?phone=X&order=Y` — khách chọn loại quà; thêm `&types=voice` (hoặc `counter`, hoặc danh sách phẩy) để giới hạn; đúng 1 type hợp lệ thì chuyển thẳng vào form.
 - Upload form (gửi cho khách): `https://qr.crushroom.vn/voice-upload?phone=X&order=Y`
 - Admin Voice tab: `https://admin.crushroom.vn/admin#voice`
 - Public gift page: `https://qr.crushroom.vn/voice?id=SLUG`
@@ -104,9 +105,9 @@ Three hosts, one deployment. `vercel.json` splits them.
 
 | Host | Serves |
 |---|---|
-| `qr.crushroom.vn` | **Only** the 4 customer QR pages: `/counter`, `/voice`, `/voice-upload`, `/love-counter-upload` (plus `/assets/**`). Anything else redirects to `/qr-404`. |
-| `admin.crushroom.vn` | The staff tools: `/admin`, `/index`, `/couplepix`, `/check-date`. The 4 customer pages redirect from here to `qr.crushroom.vn`. |
-| `crushroom-form.vercel.app` | Legacy host — nothing is served here anymore. The 4 customer pages redirect to `qr.crushroom.vn` (old printed QRs keep working, query string preserved); everything else redirects to `admin.crushroom.vn`. **Never detach this domain** — QRs printed before the domain switch resolve through it. |
+| `qr.crushroom.vn` | **Only** the customer QR pages: `/gift-upload` (type chooser — the one link CS sends), `/counter`, `/voice`, `/voice-upload`, `/love-counter-upload` (plus `/assets/**`). Anything else redirects to `/qr-404`. |
+| `admin.crushroom.vn` | The staff tools: `/admin`, `/index`, `/couplepix`, `/check-date`. The customer pages redirect from here to `qr.crushroom.vn`. |
+| `crushroom-form.vercel.app` | Legacy host — nothing is served here anymore. The customer pages redirect to `qr.crushroom.vn` (old printed QRs keep working, query string preserved); everything else redirects to `admin.crushroom.vn`. **Never detach this domain** — QRs printed before the domain switch resolve through it. |
 
 The customer pages redirect **off** both staff-reachable hosts, so each
 customer page has exactly one canonical URL on `qr.crushroom.vn`.

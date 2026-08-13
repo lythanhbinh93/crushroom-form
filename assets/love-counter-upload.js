@@ -113,6 +113,16 @@ function lcBuildSubmitPayload(s, defaultTitle) {
   return p;
 }
 
+/**
+ * Published rows are frozen for the customer form — the printed QR is live;
+ * CS staff tools are the only edit path. The server enforces the same rule
+ * (error `published_locked`); this predicate just spares the customer the
+ * walk through the steps.
+ */
+function lcIsLocked(sub) {
+  return !!sub && String(sub.status || '').trim().toLowerCase() === 'published';
+}
+
 /* ── Controller ──────────────────────────────────────────────────────────── */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -178,6 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var progressFill    = document.getElementById('progress-bar-fill');
   var progressLabel   = document.getElementById('progress-label');
   var successPanel    = document.getElementById('success-panel');
+  var lockedPanel     = document.getElementById('locked-panel');
 
   /* ── DOM refs — live preview (mirrors counter.html's element map) ──────── */
   var pv = {
@@ -409,7 +420,10 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(function (r) { return r.json(); })
       .then(function (resp) {
         state.checkedKey = identityKey;
-        if (resp && resp.ok && resp.found) hydrateFromSubmission(resp.submission);
+        if (resp && resp.ok && resp.found) {
+          if (lcIsLocked(resp.submission)) giftLocked = true;
+          else hydrateFromSubmission(resp.submission);
+        }
       })
       .catch(function () {
         // A blank start is always safe — prefill is best-effort, never a wall.
@@ -418,9 +432,21 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(function () {
         step0Next.disabled = false;
         step0Next.textContent = 'Bắt đầu tạo →';
-        goStep(1);
+        if (giftLocked) showLockedPanel();
+        else goStep(1);
       });
   });
+
+  // Published = frozen. Swap the sheet contents for the locked notice, same
+  // move as the success panel (steps and dots hide, the page stays behind).
+  var giftLocked = false;
+  function showLockedPanel() {
+    giftLocked = true;
+    stepEls.forEach(function (el) { el.hidden = true; });
+    stepdotsEl.hidden = true;
+    sheetEl.classList.remove('lc-collapsed');
+    lockedPanel.style.display = 'block';
+  }
 
   /**
    * Fill every step + the preview from a prior submission (whitelisted fields
@@ -1024,7 +1050,16 @@ document.addEventListener('DOMContentLoaded', function () {
       // already full would be theatre, so the panel stays hidden.
 
       var resp = await gasPost(payload);
-      if (!resp.ok) throw new Error(resp.error || 'Gửi thất bại');
+      if (!resp.ok) {
+        // Raced a publish: staff published while the customer was editing —
+        // the row is frozen now, so show the locked notice, not a retry error.
+        if (resp.error === 'published_locked') {
+          progressPanel.style.display = 'none';
+          showLockedPanel();
+          return;
+        }
+        throw new Error(resp.error || 'Gửi thất bại');
+      }
 
       // Success: swap the sheet's contents; the finished preview stays behind.
       stepEls.forEach(function (el) { el.hidden = true; });

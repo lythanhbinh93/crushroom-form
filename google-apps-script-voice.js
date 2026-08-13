@@ -372,6 +372,18 @@ function voiceFindRowByKey_(phone, orderId, type) {
     return null;
 }
 
+/**
+ * Publish is a lock: the printed QR is live, so the customer form can never
+ * overwrite a published row — staff edit tools (editVoice/replaceMedia) are
+ * the only post-publish path. Archived/pending rows keep the normal
+ * resubmit-with-kept-slug behavior (restore → pending → unlocked).
+ */
+function isRowPublishLocked_(existing) {
+    if (!existing) return false;
+    var status = existing.row[VOICE_SHEET_HEADERS.indexOf('status')];
+    return String(status == null ? '' : status).trim().toLowerCase() === 'published';
+}
+
 /** Find a row by slug. Returns { rowIdx, row } or null. */
 function voiceFindRowBySlug_(slug) {
     var sheet = ensureVoiceSheet_();
@@ -532,7 +544,9 @@ function handleInitUpload_(e) {
  */
 function handleFinishUpload_(e) {
     var lock = LockService.getScriptLock();
-    lock.tryLock(30000);
+    if (!lock.tryLock(30000)) {
+        return jsonOut({ ok: false, error: 'busy, please retry' });
+    }
     try {
         var phone = normalizeVNPhone_(e.parameter.phone);
         var orderId = String(e.parameter.order_id || '').trim();
@@ -556,6 +570,11 @@ function handleFinishUpload_(e) {
         // orphaned anyone-with-link files in the folder.
         var sheet = ensureVoiceSheet_();
         var existing = voiceFindRowByKey_(phone, orderId);
+        // Before any Drive save — a locked identity must not leave orphaned
+        // anyone-with-link files behind, same rule as a bad identity.
+        if (isRowPublishLocked_(existing)) {
+            return jsonOut({ ok: false, error: 'published_locked' });
+        }
         var keptMedia = resolveKeptVoiceMedia_(e.parameter, existing ? existing.row : null);
 
         // Voice audio IS the product: fresh bytes, a completed resumable
@@ -696,6 +715,13 @@ function handleListVoice_(e) {
  * Idempotent re-publish: keeps existing slug, bumps published_at.
  */
 function handlePublishVoice_(e) {
+    // Same script lock as the customer submit handlers: without it, a submit
+    // in flight during publish rewrites the row from its stale pre-publish
+    // read and wipes the freshly minted slug — permanently breaking that QR.
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) {
+        return jsonOut({ ok: false, error: 'busy, please retry' });
+    }
     try {
         var phone = normalizeVNPhone_(e.parameter.phone);
         var orderId = String(e.parameter.order_id || '').trim();
@@ -726,6 +752,8 @@ function handlePublishVoice_(e) {
         return jsonOut({ ok: true, slug: slug, url: baseUrl + slug, type: type });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
+    } finally {
+        lock.releaseLock();
     }
 }
 
@@ -852,6 +880,12 @@ function handleAudioProxy_(e) {
  * DRY: same handler toggles archive/restore.
  */
 function handleArchiveVoice_(e) {
+    // Locked for the same reason as publish: status flips must serialize with
+    // customer submits or a stale row write undoes them.
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) {
+        return jsonOut({ ok: false, error: 'busy, please retry' });
+    }
     try {
         var phone = normalizeVNPhone_(e.parameter.phone);
         var orderId = String(e.parameter.order_id || '').trim();
@@ -873,6 +907,8 @@ function handleArchiveVoice_(e) {
         return jsonOut({ ok: true, status: targetStatus });
     } catch (err) {
         return jsonOut({ ok: false, error: String(err) });
+    } finally {
+        lock.releaseLock();
     }
 }
 
@@ -1267,6 +1303,10 @@ function handleSubmitCounter_(e) {
         var sheet = ensureVoiceSheet_();
         assertSheetWidth_(sheet);
         var existing = voiceFindRowByKey_(phone, orderId, ROW_TYPE_COUNTER);
+        // Before any Drive save — same orphaned-file rule as finishUpload.
+        if (isRowPublishLocked_(existing)) {
+            return jsonOut({ ok: false, error: 'published_locked' });
+        }
         var keptMedia = resolveKeptMedia_(e.parameter, existing ? existing.row : null);
 
         // Fresh data wins over a keep-flag: saveCounterImage_ runs first and

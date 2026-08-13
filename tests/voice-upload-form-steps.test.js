@@ -26,8 +26,9 @@ function grab(re) {
 const H = new Function(
   [
     grab(/function vcValidateStep\(step, s\) \{[\s\S]*?\n\}/),
-    grab(/function vcBuildFinishPayload\(s\) \{[\s\S]*?\n\}/)
-  ].join('\n') + ';return { vcValidateStep, vcBuildFinishPayload };'
+    grab(/function vcBuildFinishPayload\(s\) \{[\s\S]*?\n\}/),
+    grab(/function vcIsLocked\(sub\) \{[\s\S]*?\n\}/)
+  ].join('\n') + ';return { vcValidateStep, vcBuildFinishPayload, vcIsLocked };'
 )();
 
 let pass = 0, fail = 0;
@@ -72,6 +73,16 @@ const kept = H.vcBuildFinishPayload({
 ok('kept image → keepImage=1 and NO image keys',
    kept.keepImage === '1' && !('imgData' in kept) && !('imgFilename' in kept));
 ok('fresh image never carries a keep flag', !('keepImage' in fresh));
+
+console.log('\n-- publish-lock predicate --');
+ok('published submission locks the form', H.vcIsLocked({ status: 'published' }));
+ok('pending submission does not lock', !H.vcIsLocked({ status: 'pending' }));
+ok('archived does not lock (restore path stays open)', !H.vcIsLocked({ status: 'archived' }));
+ok('missing submission never locks', !H.vcIsLocked(null));
+ok('hydration is skipped for a locked submission (source pin)',
+   /vcIsLocked\(resp\.submission\)[\s\S]{0,80}else hydrateFromSubmission/.test(src));
+ok('server published_locked maps to the locked panel (source pin)',
+   /published_locked'\) \{[\s\S]{0,120}showLockedPanel\(\)/.test(src));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
