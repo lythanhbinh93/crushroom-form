@@ -102,8 +102,19 @@ ok('bytes=0-8388607 → next 8388608', R('bytes=0-8388607') === 8388608);
 ok('nothing persisted yet → null', R(null) === null && R('') === null);
 ok('garbage → null', R('bytes=*') === null);
 
+console.log('\n-- stream route pins --');
+ok('GET /video/stream/<id> routes to the playback proxy',
+   /path\.startsWith\('\/video\/stream\/'\)/.test(src) && /handleVideoStream\(req, path\.slice/.test(src));
+ok('streams via the Drive API alt=media (no uc interstitial, no host leak)',
+   /drive\/v3\/files\/' \+ encodeURIComponent\(fileId\) \+ '\?alt=media'/.test(src));
+ok('Range passes through for seeking', /range \? \{ Range: range \} : \{\}/.test(src));
+ok('file id gated by regex', /\^\[\\w-\]\{20,100\}\$/.test(src));
+ok('served inline with browser caching',
+   /'Content-Disposition', 'inline'/.test(src) && /'Cache-Control', 'public, max-age=3600'/.test(src));
+ok('token grants are cached between requests', /driveTokenCache/.test(src));
+
 console.log('\n-- route wiring pins --');
-ok('POST allowed only for /video/*',
+ok('POST allowed only for /video/* relay routes',
    /path\.startsWith\('\/video\/'\)/.test(src) && /handleVideoRelay\(path, url, req, env\)/.test(src));
 ok('completion sets anyone-with-link reader',
    /shareFileAnyoneReader/.test(src) && /role: 'reader', type: 'anyone'/.test(src));

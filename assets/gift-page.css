@@ -87,6 +87,169 @@
   word-break: break-all;
 }
 
+/* ── Branded video player (video gifts) ───────────────────────────────────
+   Native <video> + custom chrome. Bleeds past the card padding so the frame
+   runs edge to edge; height follows the video's own ratio, capped at the
+   viewport, so portrait phone videos fill the screen. No platform chrome. */
+
+.gp-player {
+  position: relative;
+  margin: 0 -20px;
+  background: #000;
+  min-height: 200px;
+}
+
+.gp-player video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 100dvh;
+  object-fit: contain;
+  background: #000;
+}
+
+.gp-player:fullscreen {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.gp-player:fullscreen video {
+  height: 100%;
+  max-height: none;
+}
+
+/* Spinner — continuous rotation is the one place linear is correct. */
+.gp-vp-spin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #a78bfa;
+  animation: gp-vp-rot 0.8s linear infinite;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.gp-vp-loading .gp-vp-spin { opacity: 1; }
+
+@keyframes gp-vp-rot { to { transform: rotate(360deg); } }
+
+.gp-vp-big {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 68px;
+  height: 68px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(18, 16, 28, 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease;
+}
+
+.gp-vp-big svg { width: 30px; height: 30px; margin-left: 3px; }
+.gp-vp-big:active { transform: translate(-50%, -50%) scale(0.94); }
+
+.gp-vp-playing .gp-vp-big,
+.gp-vp-loading .gp-vp-big {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gp-vp-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 10px 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  transition: opacity 0.25s ease;
+}
+
+.gp-vp-idle .gp-vp-bar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gp-vp-toggle,
+.gp-vp-fs {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 0;
+  background: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.gp-vp-toggle svg, .gp-vp-fs svg { width: 20px; height: 20px; }
+
+.gp-vp-big:focus-visible,
+.gp-vp-toggle:focus-visible,
+.gp-vp-fs:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+.gp-vp-time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.85);
+  flex: 0 0 auto;
+  min-width: 34px;
+  text-align: center;
+}
+
+.gp-vp-track {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* Invisible 47px hit zone — the visible line stays a 3px hairline. */
+.gp-vp-track::before {
+  content: '';
+  position: absolute;
+  inset: -22px 0;
+}
+
+.gp-vp-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0%;
+  border-radius: 2px;
+  background: #a78bfa;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gp-vp-big, .gp-vp-bar, .gp-vp-spin { transition: none; }
+}
+
 .gp-footer {
   display: flex;
   justify-content: center;

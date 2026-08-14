@@ -26,8 +26,10 @@ const H = new Function(
   [
     grab(/function gpIsVideoId\(id\) \{[\s\S]*?\n\}/),
     grab(/function gpIsDriveFileId\(id\) \{[\s\S]*?\n\}/),
+    grab(/function gpDriveFileIdFromLink\(link\) \{[\s\S]*?\n\}/),
+    grab(/function gpFmtTime\(sec\) \{[\s\S]*?\n\}/),
     grab(/function gpEmbedUrl\(link\) \{[\s\S]*?\n\}/)
-  ].join('\n') + ';return { gpEmbedUrl };'
+  ].join('\n') + ';return { gpEmbedUrl, gpDriveFileIdFromLink, gpFmtTime };'
 )();
 
 let pass = 0, fail = 0;
@@ -89,8 +91,34 @@ ok('embed src is always a fixed-origin prefix', (() => {
   });
 })());
 
+console.log('\n-- branded player: Drive id extraction --');
+const X = H.gpDriveFileIdFromLink;
+ok('constructed /view link → id', X('https://drive.google.com/file/d/' + driveId + '/view') === driveId);
+ok('bare file/d link → id', X('https://drive.google.com/file/d/' + driveId) === driveId);
+ok('open?id= legacy link → id', X('https://drive.google.com/open?id=' + driveId + '&usp=x') === driveId);
+ok('youtube link → empty (keeps the embed path)', X('https://youtu.be/dQw4w9WgXcQ') === '');
+ok('folder link → empty', X('https://drive.google.com/drive/folders/' + driveId) === '');
+ok('short id → empty', X('https://drive.google.com/file/d/tiny/view') === '');
+ok('non-drive host with drive-looking path → empty',
+   X('https://evil.example.com/file/d/' + driveId + '/view') === '');
+
+console.log('\n-- branded player: time formatting --');
+ok('0 → 0:00', H.gpFmtTime(0) === '0:00');
+ok('65 → 1:05', H.gpFmtTime(65) === '1:05');
+ok('3671 → 1:01:11', H.gpFmtTime(3671) === '1:01:11');
+ok('garbage → 0:00', H.gpFmtTime('x') === '0:00');
+
+console.log('\n-- branded player: source-reveal pins --');
+ok('video rows stream through the worker, not Drive',
+   /PROXY_URL \+ '\/video\/stream\/' \+ driveId/.test(src));
+const mountSrc = grab(/function gpMountPlayer\(container, src, onFail\) \{[\s\S]*?\n  \}/);
+ok('player markup never references drive.google.com',
+   mountSrc.indexOf('drive.google.com') === -1);
+ok('stream failure falls back to the embed so the gift is never blank',
+   /wrap\.remove\(\);\s*onFail\(\);/.test(mountSrc) && /mountEmbedFallback\(data\)/.test(src));
+
 console.log('\n-- page render condition --');
-ok('video rows render through the same embed path as link rows',
+ok('link rows and non-streamable video rows use the embed path',
    /\(data\.type === 'link' \|\| data\.type === 'video'\)/.test(src));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

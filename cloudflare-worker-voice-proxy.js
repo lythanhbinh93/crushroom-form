@@ -34,8 +34,16 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname;
 
-    // Video upload relay — the only POST surface on this worker.
+    // Video routes: GET /video/stream/<fileId> plays an uploaded video back
+    // through OUR origin (the gift page must never reference drive.google.com);
+    // everything else under /video/ is the POST upload relay.
     if (path.startsWith('/video/')) {
+      if (path.startsWith('/video/stream/')) {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          return videoJson(405, { ok: false, error: 'method not allowed' });
+        }
+        return handleVideoStream(req, path.slice('/video/stream/'.length), env);
+      }
       if (req.method !== 'POST') {
         return videoJson(405, { ok: false, error: 'method not allowed' });
       }
@@ -494,7 +502,15 @@ async function shareFileAnyoneReader(env, fileId) {
   }
 }
 
+// Module-scope token cache: playback seeks fire many Range requests, and a
+// refresh grant per request would hammer Google's token endpoint. Isolates
+// keep globals warm between requests; the 5-minute safety margin covers skew.
+let driveTokenCache = { token: '', exp: 0 };
+
 async function driveAccessToken(env) {
+  if (driveTokenCache.token && Date.now() < driveTokenCache.exp) {
+    return driveTokenCache.token;
+  }
   const r = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     body: new URLSearchParams({
@@ -506,7 +522,61 @@ async function driveAccessToken(env) {
   });
   const j = await r.json();
   if (!j.access_token) throw new Error('token grant failed');
+  driveTokenCache = {
+    token: j.access_token,
+    exp: Date.now() + Math.max(60, (j.expires_in || 3600) - 300) * 1000,
+  };
   return j.access_token;
+}
+
+/**
+ * GET /video/stream/<fileId> — recipient-facing playback proxy.
+ *
+ * Drive's own URLs are unusable for a branded player: the iframe shows Drive
+ * chrome (and a pop-out into Drive itself), and uc?export=media both leaks
+ * the host and hits the virus-scan interstitial on >100MB files. This route
+ * streams the file through the Drive API with the relay's own OAuth token and
+ * passes Range through, so <video> gets seekable bytes from OUR origin.
+ *
+ * Scope is the guard: drive.file can only read files THIS app created, so the
+ * route cannot be abused to proxy arbitrary Drive files — hand-pasted links
+ * to non-app files 404 here and the page falls back to the old embed.
+ */
+async function handleVideoStream(req, fileId, env) {
+  if (!/^[\w-]{20,100}$/.test(fileId)) {
+    return videoJson(400, { ok: false, error: 'bad id' });
+  }
+  if (!env.GOOGLE_REFRESH_TOKEN || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    return videoJson(503, { ok: false, error: 'not configured' });
+  }
+  let token;
+  try { token = await driveAccessToken(env); } catch (_) {
+    return videoJson(502, { ok: false, error: 'auth failed' });
+  }
+
+  const range = req.headers.get('range');
+  const upstream = await fetch(
+    'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fileId) + '?alt=media',
+    { headers: Object.assign({ Authorization: 'Bearer ' + token }, range ? { Range: range } : {}) }
+  );
+  if (upstream.status !== 200 && upstream.status !== 206) {
+    return videoJson(upstream.status === 404 ? 404 : 502,
+      { ok: false, error: 'drive returned ' + upstream.status });
+  }
+
+  const headers = new Headers();
+  for (const k of ['content-type', 'content-length', 'content-range', 'etag', 'last-modified']) {
+    const v = upstream.headers.get(k);
+    if (v) headers.set(k, v);
+  }
+  if (!headers.has('content-type')) headers.set('Content-Type', 'video/mp4');
+  headers.set('Accept-Ranges', 'bytes');
+  headers.set('Content-Disposition', 'inline');
+  // File id maps to immutable bytes; browser caching makes replays free.
+  headers.set('Cache-Control', 'public, max-age=3600');
+  Object.entries(corsHeaders()).forEach(([k, v]) => headers.set(k, v));
+  return new Response(req.method === 'HEAD' ? null : upstream.body,
+    { status: upstream.status, headers });
 }
 
 function videoJson(status, obj) {
