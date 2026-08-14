@@ -49,6 +49,7 @@ ok('youtube watch', allow('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
 ok('youtu.be short', allow('https://youtu.be/dQw4w9WgXcQ'));
 ok('youtube music', allow('https://music.youtube.com/watch?v=abc'));
 ok('spotify track', allow('https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC'));
+ok('drive video share link', allow('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view?usp=sharing'));
 ok('bare allowed host', allow('https://youtu.be'));
 
 console.log('\n-- and rejects everything else --');
@@ -57,6 +58,8 @@ ok('random host rejected', !allow('https://evil.example.com/watch?v=x'));
 ok('lookalike suffix rejected', !allow('https://youtube.com.evil.vn/x'));
 ok('subdomain smuggle rejected', !allow('https://evil.youtube.com.evil.vn/x'));
 ok('userinfo smuggle rejected', !allow('https://youtube.com@evil.vn/x'));
+ok('docs.google.com rejected (only drive.google.com carries video)',
+   !allow('https://docs.google.com/document/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/edit'));
 ok('javascript: rejected', !allow('javascript:alert(1)'));
 ok('blank rejected', !allow('') && !allow(null));
 

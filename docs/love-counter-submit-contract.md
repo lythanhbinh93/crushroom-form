@@ -55,8 +55,12 @@ voice is a bonus. The public page hides the whole player block when
 `POST action=submitGift` upserts the two simple gift types on
 `(phone, order_id, type)`. Required: `phone`, `order_id`,
 `type ∈ {link, image}`. For `link`: `media_link` — https, host allowlisted to
-YouTube/Spotify (`GIFT_LINK_HOSTS`; server-side boundary, mirrored client-side
-for inline validation only). For `image`: `imgData` (base64 JPEG,
+YouTube/Spotify/Google Drive (`GIFT_LINK_HOSTS`; server-side boundary, mirrored
+client-side for inline validation only). Drive links carry video gifts: CS
+uploads the customer's video to the shop Drive ("anyone with link can view"),
+pastes the share link, and the gift page embeds Drive's player
+(`file/d/<id>/preview` — Drive transcodes after upload, adaptive on mobile).
+For `image`: `imgData` (base64 JPEG,
 400×400 q0.85 crop) or `keepImage=1`. Optional both: `text_message` (≤1000),
 `imgData`/`keepImage` on link gifts (decoration). Same rules as every submit
 handler: publish-lock, keep-flags fail closed via `resolveKeptSlot_`, fresh

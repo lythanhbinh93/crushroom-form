@@ -25,6 +25,7 @@ function grab(re) {
 const H = new Function(
   [
     grab(/function gpIsVideoId\(id\) \{[\s\S]*?\n\}/),
+    grab(/function gpIsDriveFileId\(id\) \{[\s\S]*?\n\}/),
     grab(/function gpEmbedUrl\(link\) \{[\s\S]*?\n\}/)
   ].join('\n') + ';return { gpEmbedUrl };'
 )();
@@ -55,6 +56,17 @@ ok('intl locale prefix stripped', E('https://open.spotify.com/intl-vi/track/4uLU
 ok('album', E('https://open.spotify.com/album/2up3OPMp9Tb4dAKM2erWXQ').kind === 'spotify');
 ok('playlist with query', E('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=x').kind === 'spotify');
 
+console.log('\n-- Google Drive video shapes --');
+const driveId = '1AbCdEfGhIjKlMnOpQrStUvWxYz012345';
+const drivePreview = 'https://drive.google.com/file/d/' + driveId + '/preview';
+ok('file/d share link', E('https://drive.google.com/file/d/' + driveId + '/view?usp=sharing').src === drivePreview);
+ok('file/d without /view', E('https://drive.google.com/file/d/' + driveId).src === drivePreview);
+ok('open?id= legacy link', E('https://drive.google.com/open?id=' + driveId + '&usp=drive_link').src === drivePreview);
+ok('drive kind tagged', E('https://drive.google.com/file/d/' + driveId + '/view').kind === 'drive');
+ok('folder link returns null', E('https://drive.google.com/drive/folders/' + driveId) === null);
+ok('short/bad file id returns null', E('https://drive.google.com/file/d/tiny') === null);
+ok('docs.google.com is not drive', E('https://docs.google.com/document/d/' + driveId + '/edit') === null);
+
 console.log('\n-- no smuggling, no surprises --');
 ok('watch without v returns null', E('https://www.youtube.com/watch?list=only') === null);
 ok('bad video id returns null', E('https://www.youtube.com/watch?v=<script>') === null);
@@ -66,12 +78,14 @@ ok('embed src is always a fixed-origin prefix', (() => {
   const cases = [
     'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     'https://youtu.be/abc_def-123',
-    'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC'
+    'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
+    'https://drive.google.com/file/d/' + driveId + '/view'
   ];
   return cases.every(u => {
     const e = E(u);
     return e && (e.src.indexOf('https://www.youtube.com/embed/') === 0 ||
-                 e.src.indexOf('https://open.spotify.com/embed/') === 0);
+                 e.src.indexOf('https://open.spotify.com/embed/') === 0 ||
+                 e.src.indexOf('https://drive.google.com/file/d/') === 0);
   });
 })());
 

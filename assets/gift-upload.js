@@ -25,7 +25,7 @@ var GIFT_TYPES = [
   {
     key: 'link', page: 'link-upload', icon: '🎵',
     title: 'Bài hát / video',
-    desc: 'Dán link YouTube hoặc Spotify — người nhận quét QR để nghe và xem ngay.'
+    desc: 'Dán link YouTube, Spotify hoặc video Google Drive — người nhận quét QR để nghe và xem ngay.'
   },
   {
     key: 'image', page: 'image-upload', icon: '🖼️',

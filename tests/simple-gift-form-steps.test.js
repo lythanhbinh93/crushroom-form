@@ -56,6 +56,8 @@ ok('phone step needs valid phone + order',
 ok('link step needs an allowlisted https link',
    H.sgRequirementMet('link', s) && !H.sgRequirementMet('link', { ...s, link: 'https://evil.vn/x' }) &&
    !H.sgRequirementMet('link', { ...s, link: '' }));
+ok('drive video link passes the link step',
+   H.sgRequirementMet('link', { ...s, link: 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view' }));
 ok('photo step needs a photo', H.sgRequirementMet('photo', s) && !H.sgRequirementMet('photo', { ...s, photoSet: false }));
 ok('optional steps never block', H.sgRequirementMet('none', { ...s, link: '', photoSet: false, message: '' }));
 

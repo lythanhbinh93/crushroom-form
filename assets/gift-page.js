@@ -3,7 +3,8 @@
  *
  * Renders by the row's `type` from getGift (via the worker's cached
  * /gift/<slug> route, direct GAS as fallback): an image gift is photo +
- * message; a link gift is a YouTube/Spotify embed + optional photo + message.
+ * message; a link gift is a YouTube/Spotify/Drive-video embed + optional
+ * photo + message.
  *
  * The embed URL is BUILT from validated pieces of the customer link — the raw
  * link never reaches an iframe src. If the link doesn't transform (service
@@ -14,6 +15,12 @@
 /** True for a plausible YouTube video id. */
 function gpIsVideoId(id) {
   return /^[A-Za-z0-9_-]{6,20}$/.test(String(id || ''));
+}
+
+/** True for a plausible Drive file id (folder ids share the shape — Drive's
+ *  player just shows its own error for those, the page never breaks). */
+function gpIsDriveFileId(id) {
+  return /^[A-Za-z0-9_-]{20,100}$/.test(String(id || ''));
 }
 
 /**
@@ -43,6 +50,20 @@ function gpEmbedUrl(link) {
     }
     if ((parts[0] === 'shorts' || parts[0] === 'embed' || parts[0] === 'live') && gpIsVideoId(parts[1])) {
       return { kind: 'youtube', src: 'https://www.youtube.com/embed/' + parts[1] };
+    }
+    return null;
+  }
+  if (host === 'drive.google.com') {
+    // Share-link shapes: file/d/<id>/view and open?id=<id>. The /preview
+    // path is Drive's embeddable player (transcoded, adaptive on mobile).
+    if (parts[0] === 'file' && parts[1] === 'd' && gpIsDriveFileId(parts[2])) {
+      return { kind: 'drive', src: 'https://drive.google.com/file/d/' + parts[2] + '/preview' };
+    }
+    if (parts[0] === 'open') {
+      var fid = new URLSearchParams(query).get('id') || '';
+      if (gpIsDriveFileId(fid)) {
+        return { kind: 'drive', src: 'https://drive.google.com/file/d/' + fid + '/preview' };
+      }
     }
     return null;
   }

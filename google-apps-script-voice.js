@@ -74,7 +74,7 @@ const VOICE_SHEET_HEADERS = [
     'title', 'heart_text', 'audio_title',
 
     // ── Simple gift types (link / image) ───────────────────────────────────
-    // Validated https URL for `link` rows (YouTube/Spotify allowlist — see
+    // Validated https URL for `link` rows (YouTube/Spotify/Drive allowlist — see
     // isAllowedGiftLink_). Blank on every other type.
     'media_link'
 ];
@@ -969,9 +969,12 @@ var EDITABLE_FIELDS_BY_TYPE = {
  * renders as an embed on the public page, so this list is a security boundary
  * like the field whitelists: anything can POST here.
  */
+// drive.google.com carries video gifts: CS uploads the customer's video to
+// the shop Drive ("anyone with link can view") and pastes the share link; the
+// gift page embeds Drive's own player (file/d/<id>/preview).
 var GIFT_LINK_HOSTS = [
     'youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com',
-    'music.youtube.com', 'open.spotify.com'
+    'music.youtube.com', 'open.spotify.com', 'drive.google.com'
 ];
 
 /** Pure, so the Node tests extract and run it. */
@@ -1021,7 +1024,7 @@ function validateEditFields_(type, params, todayVN) {
         if (rule.link) {
             // Same allowlist as handleSubmitGift_ — a staff edit must not be
             // able to point the embed anywhere a customer couldn't.
-            if (!isAllowedGiftLink_(raw)) { errors.push(field + ' must be a YouTube/Spotify https link'); return; }
+            if (!isAllowedGiftLink_(raw)) { errors.push(field + ' must be a YouTube/Spotify/Drive https link'); return; }
             updates[field] = csvSafe_(raw.slice(0, 500));
             return;
         }
@@ -1607,7 +1610,7 @@ function handleGetCounter_(e) {
  * POST action=submitGift
  *
  * Required: phone, order_id, type ∈ {link, image}
- *   type=link  → media_link (https YouTube/Spotify, see GIFT_LINK_HOSTS);
+ *   type=link  → media_link (https YouTube/Spotify/Drive, see GIFT_LINK_HOSTS);
  *                imgData optional decoration
  *   type=image → imgData (base64 JPEG) or keepImage=1 — the photo IS the gift
  * Optional: text_message (≤1000), keepImage=1 (returning customers)
@@ -1637,7 +1640,7 @@ function handleSubmitGift_(e) {
         if (type === ROW_TYPE_LINK) {
             if (!mediaLink) return jsonOut({ ok: false, error: 'media_link required' });
             if (!isAllowedGiftLink_(mediaLink)) {
-                return jsonOut({ ok: false, error: 'media_link must be a YouTube/Spotify https link' });
+                return jsonOut({ ok: false, error: 'media_link must be a YouTube/Spotify/Drive https link' });
             }
         } else {
             mediaLink = '';

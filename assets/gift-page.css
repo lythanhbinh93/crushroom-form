@@ -76,6 +76,10 @@
   height: 352px;
 }
 
+.gp-iframe-drive {
+  aspect-ratio: 16 / 9;
+}
+
 .gp-link {
   font-size: 0.82rem;
   color: #a78bfa;

@@ -17,7 +17,7 @@
  */
 var SG_LINK_HOSTS = [
   'youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com',
-  'music.youtube.com', 'open.spotify.com'
+  'music.youtube.com', 'open.spotify.com', 'drive.google.com'
 ];
 
 function sgIsAllowedLink(url) {
@@ -171,7 +171,9 @@ document.addEventListener('DOMContentLoaded', function () {
       var ok = linkInput && sgIsAllowedLink(linkInput.value);
       pvLinkChip.hidden = !ok;
       if (ok) {
-        pvLinkChip.textContent = /spotify/i.test(linkInput.value) ? '🎧 Spotify' : '▶️ YouTube';
+        pvLinkChip.textContent = /spotify/i.test(linkInput.value) ? '🎧 Spotify'
+          : /drive\.google/i.test(linkInput.value) ? '🎬 Video'
+          : '▶️ YouTube';
       }
     }
   }
@@ -215,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function flagStepErrors() {
     var req = stepRequirement(sheet.step);
     if (req === 'link') {
-      showError(linkError, 'Cần link YouTube hoặc Spotify hợp lệ (bắt đầu bằng https://)');
+      showError(linkError, 'Cần link YouTube, Spotify hoặc Google Drive hợp lệ (bắt đầu bằng https://)');
     }
     if (req === 'photo') {
       showError(document.getElementById('image-error'), 'Vui lòng chọn ảnh — đây chính là món quà');
@@ -310,8 +312,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (linkServiceEl) {
         var ok = sgIsAllowedLink(v);
         linkServiceEl.textContent = !v ? '' : ok
-          ? (/spotify/i.test(v) ? '✓ Spotify' : '✓ YouTube')
-          : 'Chỉ nhận link YouTube / Spotify (https)';
+          ? (/spotify/i.test(v) ? '✓ Spotify' : /drive\.google/i.test(v) ? '✓ Google Drive' : '✓ YouTube')
+          : 'Chỉ nhận link YouTube / Spotify / Google Drive (https)';
         linkServiceEl.classList.toggle('lc-link-bad', !!v && !ok);
       }
       paintPreview();
