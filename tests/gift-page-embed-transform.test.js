@@ -89,5 +89,9 @@ ok('embed src is always a fixed-origin prefix', (() => {
   });
 })());
 
+console.log('\n-- page render condition --');
+ok('video rows render through the same embed path as link rows',
+   /\(data\.type === 'link' \|\| data\.type === 'video'\)/.test(src));
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

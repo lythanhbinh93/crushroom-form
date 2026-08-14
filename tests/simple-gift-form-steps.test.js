@@ -58,6 +58,12 @@ ok('link step needs an allowlisted https link',
    !H.sgRequirementMet('link', { ...s, link: '' }));
 ok('drive video link passes the link step',
    H.sgRequirementMet('link', { ...s, link: 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view' }));
+const videoP = H.sgBuildPayload({ type: 'video', phone: '+84912345678', orderId: 'A1',
+  link: 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view', message: '',
+  image: { dataB64: '', kept: false } });
+ok('video payload carries media_link like link',
+   videoP.type === 'video' && videoP.media_link ===
+   'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view');
 ok('photo step needs a photo', H.sgRequirementMet('photo', s) && !H.sgRequirementMet('photo', { ...s, photoSet: false }));
 ok('optional steps never block', H.sgRequirementMet('none', { ...s, link: '', photoSet: false, message: '' }));
 

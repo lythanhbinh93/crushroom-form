@@ -106,13 +106,22 @@ ok('mirrorThumb only on counter.male',
 const maleUpdates = GAS.buildMediaCellUpdates_(GAS.MEDIA_SLOTS_BY_TYPE.counter.male, 'F', 'U', '', 0);
 ok('male replacement mirrors the row thumbnail pair',
    maleUpdates.image_file_id === 'F' && maleUpdates.image_url === 'U');
-ok('removable only counter.audio',
+ok('removable marks optional media only — never a product slot',
    GAS.MEDIA_SLOTS_BY_TYPE.counter.audio.removable === true &&
+   GAS.MEDIA_SLOTS_BY_TYPE.link.image.removable === true &&
+   GAS.MEDIA_SLOTS_BY_TYPE.video.image.removable === true &&
    !GAS.MEDIA_SLOTS_BY_TYPE.voice.audio.removable &&
-   !GAS.MEDIA_SLOTS_BY_TYPE.voice.image.removable);
+   !GAS.MEDIA_SLOTS_BY_TYPE.voice.image.removable &&
+   !GAS.MEDIA_SLOTS_BY_TYPE.image.image.removable);
+
+console.log('\n-- remove button is slot-driven, not audio-hardcoded --');
+ok('presence gate checks the slot\'s own kind',
+   /spec\.kind === 'audio'\s*\?\s*\(row\.audio_file_id \|\| row\.audio_url\)\s*:\s*\(row\.image_file_id \|\| row\.image_url\)/.test(adminSrc));
+ok('remove label follows the slot kind',
+   /makeBtn\(spec\.kind === 'audio' \? 'Xoá audio' : 'Xoá ảnh'/.test(adminSrc));
 
 console.log('\n-- admin slot map mirrors the GAS map --');
-['voice', 'counter'].forEach(function (type) {
+['voice', 'counter', 'link', 'image', 'video'].forEach(function (type) {
   ok('admin ' + type + ' slots match GAS exactly',
      JSON.stringify(Object.keys(ADMIN[type]).sort()) === JSON.stringify(Object.keys(GAS.MEDIA_SLOTS_BY_TYPE[type]).sort()));
   Object.keys(ADMIN[type]).forEach(function (slot) {

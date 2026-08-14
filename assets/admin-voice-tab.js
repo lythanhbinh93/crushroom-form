@@ -51,9 +51,10 @@
   const PAGE_BASE_BY_TYPE = Object.assign(Object.create(null), {
     voice: 'https://qr.crushroom.vn/voice?id=',
     counter: 'https://qr.crushroom.vn/counter?id=',
-    // The two simple gift types share one public page.
+    // The simple gift types share one public page.
     link: 'https://qr.crushroom.vn/gift?id=',
-    image: 'https://qr.crushroom.vn/gift?id='
+    image: 'https://qr.crushroom.vn/gift?id=',
+    video: 'https://qr.crushroom.vn/gift?id='
   });
 
   /**
@@ -93,6 +94,10 @@
     },
     image: {
       text_message: 'voice-edit-text-message-image'
+    },
+    video: {
+      media_link: 'voice-edit-media-link-video',
+      text_message: 'voice-edit-text-message-video'
     }
   });
 
@@ -148,6 +153,14 @@
     image: {
       image: {
         label: 'Đổi ảnh', kind: 'image',
+        viewport: { width: 280, height: 280, type: 'square' },
+        boundary: { width: 300, height: 380 },
+        output: { width: 400, height: 400 }, quality: 0.85
+      }
+    },
+    video: {
+      image: {
+        label: 'Đổi ảnh', kind: 'image', removable: true,
         viewport: { width: 280, height: 280, type: 'square' },
         boundary: { width: 300, height: 380 },
         output: { width: 400, height: 400 }, quality: 0.85
@@ -477,7 +490,7 @@
     // Show the raw value for anything unrecognised rather than defaulting the
     // label to "voice". A typo'd sheet cell would otherwise render a card that
     // claims to be a voice gift while its Copy URL silently returns nothing.
-    const TYPE_LABELS = { voice: '🎙️ voice', counter: '❤️ counter', link: '🎵 link', image: '🖼️ image' };
+    const TYPE_LABELS = { voice: '🎙️ voice', counter: '❤️ counter', link: '🎵 link', image: '🖼️ image', video: '🎬 video' };
     const typeLabel = Object.prototype.hasOwnProperty.call(TYPE_LABELS, type)
       ? TYPE_LABELS[type]
       : '⚠️ ' + type;
@@ -936,8 +949,15 @@
         (spec.kind === 'audio' ? mediaAudioInput : mediaImageInput).click();
       });
       mediaButtonsEl.appendChild(btn);
-      if (spec.removable && (row.audio_file_id || row.audio_url)) {
-        const rmBtn = makeBtn('Xoá audio', 'btn-voice-action btn-voice-media-remove');
+      // Removable slots today are counter.audio and the link/video decoration
+      // photo — the image ones all live in the row-thumbnail column pair, so
+      // presence can be checked by kind without carrying field names here.
+      const slotFilled = spec.kind === 'audio'
+        ? (row.audio_file_id || row.audio_url)
+        : (row.image_file_id || row.image_url);
+      if (spec.removable && slotFilled) {
+        const rmBtn = makeBtn(spec.kind === 'audio' ? 'Xoá audio' : 'Xoá ảnh',
+          'btn-voice-action btn-voice-media-remove');
         rmBtn.addEventListener('click', function () { removeMedia(row, slot, rmBtn); });
         mediaButtonsEl.appendChild(rmBtn);
       }
@@ -1123,8 +1143,9 @@
   }
 
   function removeMedia(row, slot, btn) {
-    if (!confirm('Xoá audio của row này? File cũ vẫn còn trong Drive.')) return;
     const spec = MEDIA_SLOTS_BY_TYPE[rowTypeOf(row)][slot];
+    const noun = spec.kind === 'audio' ? 'audio' : 'ảnh';
+    if (!confirm('Xoá ' + noun + ' của row này? File cũ vẫn còn trong Drive.')) return;
     editSaving = true;
     btn.disabled = true;
     fetch(VOICE_GAS_URL, {
@@ -1145,7 +1166,7 @@
       .then(function (data) {
         if (!data.ok) throw new Error(data.error || 'replaceMedia failed');
         applyMediaResult(row, slot, spec, data, null);
-        showToast('Đã xoá audio');
+        showToast('Đã xoá ' + noun);
       })
       .catch(function (err) {
         console.error('[voice] removeMedia error:', err);

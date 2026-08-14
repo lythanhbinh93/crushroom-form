@@ -78,6 +78,10 @@ ok('replaceMedia: image slot required on image gifts, removable on link gifts',
    !H.MEDIA_SLOTS_BY_TYPE.image.image.removable &&
    H.MEDIA_SLOTS_BY_TYPE.link.image.removable === true &&
    H.MEDIA_SLOTS_BY_TYPE.link.image.fileField === 'image_file_id');
+ok('video maps mirror link exactly (same fields, same optional-photo slot)',
+   JSON.stringify(H.SUBMISSION_RESPONSE_FIELDS.video) === JSON.stringify(H.SUBMISSION_RESPONSE_FIELDS.link) &&
+   JSON.stringify(H.EDITABLE_FIELDS_BY_TYPE.video) === JSON.stringify(H.EDITABLE_FIELDS_BY_TYPE.link) &&
+   JSON.stringify(H.MEDIA_SLOTS_BY_TYPE.video) === JSON.stringify(H.MEDIA_SLOTS_BY_TYPE.link));
 
 console.log('\n-- submitGift handler source pins --');
 const g = grab(/function handleSubmitGift_\(e\) \{[\s\S]*?\n\}/, 'handleSubmitGift_');
@@ -96,15 +100,17 @@ ok('slug + published_at kept across resubmission',
    /slug: keptSlug,\s*published_at: keptPublishedAt/.test(g));
 ok('canonical Drive name', /driveFileName_\(phone, orderId, 'image', 'jpg'\)/.test(g));
 ok('row keyed by its own type', /voiceFindRowByKey_\(phone, orderId, type\)/.test(g));
+ok('video accepted as a type', /type !== ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE && type !== ROW_TYPE_VIDEO/.test(g));
+ok('media_link required for video like link', /type === ROW_TYPE_LINK \|\| type === ROW_TYPE_VIDEO/.test(g));
 
 console.log('\n-- getGift + publish routing pins --');
 const gg = grab(/function handleGetGift_\(e\) \{[\s\S]*?\n\}/, 'handleGetGift_');
-ok('getGift serves only published link/image rows',
-   /ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE/.test(gg) && /'published'/.test(gg));
+ok('getGift serves only published link/image/video rows',
+   /ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE && type !== ROW_TYPE_VIDEO/.test(gg) && /'published'/.test(gg));
 ok('getGift never returns slug/phone as fields',
    gg.indexOf('phone:') === -1 && gg.indexOf('slug:') === -1);
-ok('publish routes link/image to the gift page',
-   /ROW_TYPE_LINK \|\| type === ROW_TYPE_IMAGE\) \? GIFT_PAGE_BASE_URL/.test(src));
+ok('publish routes link/image/video to the gift page',
+   /ROW_TYPE_LINK \|\| type === ROW_TYPE_IMAGE \|\| type === ROW_TYPE_VIDEO\) \? GIFT_PAGE_BASE_URL/.test(src));
 ok('media_link column appended to the headers',
    /'media_link'\s*\]/.test(grab(/const VOICE_SHEET_HEADERS = \[[\s\S]*?\];/, 'headers')));
 

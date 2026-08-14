@@ -31,8 +31,12 @@ var GIFT_TYPES = [
     key: 'image', page: 'image-upload', icon: '🖼️',
     title: 'Tấm ảnh kỷ niệm',
     desc: 'Một tấm ảnh đẹp kèm lời nhắn của bạn.'
+  },
+  {
+    key: 'video', page: 'video-upload', icon: '🎬',
+    title: 'Video kỷ niệm',
+    desc: 'Dán link video (Google Drive hoặc YouTube) — người nhận quét QR để xem ngay.'
   }
-  // Phase 3: { key: 'video', ... }
 ];
 
 /**

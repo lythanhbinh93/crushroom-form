@@ -49,7 +49,7 @@ function sgBuildPayload(s) {
     order_id: s.orderId,
     text_message: String(s.message || '').trim()
   };
-  if (s.type === 'link') p.media_link = String(s.link || '').trim();
+  if (s.type === 'link' || s.type === 'video') p.media_link = String(s.link || '').trim();
   if (s.image.dataB64) {
     p.imgData = s.image.dataB64;
   } else if (s.image.kept) {
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var GAS_URL = 'https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec';
 
   var sheetEl = document.querySelector('.lc-sheet');
-  var giftType = sheetEl.getAttribute('data-gift-type'); // 'link' | 'image'
+  var giftType = sheetEl.getAttribute('data-gift-type'); // 'link' | 'image' | 'video'
 
   var grabBtn = document.getElementById('lc-grab');
   var stepdotsEl = document.getElementById('lc-stepdots');

@@ -122,7 +122,8 @@ function gpEmbedUrl(link) {
 
     // Scheme guard mirrors the server allowlist's https requirement — defense
     // in depth for the anchor href, same bar the iframe src already meets.
-    if (data.type === 'link' && data.media_link && /^https:\/\//i.test(data.media_link)) {
+    if ((data.type === 'link' || data.type === 'video') &&
+        data.media_link && /^https:\/\//i.test(data.media_link)) {
       var embed = gpEmbedUrl(data.media_link);
       if (embed) {
         var iframe = document.createElement('iframe');

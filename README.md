@@ -105,7 +105,7 @@ Three hosts, one deployment. `vercel.json` splits them.
 
 | Host | Serves |
 |---|---|
-| `qr.crushroom.vn` | **Only** the customer QR pages: `/gift-upload` (type chooser — the one link CS sends), the forms `/voice-upload`, `/love-counter-upload`, `/link-upload`, `/image-upload`, and the public pages `/voice`, `/counter`, `/gift` (plus `/assets/**`). Anything else redirects to `/qr-404`. |
+| `qr.crushroom.vn` | **Only** the customer QR pages: `/gift-upload` (type chooser — the one link CS sends), the forms `/voice-upload`, `/love-counter-upload`, `/link-upload`, `/image-upload`, `/video-upload`, and the public pages `/voice`, `/counter`, `/gift` (plus `/assets/**`). Anything else redirects to `/qr-404`. |
 | `admin.crushroom.vn` | The staff tools: `/admin`, `/index`, `/couplepix`, `/check-date`. The customer pages redirect from here to `qr.crushroom.vn`. |
 | `crushroom-form.vercel.app` | Legacy host — nothing is served here anymore. The customer pages redirect to `qr.crushroom.vn` (old printed QRs keep working, query string preserved); everything else redirects to `admin.crushroom.vn`. **Never detach this domain** — QRs printed before the domain switch resolve through it. |
 

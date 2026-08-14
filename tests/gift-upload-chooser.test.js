@@ -49,6 +49,8 @@ ok('link card routes to link-upload',
    T.some(t => t.key === 'link' && t.page === 'link-upload'));
 ok('image card routes to image-upload',
    T.some(t => t.key === 'image' && t.page === 'image-upload'));
+ok('video card routes to video-upload',
+   T.some(t => t.key === 'video' && t.page === 'video-upload'));
 
 console.log('\n-- types filter --');
 ok('no types param shows everything', keys(H.guChooserCards(T, null)) === keys(T));

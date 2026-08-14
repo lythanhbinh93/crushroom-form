@@ -87,6 +87,11 @@ const ROW_TYPE_COUNTER = 'counter';
 // that one page serves both.
 const ROW_TYPE_LINK = 'link';
 const ROW_TYPE_IMAGE = 'image';
+// A video gift is a link row in all but name: media_link points at the video
+// (shop-Drive share link or YouTube; Drive files embed via file/d/<id>/preview).
+// Its own type keeps the (phone, order, type) upsert key separate, so one
+// order can hold a music link AND a video with independent publish-locks.
+const ROW_TYPE_VIDEO = 'video';
 // Staff host — qr.crushroom.vn allow-lists only the 4 customer pages, so an
 // admin link pointed there would land on the QR 404.
 const ADMIN_URL = 'https://admin.crushroom.vn/admin#voice';
@@ -765,7 +770,7 @@ function handlePublishVoice_(e) {
         // Each type has its own public page, so the printed QR must point at the
         // right one. Publish is where the slug becomes a URL, so it decides.
         var baseUrl = (type === ROW_TYPE_COUNTER) ? COUNTER_PAGE_BASE_URL
-            : (type === ROW_TYPE_LINK || type === ROW_TYPE_IMAGE) ? GIFT_PAGE_BASE_URL
+            : (type === ROW_TYPE_LINK || type === ROW_TYPE_IMAGE || type === ROW_TYPE_VIDEO) ? GIFT_PAGE_BASE_URL
             : VOICE_PAGE_BASE_URL;
         return jsonOut({ ok: true, slug: slug, url: baseUrl + slug, type: type });
     } catch (err) {
@@ -961,6 +966,10 @@ var EDITABLE_FIELDS_BY_TYPE = {
     },
     image: {
         text_message: { max: 1000, required: false }
+    },
+    video: {
+        media_link: { link: true, required: true },
+        text_message: { max: 1000, required: false }
     }
 };
 
@@ -1092,8 +1101,9 @@ function handleEditVoice_(e) {
  *
  * mirrorThumb: the male avatar doubles as the row thumbnail (the contract
  * handleSubmitCounter_ established), so replacing it must keep both pairs in
- * step. removable: only counter audio — audio is optional for a counter, but
- * IS the product for a voice gift, and the images are required by both pages.
+ * step. removable: marks slots holding optional media (counter audio, the
+ * decoration photo on link/video gifts). A slot without it is the product
+ * itself — voice audio, the image gift's photo — or required by the page.
  */
 var MEDIA_SLOTS_BY_TYPE = {
     voice: {
@@ -1113,6 +1123,9 @@ var MEDIA_SLOTS_BY_TYPE = {
     },
     image: {
         image: { fileField: 'image_file_id', urlField: 'image_url', kind: 'image' }
+    },
+    video: {
+        image: { fileField: 'image_file_id', urlField: 'image_url', kind: 'image', removable: true }
     }
 };
 
@@ -1491,7 +1504,8 @@ var SUBMISSION_RESPONSE_FIELDS = {
         'audio_file_id', 'status'
     ],
     link: ['text_message', 'media_link', 'image_file_id', 'status'],
-    image: ['text_message', 'image_file_id', 'status']
+    image: ['text_message', 'image_file_id', 'status'],
+    video: ['text_message', 'media_link', 'image_file_id', 'status']
 };
 
 /**
@@ -1609,10 +1623,10 @@ function handleGetCounter_(e) {
 /**
  * POST action=submitGift
  *
- * Required: phone, order_id, type ∈ {link, image}
- *   type=link  → media_link (https YouTube/Spotify/Drive, see GIFT_LINK_HOSTS);
- *                imgData optional decoration
- *   type=image → imgData (base64 JPEG) or keepImage=1 — the photo IS the gift
+ * Required: phone, order_id, type ∈ {link, image, video}
+ *   type=link/video → media_link (https YouTube/Spotify/Drive, see
+ *                     GIFT_LINK_HOSTS); imgData optional decoration
+ *   type=image      → imgData (base64 JPEG) or keepImage=1 — the photo IS the gift
  * Optional: text_message (≤1000), keepImage=1 (returning customers)
  *
  * Upserts on (phone, order_id, type). Same rules as the other submit
@@ -1634,10 +1648,10 @@ function handleSubmitGift_(e) {
 
         if (!phone) return jsonOut({ ok: false, error: 'phone required' });
         if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
-        if (type !== ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE) {
+        if (type !== ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE && type !== ROW_TYPE_VIDEO) {
             return jsonOut({ ok: false, error: 'unknown_type' });
         }
-        if (type === ROW_TYPE_LINK) {
+        if (type === ROW_TYPE_LINK || type === ROW_TYPE_VIDEO) {
             if (!mediaLink) return jsonOut({ ok: false, error: 'media_link required' });
             if (!isAllowedGiftLink_(mediaLink)) {
                 return jsonOut({ ok: false, error: 'media_link must be a YouTube/Spotify/Drive https link' });
@@ -1693,11 +1707,13 @@ function handleSubmitGift_(e) {
         sheet.getRange(rowIdx, 1, 1, VOICE_SHEET_HEADERS.length).setValues([values]);
 
         notifyLark_(
-            (type === ROW_TYPE_LINK ? '🎵 Link Gift' : '🖼️ Image Gift') + ' mới — đơn ' + orderId,
+            (type === ROW_TYPE_LINK ? '🎵 Link Gift'
+                : type === ROW_TYPE_VIDEO ? '🎬 Video Gift'
+                : '🖼️ Image Gift') + ' mới — đơn ' + orderId,
             'turquoise', [
                 '**SĐT:** ' + phone,
                 '**Đơn:** ' + orderId,
-                type === ROW_TYPE_LINK ? '**Link:** ' + mediaLink : '**Ảnh:** có',
+                mediaLink ? '**Link:** ' + mediaLink : '**Ảnh:** có',
                 '**Lời nhắn:** ' + (textMessage.slice(0, 200) || '(trống)'),
                 existing ? '_(khách gửi lại — chờ duyệt lại)_' : ''
             ].filter(Boolean));
@@ -1712,7 +1728,7 @@ function handleSubmitGift_(e) {
 
 /**
  * GET action=getGift&id=SLUG
- * Public JSON for a published link/image gift; not_found otherwise. Explicit
+ * Public JSON for a published link/image/video gift; not_found otherwise. Explicit
  * field list like getVoice/getCounter — a column added later stays private
  * until deliberately exposed. `type` IS exposed: gift.html renders by it.
  */
@@ -1725,7 +1741,7 @@ function handleGetGift_(e) {
         if (!found) return jsonOut({ ok: false, error: 'not_found' });
 
         var type = rowType_(found.row);
-        if (type !== ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE) {
+        if (type !== ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE && type !== ROW_TYPE_VIDEO) {
             return jsonOut({ ok: false, error: 'not_found' });
         }
 

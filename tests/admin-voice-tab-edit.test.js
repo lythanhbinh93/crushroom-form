@@ -46,7 +46,7 @@ function ok(name, cond, extra) {
 }
 
 console.log('-- client field list must equal the server whitelist, per type --');
-['voice', 'counter', 'link', 'image'].forEach(function (type) {
+['voice', 'counter', 'link', 'image', 'video'].forEach(function (type) {
   ok(type + ' fields match the GAS whitelist exactly',
      JSON.stringify(Object.keys(H.EDIT_FIELDS_BY_TYPE[type]).sort()) ===
      JSON.stringify(Object.keys(GAS.EDITABLE_FIELDS_BY_TYPE[type]).sort()),
