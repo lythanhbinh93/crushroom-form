@@ -1625,7 +1625,9 @@ function handleGetCounter_(e) {
  *
  * Required: phone, order_id, type ∈ {link, image, video}
  *   type=link/video → media_link (https YouTube/Spotify/Drive, see
- *                     GIFT_LINK_HOSTS); imgData optional decoration
+ *                     GIFT_LINK_HOSTS); imgData optional decoration.
+ *                     video also accepts video_file_id (Drive id from the
+ *                     worker upload relay) instead of media_link.
  *   type=image      → imgData (base64 JPEG) or keepImage=1 — the photo IS the gift
  * Optional: text_message (≤1000), keepImage=1 (returning customers)
  *
@@ -1650,6 +1652,17 @@ function handleSubmitGift_(e) {
         if (!orderId) return jsonOut({ ok: false, error: 'order_id required' });
         if (type !== ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE && type !== ROW_TYPE_VIDEO) {
             return jsonOut({ ok: false, error: 'unknown_type' });
+        }
+        // In-form video uploads land in Drive via the worker relay and arrive
+        // as a bare file id. The row still stores a normal media_link, so every
+        // downstream consumer (allowlist, embed transform, admin edit) sees the
+        // one shape it already handles. An uploaded file beats a pasted link.
+        var videoFileId = String(e.parameter.video_file_id || '').trim();
+        if (type === ROW_TYPE_VIDEO && videoFileId) {
+            if (!/^[A-Za-z0-9_-]{20,100}$/.test(videoFileId)) {
+                return jsonOut({ ok: false, error: 'bad video_file_id' });
+            }
+            mediaLink = 'https://drive.google.com/file/d/' + videoFileId + '/view';
         }
         if (type === ROW_TYPE_LINK || type === ROW_TYPE_VIDEO) {
             if (!mediaLink) return jsonOut({ ok: false, error: 'media_link required' });

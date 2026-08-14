@@ -57,12 +57,28 @@ voice is a bonus. The public page hides the whole player block when
 `type ∈ {link, image, video}`. `video` is a `link` row in all but name (its
 own type keeps the upsert key and publish-lock separate, so one order can
 hold a music link AND a video); both require `media_link` — https, host
-allowlisted to
-YouTube/Spotify/Google Drive (`GIFT_LINK_HOSTS`; server-side boundary, mirrored
-client-side for inline validation only). Drive links carry video gifts: CS
-uploads the customer's video to the shop Drive ("anyone with link can view"),
-pastes the share link, and the gift page embeds Drive's player
-(`file/d/<id>/preview` — Drive transcodes after upload, adaptive on mobile).
+allowlisted to YouTube/Spotify/Google Drive (`GIFT_LINK_HOSTS`; server-side
+boundary, mirrored client-side for inline validation only). Drive links
+carry the videos: the file sits in the shop Drive with "anyone with link can
+view", and the gift page embeds Drive's player (`file/d/<id>/preview` —
+Drive transcodes after upload, adaptive on mobile).
+
+`video` alternatively accepts `video_file_id` — the Drive file id returned by
+the worker's `/video/*` upload relay, which is how the form uploads the
+customer's file directly (`create-session` → sequential 8MB `upload-chunk`
+POSTs → done; `upload-status` resyncs after a network drop; ≤500MB, video/*
+mime). The server format-checks the id and stores a canonical
+`https://drive.google.com/file/d/<id>/view` in `media_link`, so every
+downstream consumer sees one shape; an uploaded file beats a pasted link.
+The relay authenticates to Drive with the shop account's OAuth refresh token
+(worker secrets fed by `scripts/mint-drive-refresh-token.js`; `drive.file`
+scope) and marks finished files anyone-with-link readable.
+
+Orphan policy: abandoned uploads, ✕-removed files, and replaced picks stay
+in the `DRIVE_VIDEO_FOLDER_ID` folder (there is no delete route — the relay
+can only create). CS sweeps that folder monthly: anything whose
+`<phone>_<order>` prefix has no published video row can go.
+
 For `image`: `imgData` (base64 JPEG,
 400×400 q0.85 crop) or `keepImage=1`. Optional both: `text_message` (≤1000),
 `imgData`/`keepImage` on link/video gifts (decoration). Same rules as every submit

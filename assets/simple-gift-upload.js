@@ -26,13 +26,31 @@ function sgIsAllowedLink(url) {
   return SG_LINK_HOSTS.indexOf(m[1].toLowerCase()) !== -1;
 }
 
+/* Client mirrors of the worker relay's caps (the worker is authoritative). */
+var SG_VIDEO_MAX_BYTES = 524288000; // 500MB
+var SG_VIDEO_CHUNK = 8388608;       // 8MB = 32 × the 256KiB unit Drive requires
+
+/** Pre-flight check for a picked video file. Pure — extracted by the tests. */
+function sgVideoFileCheck(file) {
+  if (!file) return { error: 'no file' };
+  var type = String(file.type || '');
+  if (type && type.indexOf('video/') !== 0) return { error: 'not video' };
+  if (!(file.size > 0)) return { error: 'empty file' };
+  if (file.size > SG_VIDEO_MAX_BYTES) return { error: 'too big' };
+  return { ok: true };
+}
+
 /**
  * Step gate. Each step section declares data-require; s is the snapshot.
  * Pure — extracted by the Node tests.
  */
 function sgRequirementMet(requirement, s) {
   if (requirement === 'phone') return !!s.phoneValid && !!String(s.order || '').trim();
-  if (requirement === 'link') return sgIsAllowedLink(s.link);
+  // An in-progress upload satisfies the step (the customer keeps filling the
+  // form while it runs); the SUBMIT button separately waits for completion.
+  if (requirement === 'link') {
+    return sgIsAllowedLink(s.link) || !!s.videoFileId || !!s.videoUploading;
+  }
   if (requirement === 'photo') return !!s.photoSet;
   return true; // optional and review steps
 }
@@ -49,7 +67,12 @@ function sgBuildPayload(s) {
     order_id: s.orderId,
     text_message: String(s.message || '').trim()
   };
-  if (s.type === 'link' || s.type === 'video') p.media_link = String(s.link || '').trim();
+  // An uploaded video beats a pasted link — same precedence as the server.
+  if (s.type === 'video' && s.videoFileId) {
+    p.video_file_id = s.videoFileId;
+  } else if (s.type === 'link' || s.type === 'video') {
+    p.media_link = String(s.link || '').trim();
+  }
   if (s.image.dataB64) {
     p.imgData = s.image.dataB64;
   } else if (s.image.kept) {
@@ -68,6 +91,7 @@ function sgIsLocked(sub) {
 document.addEventListener('DOMContentLoaded', function () {
 
   var GAS_URL = 'https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga2PLiHk33LI2N9KuRP71bYEJ-6qO/exec';
+  var PROXY_URL = 'https://voice-proxy.crushroom.workers.dev';
 
   var sheetEl = document.querySelector('.lc-sheet');
   var giftType = sheetEl.getAttribute('data-gift-type'); // 'link' | 'image' | 'video'
@@ -101,12 +125,31 @@ document.addEventListener('DOMContentLoaded', function () {
   var pvPhotoAdd = document.getElementById('pv-photo-add');
   var pvText = document.getElementById('pv-text');
   var pvLinkChip = document.getElementById('pv-link-chip');
+  // Video upload block (video form only)
+  var videoInput = document.getElementById('video-input');
+  var videoTrigger = document.getElementById('video-trigger-btn');
+  var videoDropzone = document.getElementById('video-dropzone');
+  var videoPlaceholder = document.getElementById('video-placeholder');
+  var videoDone = document.getElementById('video-done');
+  var videoNameEl = document.getElementById('video-name');
+  var videoProgressFill = document.getElementById('video-progress-fill');
+  var videoProgressLabel = document.getElementById('video-progress-label');
+  var videoRemoveBtn = document.getElementById('video-remove-btn');
+  var videoRetryBtn = document.getElementById('video-retry-btn');
+  var videoError = document.getElementById('video-error');
 
   var state = {
     imageDataB64: '',
     keptImageId: '',
     checkedKey: '',
-    isSubmitting: false
+    isSubmitting: false,
+    // In-form video upload (video form only)
+    videoFile: null,
+    videoFileId: '',
+    videoUploading: false,
+    videoSession: '',
+    videoNext: 0,
+    videoRun: 0 // generation counter — a removed/replaced file kills stale loops
   };
 
   function showError(el, msg) { if (el) { el.textContent = msg; el.hidden = false; } }
@@ -168,12 +211,17 @@ document.addEventListener('DOMContentLoaded', function () {
     pvText.classList.toggle('vc-dim', !msg);
 
     if (pvLinkChip) {
-      var ok = linkInput && sgIsAllowedLink(linkInput.value);
-      pvLinkChip.hidden = !ok;
-      if (ok) {
-        pvLinkChip.textContent = /spotify/i.test(linkInput.value) ? '🎧 Spotify'
-          : /drive\.google/i.test(linkInput.value) ? '🎬 Video'
-          : '▶️ YouTube';
+      if (state.videoFileId || state.videoUploading) {
+        pvLinkChip.hidden = false;
+        pvLinkChip.textContent = state.videoFileId ? '🎬 Video' : '🎬 Đang tải video…';
+      } else {
+        var ok = linkInput && sgIsAllowedLink(linkInput.value);
+        pvLinkChip.hidden = !ok;
+        if (ok) {
+          pvLinkChip.textContent = /spotify/i.test(linkInput.value) ? '🎧 Spotify'
+            : /drive\.google/i.test(linkInput.value) ? '🎬 Video'
+            : '▶️ YouTube';
+        }
       }
     }
   }
@@ -186,7 +234,9 @@ document.addEventListener('DOMContentLoaded', function () {
       order: orderInput.value,
       link: linkInput ? linkInput.value : '',
       photoSet: !!state.imageDataB64 || !!state.keptImageId,
-      message: textMessage.value
+      message: textMessage.value,
+      videoFileId: state.videoFileId,
+      videoUploading: state.videoUploading
     };
   }
 
@@ -217,7 +267,9 @@ document.addEventListener('DOMContentLoaded', function () {
   function flagStepErrors() {
     var req = stepRequirement(sheet.step);
     if (req === 'link') {
-      showError(linkError, 'Cần link YouTube, Spotify hoặc Google Drive hợp lệ (bắt đầu bằng https://)');
+      showError(linkError, giftType === 'video'
+        ? 'Cần chọn video để tải lên, hoặc dán link video hợp lệ (https://)'
+        : 'Cần link YouTube, Spotify hoặc Google Drive hợp lệ (bắt đầu bằng https://)');
     }
     if (req === 'photo') {
       showError(document.getElementById('image-error'), 'Vui lòng chọn ảnh — đây chính là món quà');
@@ -227,7 +279,12 @@ document.addEventListener('DOMContentLoaded', function () {
   function checkFormValid() {
     var s = stepSnapshot();
     var allOk = stepEls.every(function (el, i) { return sgRequirementMet(stepRequirement(i), s); });
-    submitBtn.disabled = !allOk || state.isSubmitting;
+    // A running upload lets the customer keep stepping through the form, but
+    // submit waits for the file to land in Drive.
+    submitBtn.disabled = !allOk || state.isSubmitting || state.videoUploading;
+    if (submitLabel && !state.isSubmitting) {
+      submitLabel.textContent = state.videoUploading ? 'Đang tải video…' : 'Gửi món quà 💌';
+    }
   }
 
   /* ── Step 0: identity check + hydration + publish-lock ─────────────────── */
@@ -318,6 +375,187 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       paintPreview();
       checkFormValid();
+    });
+  }
+
+  /* ── Video upload (video form only) — chunked relay to the shop Drive ────
+     The browser can't reach Drive's resumable endpoint directly (CORS), so
+     8MB slices go through the worker's /video/* relay. Upload starts on file
+     pick and runs while the customer fills the rest of the form; submit is
+     gated on completion (checkFormValid). 3 automatic retries per stall with
+     an offset resync, then a manual retry button. */
+
+  function fmtMB(bytes) { return (bytes / 1048576).toFixed(1).replace(/\.0$/, '') + 'MB'; }
+
+  function setVideoUI(opts) {
+    if (!videoDropzone) return;
+    if (opts.reset) {
+      videoPlaceholder.style.display = '';
+      videoDone.style.display = 'none';
+      videoRetryBtn.style.display = 'none';
+      videoProgressFill.style.width = '0%';
+      videoProgressLabel.textContent = '';
+      videoNameEl.textContent = '';
+      return;
+    }
+    videoPlaceholder.style.display = 'none';
+    videoDone.style.display = 'block';
+    if (opts.name) videoNameEl.textContent = opts.name;
+    if (typeof opts.pct === 'number') {
+      videoProgressFill.style.width = Math.round(opts.pct * 100) + '%';
+      videoProgressLabel.textContent = opts.done
+        ? '✓ Đã tải lên'
+        : 'Đang tải… ' + Math.round(opts.pct * 100) + '%';
+    }
+    videoRetryBtn.style.display = opts.stalled ? '' : 'none';
+    if (opts.stalled) videoProgressLabel.textContent = 'Tải lên bị gián đoạn';
+  }
+
+  function resetVideoState() {
+    state.videoRun++;
+    state.videoFile = null;
+    state.videoFileId = '';
+    state.videoUploading = false;
+    state.videoSession = '';
+    state.videoNext = 0;
+    if (videoInput) videoInput.value = '';
+    setVideoUI({ reset: true });
+    paintPreview();
+    checkFormValid();
+  }
+
+  function startVideoUpload(file) {
+    clearError(videoError);
+    var check = sgVideoFileCheck(file);
+    if (check.error) {
+      showError(videoError, check.error === 'too big'
+        ? 'Video vượt quá 500MB — nén bớt hoặc dán link Google Drive/YouTube bên dưới.'
+        : 'File không phải video. Vui lòng chọn file video (MP4, MOV…).');
+      if (videoInput) videoInput.value = '';
+      return;
+    }
+    state.videoRun++;
+    var run = state.videoRun;
+    state.videoFile = file;
+    state.videoFileId = '';
+    state.videoUploading = true;
+    state.videoSession = '';
+    state.videoNext = 0;
+    setVideoUI({ name: file.name + ' (' + fmtMB(file.size) + ')', pct: 0 });
+    paintPreview();
+    checkFormValid();
+    videoPump(run, 0);
+  }
+
+  function videoPump(run, retries) {
+    if (run !== state.videoRun) return; // file removed/replaced — stale loop
+    var file = state.videoFile;
+
+    var ensureSession = state.videoSession
+      ? Promise.resolve()
+      : fetch(PROXY_URL + '/video/create-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: iti ? iti.getNumber() : phoneInputEl.value.trim(),
+            order: orderInput.value.trim(),
+            size: file.size,
+            mime: file.type || 'video/mp4'
+          })
+        }).then(function (r) { return r.json(); }).then(function (resp) {
+          if (!resp.ok || !resp.session) throw new Error(resp.error || 'session failed');
+          if (run === state.videoRun) state.videoSession = resp.session;
+        });
+
+    ensureSession
+      .then(function next() {
+        if (run !== state.videoRun) return;
+        var start = state.videoNext;
+        var end = Math.min(start + SG_VIDEO_CHUNK, file.size);
+        return fetch(PROXY_URL + '/video/upload-chunk?offset=' + start + '&total=' + file.size, {
+          method: 'POST',
+          headers: { 'X-Session': state.videoSession },
+          body: file.slice(start, end)
+        }).then(function (r) { return r.json(); }).then(function (resp) {
+          if (run !== state.videoRun) return;
+          if (!resp.ok) throw new Error(resp.error || 'chunk failed');
+          retries = 0; // progress resets the retry budget
+          if (resp.done) {
+            state.videoFileId = resp.fileId;
+            state.videoUploading = false;
+            setVideoUI({ pct: 1, done: true });
+            paintPreview();
+            checkFormValid();
+            return;
+          }
+          state.videoNext = resp.next;
+          setVideoUI({ pct: state.videoNext / file.size });
+          return next();
+        });
+      })
+      .catch(function () {
+        if (run !== state.videoRun) return;
+        // No session yet (create-session itself blipped) — nothing to resync,
+        // just retry from the top instead of stalling on the first hiccup.
+        if (retries < 3 && !state.videoSession) {
+          setTimeout(function () { videoPump(run, retries + 1); }, 1200 * (retries + 1));
+          return;
+        }
+        if (retries < 3 && state.videoSession) {
+          // Resync where Drive actually is, then continue — a dropped chunk
+          // response otherwise leaves the client offset behind/ahead.
+          fetch(PROXY_URL + '/video/upload-status?total=' + file.size, {
+            method: 'POST',
+            headers: { 'X-Session': state.videoSession }
+          }).then(function (r) { return r.json(); }).then(function (resp) {
+            if (run !== state.videoRun) return;
+            if (resp.ok && resp.done) {
+              state.videoFileId = resp.fileId;
+              state.videoUploading = false;
+              setVideoUI({ pct: 1, done: true });
+              paintPreview();
+              checkFormValid();
+              return;
+            }
+            if (resp.ok && typeof resp.next === 'number') state.videoNext = resp.next;
+            setTimeout(function () { videoPump(run, retries + 1); }, 1200 * (retries + 1));
+          }).catch(function () {
+            setTimeout(function () { videoPump(run, retries + 1); }, 1200 * (retries + 1));
+          });
+          return;
+        }
+        state.videoUploading = false;
+        setVideoUI({ pct: state.videoNext / file.size, stalled: true });
+        showError(videoError, 'Không tải được video. Kiểm tra mạng rồi bấm "Thử lại" — hoặc dán link thay thế.');
+        paintPreview();
+        checkFormValid();
+      });
+  }
+
+  if (videoInput) {
+    var videoPick = function () { videoInput.click(); };
+    if (videoTrigger) videoTrigger.addEventListener('click', videoPick);
+    if (videoDropzone) videoDropzone.addEventListener('click', function (e) {
+      if (e.target.closest('#video-remove-btn') || e.target.closest('#video-retry-btn')) return;
+      if (e.target.closest('button') && !e.target.closest('#video-trigger-btn')) return;
+      videoPick();
+    });
+    videoInput.addEventListener('change', function () {
+      var file = videoInput.files && videoInput.files[0];
+      if (file) startVideoUpload(file);
+    });
+    if (videoRemoveBtn) videoRemoveBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      resetVideoState();
+    });
+    if (videoRetryBtn) videoRetryBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!state.videoFile) return;
+      clearError(videoError);
+      state.videoUploading = true;
+      setVideoUI({ pct: state.videoNext / state.videoFile.size });
+      checkFormValid();
+      videoPump(state.videoRun, 0);
     });
   }
 
@@ -494,6 +732,7 @@ document.addEventListener('DOMContentLoaded', function () {
       phone: iti ? iti.getNumber() : phoneInputEl.value.trim(),
       orderId: orderInput.value.trim(),
       link: linkInput ? linkInput.value : '',
+      videoFileId: state.videoFileId,
       message: textMessage.value,
       image: state.imageDataB64
         ? { dataB64: state.imageDataB64, kept: false }

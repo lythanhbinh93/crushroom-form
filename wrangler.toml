@@ -1,3 +1,9 @@
 name = "voice-proxy"
 main = "cloudflare-worker-voice-proxy.js"
 compatibility_date = "2026-04-25"
+
+# Destination folder for customer video uploads (relay routes /video/*).
+# Secrets (never here): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+# GOOGLE_REFRESH_TOKEN — set via scripts/mint-drive-refresh-token.js.
+[vars]
+DRIVE_VIDEO_FOLDER_ID = ""

@@ -4,10 +4,16 @@
  *
  * Routes:
  *   GET /voice/<slug>     → cached JSON proxy of GAS getVoice (60min edge TTL)
- *   GET /gift/<slug>      → same, for GAS getGift (link/image gifts)
+ *   GET /gift/<slug>      → same, for GAS getGift (link/image/video gifts)
  *   GET /admin/list       → cached JSON proxy of GAS listVoice for the admin
  *                           voice tab (serve-cached + background revalidate;
  *                           ?fresh=1 bypasses and repopulates)
+ *   POST /video/create-session → open a Drive resumable-upload session on the
+ *                           shop account (browser→Drive is CORS-blocked, and
+ *                           GAS base64 caps at ~35MB — this relay is how a
+ *                           customer's ≤500MB video reaches the shop Drive)
+ *   POST /video/upload-chunk   → relay one 8MB slice into the session
+ *   POST /video/upload-status  → resync the next offset after a network drop
  *   GET /<driveFileId>    → streaming Drive audio with CORS + Range support
  *
  * Why:
@@ -24,12 +30,21 @@ const GAS_VOICE_URL = 'https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8X
 export default {
   async fetch(req, env, ctx) {
     if (req.method === 'OPTIONS') return preflight();
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      return new Response('method not allowed', { status: 405 });
-    }
 
     const url = new URL(req.url);
     const path = url.pathname;
+
+    // Video upload relay — the only POST surface on this worker.
+    if (path.startsWith('/video/')) {
+      if (req.method !== 'POST') {
+        return videoJson(405, { ok: false, error: 'method not allowed' });
+      }
+      return handleVideoRelay(path, url, req, env);
+    }
+
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      return new Response('method not allowed', { status: 405 });
+    }
 
     // Metadata routes: /voice/<slug> (voice gifts), /gift/<slug> (link/image)
     if (path.startsWith('/voice/')) {
@@ -293,12 +308,223 @@ async function handleAudio(req, fileId) {
   return new Response(upstream.body, { status: upstream.status, headers });
 }
 
+// ------------------------------------------------------------------
+// /video/* — chunked upload relay into a Drive resumable session
+//
+// The browser slices the customer's video into 8MB chunks and POSTs them
+// here; each is relayed into a Drive resumable-upload session opened on the
+// shop's own Google account (OAuth refresh token in secrets, drive.file
+// scope — this app can only touch files it created). The session URI Drive
+// mints is itself the upload capability: chunk PUTs need no auth header, so
+// only create-session and the final permission call spend a token grant.
+// ------------------------------------------------------------------
+
+const VIDEO_MAX_BYTES = 524288000; // 500MB — also enforced client-side
+const VIDEO_CHUNK_MAX = 33554432;  // sanity cap per relay request (client sends 8MB)
+const DRIVE_CHUNK_UNIT = 262144;   // Drive requires non-final chunks in 256KiB multiples
+const DRIVE_UPLOAD_PREFIX = 'https://www.googleapis.com/upload/drive/v3/files';
+
+const VIDEO_EXT_BY_MIME = {
+  'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
+  'video/x-matroska': 'mkv', 'video/3gpp': '3gp', 'video/x-msvideo': 'avi',
+};
+
+/**
+ * Validation + Drive file naming for create-session. Pure — extracted by the
+ * Node tests. Follows the canonical <phone>_<order>_<slot>.<ext> Drive naming
+ * the GAS handlers use, so CS can find a video by customer phone.
+ */
+function videoSessionPlan(params) {
+  const digits = String((params && params.phone) || '').replace(/\D/g, '');
+  if (digits.length < 8 || digits.length > 15) return { error: 'phone required' };
+  const order = String((params && params.order) || '').trim().replace(/[^\w-]/g, '').slice(0, 40);
+  if (!order) return { error: 'order required' };
+  const size = Number((params && params.size) || 0);
+  if (!Number.isInteger(size) || size <= 0 || size > VIDEO_MAX_BYTES) return { error: 'bad size' };
+  const mime = String((params && params.mime) || '').toLowerCase();
+  if (mime.indexOf('video/') !== 0) return { error: 'bad mime' };
+  const ext = VIDEO_EXT_BY_MIME[mime] || 'mp4';
+  return { name: digits + '_' + order + '_video.' + ext, size: size, mime: mime };
+}
+
+/**
+ * Validation + Content-Range for one relayed chunk. Pure — extracted by the
+ * Node tests. The session prefix check is a security boundary: the client
+ * echoes the session URI back per chunk, and without the check this route
+ * would relay arbitrary bodies to arbitrary hosts.
+ */
+function videoChunkPlan(p) {
+  const session = String((p && p.session) || '');
+  if (session.indexOf(DRIVE_UPLOAD_PREFIX) !== 0 || session.length > 2048) {
+    return { error: 'bad session' };
+  }
+  const offset = Number(p.offset), total = Number(p.total), len = Number(p.len);
+  if (!Number.isInteger(offset) || offset < 0) return { error: 'bad offset' };
+  if (!Number.isInteger(total) || total <= 0 || total > VIDEO_MAX_BYTES) return { error: 'bad total' };
+  if (!Number.isInteger(len) || len <= 0 || len > VIDEO_CHUNK_MAX) return { error: 'bad chunk' };
+  if (offset + len > total) return { error: 'chunk past end' };
+  const final = offset + len === total;
+  if (!final && len % DRIVE_CHUNK_UNIT !== 0) return { error: 'chunk not 256KiB-aligned' };
+  return {
+    contentRange: 'bytes ' + offset + '-' + (offset + len - 1) + '/' + total,
+    final: final,
+  };
+}
+
+/**
+ * Next offset from a Drive 308 Range header ("bytes=0-8388607" → 8388608).
+ * null when Drive has persisted nothing yet. Pure — extracted by the tests.
+ */
+function parseDriveRange(rangeHeader) {
+  const m = /bytes=\d+-(\d+)/.exec(String(rangeHeader || ''));
+  return m ? Number(m[1]) + 1 : null;
+}
+
+async function handleVideoRelay(path, url, req, env) {
+  try {
+    if (path === '/video/create-session') return await videoCreateSession(req, env);
+    if (path === '/video/upload-chunk') return await videoUploadChunk(url, req, env);
+    if (path === '/video/upload-status') return await videoUploadStatus(url, req, env);
+    return videoJson(404, { ok: false, error: 'not found' });
+  } catch (err) {
+    // Structured JSON + CORS even on an unexpected throw — a CF 1101 page
+    // has no CORS headers and the form would see an opaque network error.
+    return videoJson(502, { ok: false, error: 'relay error' });
+  }
+}
+
+async function videoCreateSession(req, env) {
+  let params;
+  try { params = await req.json(); } catch (_) { return videoJson(400, { ok: false, error: 'bad json' }); }
+  const plan = videoSessionPlan(params);
+  if (plan.error) return videoJson(400, { ok: false, error: plan.error });
+  if (!env.GOOGLE_REFRESH_TOKEN || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    return videoJson(503, { ok: false, error: 'upload not configured' });
+  }
+
+  const token = await driveAccessToken(env);
+  const meta = { name: plan.name, mimeType: plan.mime };
+  if (env.DRIVE_VIDEO_FOLDER_ID) meta.parents = [env.DRIVE_VIDEO_FOLDER_ID];
+
+  const r = await fetch(DRIVE_UPLOAD_PREFIX + '?uploadType=resumable', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + token,
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Type': plan.mime,
+      'X-Upload-Content-Length': String(plan.size),
+    },
+    body: JSON.stringify(meta),
+  });
+  if (!r.ok) return videoJson(502, { ok: false, error: 'drive session failed (' + r.status + ')' });
+  const session = r.headers.get('Location') || '';
+  if (session.indexOf(DRIVE_UPLOAD_PREFIX) !== 0) {
+    return videoJson(502, { ok: false, error: 'drive session missing' });
+  }
+  return videoJson(200, { ok: true, session: session });
+}
+
+async function videoUploadChunk(url, req, env) {
+  const session = req.headers.get('X-Session') || '';
+  const buf = await req.arrayBuffer();
+  const plan = videoChunkPlan({
+    session: session,
+    offset: Number(url.searchParams.get('offset')),
+    total: Number(url.searchParams.get('total')),
+    len: buf.byteLength,
+  });
+  if (plan.error) return videoJson(400, { ok: false, error: plan.error });
+
+  // Resumable-session PUTs are authorized by the session URI itself.
+  const r = await fetch(session, {
+    method: 'PUT',
+    headers: { 'Content-Range': plan.contentRange },
+    body: buf,
+  });
+  return videoRelayResult(r, env, Number(url.searchParams.get('offset')) + buf.byteLength);
+}
+
+async function videoUploadStatus(url, req, env) {
+  const session = req.headers.get('X-Session') || '';
+  const total = Number(url.searchParams.get('total'));
+  if (session.indexOf(DRIVE_UPLOAD_PREFIX) !== 0 || session.length > 2048) {
+    return videoJson(400, { ok: false, error: 'bad session' });
+  }
+  if (!Number.isInteger(total) || total <= 0 || total > VIDEO_MAX_BYTES) {
+    return videoJson(400, { ok: false, error: 'bad total' });
+  }
+  const r = await fetch(session, {
+    method: 'PUT',
+    headers: { 'Content-Range': 'bytes */' + total },
+  });
+  return videoRelayResult(r, env, 0);
+}
+
+/** Shared 308/200 handling for chunk relays and status probes. */
+async function videoRelayResult(r, env, fallbackNext) {
+  if (r.status === 308) {
+    const next = parseDriveRange(r.headers.get('Range'));
+    return videoJson(200, { ok: true, done: false, next: next === null ? fallbackNext : next });
+  }
+  if (r.status === 200 || r.status === 201) {
+    let fileId = '';
+    try { fileId = (await r.json()).id || ''; } catch (_) { /* no body */ }
+    if (!fileId) return videoJson(502, { ok: false, error: 'drive finalize missing id' });
+    const shared = await shareFileAnyoneReader(env, fileId);
+    // shared:false still returns the id — the staff publish gate will catch a
+    // video that won't embed, and CS can fix sharing in Drive by hand.
+    return videoJson(200, { ok: true, done: true, fileId: fileId, shared: shared });
+  }
+  return videoJson(502, { ok: false, error: 'drive returned ' + r.status });
+}
+
+/** Anyone-with-link reader — required for the gift page's preview embed. */
+async function shareFileAnyoneReader(env, fileId) {
+  try {
+    const token = await driveAccessToken(env);
+    const r = await fetch('https://www.googleapis.com/drive/v3/files/' +
+      encodeURIComponent(fileId) + '/permissions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+    });
+    return r.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function driveAccessToken(env) {
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    body: new URLSearchParams({
+      client_id: env.GOOGLE_CLIENT_ID,
+      client_secret: env.GOOGLE_CLIENT_SECRET,
+      refresh_token: env.GOOGLE_REFRESH_TOKEN,
+      grant_type: 'refresh_token',
+    }),
+  });
+  const j = await r.json();
+  if (!j.access_token) throw new Error('token grant failed');
+  return j.access_token;
+}
+
+function videoJson(status, obj) {
+  return new Response(JSON.stringify(obj), {
+    status: status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...corsHeaders() },
+  });
+}
+
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-    'Access-Control-Allow-Headers': 'Range',
+    'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Range, Content-Type, X-Session',
     'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
+    // X-Session forces a preflight per chunk; without caching that is an
+    // extra OPTIONS round trip on every 8MB of a 500MB upload (~63 RTTs).
+    'Access-Control-Max-Age': '86400',
   };
 }
 

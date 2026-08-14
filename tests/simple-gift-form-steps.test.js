@@ -29,11 +29,14 @@ function grab(source, re, name) {
 const H = new Function(
   [
     grab(src, /var SG_LINK_HOSTS = \[[\s\S]*?\];/, 'SG_LINK_HOSTS'),
+    grab(src, /var SG_VIDEO_MAX_BYTES = [^\n]*;/, 'SG_VIDEO_MAX_BYTES'),
+    grab(src, /var SG_VIDEO_CHUNK = [^\n]*;/, 'SG_VIDEO_CHUNK'),
     grab(src, /function sgIsAllowedLink\(url\) \{[\s\S]*?\n\}/, 'sgIsAllowedLink'),
+    grab(src, /function sgVideoFileCheck\(file\) \{[\s\S]*?\n\}/, 'sgVideoFileCheck'),
     grab(src, /function sgRequirementMet\(requirement, s\) \{[\s\S]*?\n\}/, 'sgRequirementMet'),
     grab(src, /function sgBuildPayload\(s\) \{[\s\S]*?\n\}/, 'sgBuildPayload'),
     grab(src, /function sgIsLocked\(sub\) \{[\s\S]*?\n\}/, 'sgIsLocked')
-  ].join('\n') + ';return { SG_LINK_HOSTS, sgIsAllowedLink, sgRequirementMet, sgBuildPayload, sgIsLocked };'
+  ].join('\n') + ';return { SG_LINK_HOSTS, SG_VIDEO_MAX_BYTES, SG_VIDEO_CHUNK, sgIsAllowedLink, sgVideoFileCheck, sgRequirementMet, sgBuildPayload, sgIsLocked };'
 )();
 
 let pass = 0, fail = 0;
@@ -64,6 +67,41 @@ const videoP = H.sgBuildPayload({ type: 'video', phone: '+84912345678', orderId:
 ok('video payload carries media_link like link',
    videoP.type === 'video' && videoP.media_link ===
    'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view');
+
+console.log('\n-- in-form video upload --');
+ok('uploaded file id beats a pasted link in the payload', (function () {
+  const p = H.sgBuildPayload({ type: 'video', phone: '+84', orderId: 'A',
+    link: 'https://youtu.be/dQw4w9WgXcQ', message: '',
+    videoFileId: '1AbCdEfGhIjKlMnOpQrStUvWxYz012345',
+    image: { dataB64: '', kept: false } });
+  return p.video_file_id === '1AbCdEfGhIjKlMnOpQrStUvWxYz012345' && !('media_link' in p);
+})());
+ok('link gifts never send video_file_id', (function () {
+  const p = H.sgBuildPayload({ type: 'link', phone: '+84', orderId: 'A',
+    link: 'https://youtu.be/dQw4w9WgXcQ', message: '',
+    videoFileId: '1AbCdEfGhIjKlMnOpQrStUvWxYz012345',
+    image: { dataB64: '', kept: false } });
+  return p.media_link === 'https://youtu.be/dQw4w9WgXcQ' && !('video_file_id' in p);
+})());
+ok('completed upload satisfies the media step without a link',
+   H.sgRequirementMet('link', { ...s, link: '', videoFileId: 'X'.repeat(28) }));
+ok('running upload satisfies the media step (submit gates separately)',
+   H.sgRequirementMet('link', { ...s, link: '', videoUploading: true }));
+ok('file check: good video passes', !!H.sgVideoFileCheck({ type: 'video/mp4', size: 1048576 }).ok);
+ok('file check: 500MB boundary', !!H.sgVideoFileCheck({ type: 'video/mp4', size: H.SG_VIDEO_MAX_BYTES }).ok &&
+   H.sgVideoFileCheck({ type: 'video/mp4', size: H.SG_VIDEO_MAX_BYTES + 1 }).error === 'too big');
+ok('file check: non-video rejected', H.sgVideoFileCheck({ type: 'image/jpeg', size: 5 }).error === 'not video');
+ok('file check: typeless file tolerated (mobile browsers omit mime)',
+   !!H.sgVideoFileCheck({ type: '', size: 5 }).ok);
+ok('file check: empty/no file rejected',
+   !!H.sgVideoFileCheck({ type: 'video/mp4', size: 0 }).error && !!H.sgVideoFileCheck(null).error);
+
+console.log('\n-- upload caps mirror the worker relay --');
+const workerSrc = fs.readFileSync(path.join(__dirname, '..', 'cloudflare-worker-voice-proxy.js'), 'utf8');
+ok('client max bytes equals worker VIDEO_MAX_BYTES',
+   workerSrc.indexOf('const VIDEO_MAX_BYTES = ' + H.SG_VIDEO_MAX_BYTES) !== -1);
+ok('chunk size is 256KiB-aligned and under the relay cap',
+   H.SG_VIDEO_CHUNK % 262144 === 0 && H.SG_VIDEO_CHUNK <= 33554432);
 ok('photo step needs a photo', H.sgRequirementMet('photo', s) && !H.sgRequirementMet('photo', { ...s, photoSet: false }));
 ok('optional steps never block', H.sgRequirementMet('none', { ...s, link: '', photoSet: false, message: '' }));
 

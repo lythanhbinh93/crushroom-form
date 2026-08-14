@@ -102,6 +102,12 @@ ok('canonical Drive name', /driveFileName_\(phone, orderId, 'image', 'jpg'\)/.te
 ok('row keyed by its own type', /voiceFindRowByKey_\(phone, orderId, type\)/.test(g));
 ok('video accepted as a type', /type !== ROW_TYPE_LINK && type !== ROW_TYPE_IMAGE && type !== ROW_TYPE_VIDEO/.test(g));
 ok('media_link required for video like link', /type === ROW_TYPE_LINK \|\| type === ROW_TYPE_VIDEO/.test(g));
+ok('uploaded video id is format-checked then becomes a canonical Drive link',
+   /\/\^\[A-Za-z0-9_-\]\{20,100\}\$\//.test(g) &&
+   /mediaLink = 'https:\/\/drive\.google\.com\/file\/d\/' \+ videoFileId \+ '\/view';/.test(g));
+ok('upload branch resolves before the link requirement check',
+   g.indexOf('video_file_id') !== -1 &&
+   g.indexOf('video_file_id') < g.indexOf('isAllowedGiftLink_'));
 
 console.log('\n-- getGift + publish routing pins --');
 const gg = grab(/function handleGetGift_\(e\) \{[\s\S]*?\n\}/, 'handleGetGift_');

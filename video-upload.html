@@ -70,13 +70,35 @@
       <button type="button" class="lc-btn" id="step0-next">Bắt đầu tạo →</button>
     </section>
 
-    <!-- STEP 1 — the video link (REQUIRED — it IS the gift) -->
+    <!-- STEP 1 — the video (REQUIRED — it IS the gift): upload preferred,
+         link paste as fallback -->
     <section class="lc-step" data-step="1" data-require="link" hidden>
       <h2 class="lc-step-title">Video của bạn <span class="lc-req">*</span></h2>
-      <p class="lc-step-sub">Dán link video Google Drive (nhớ mở quyền «Ai có link đều xem được») hoặc YouTube. Nếu video còn ở trong máy, gửi file cho CSKH của shop qua Zalo/Messenger — shop sẽ tải lên giúp bạn.</p>
+      <p class="lc-step-sub">Chọn video từ máy (tối đa 500MB) — video tải lên trong lúc bạn điền các bước tiếp theo.</p>
+
+      <div class="lc-picks">
+        <div class="lc-pick dropzone" id="video-dropzone">
+          <div class="dropzone--content">
+            <div class="dropzone--placeholder lc-pick-placeholder" id="video-placeholder">
+              <span class="lc-pick-emoji" aria-hidden="true">🎬</span>
+              <span class="lc-pick-label">Video tối đa 500MB</span>
+              <button type="button" class="dropzone--placeholder--button lc-pick-btn" id="video-trigger-btn">Chọn video</button>
+            </div>
+            <div class="dropzone--preview--area lc-pick-done" id="video-done" style="display:none;">
+              <span class="lc-pick-label sg-video-name" id="video-name"></span>
+              <div class="sg-video-progress"><div class="sg-video-progress-fill" id="video-progress-fill"></div></div>
+              <span class="lc-hint-inline" id="video-progress-label"></span>
+              <button type="button" class="dropzone--placeholder--button lc-pick-btn" id="video-retry-btn" style="display:none;">Thử lại</button>
+              <button type="button" class="lc-pick-remove" id="video-remove-btn" aria-label="Xoá video">✕</button>
+            </div>
+          </div>
+          <input type="file" id="video-input" accept="video/*" style="display:none;">
+        </div>
+      </div>
+      <small class="lc-error" id="video-error" hidden></small>
 
       <div class="lc-field">
-        <label for="link-input">Link video (Google Drive / YouTube) <span class="lc-req">*</span></label>
+        <label for="link-input">Hoặc dán link có sẵn (Google Drive / YouTube)</label>
         <input type="url" id="link-input" inputmode="url" placeholder="https://drive.google.com/… hoặc https://youtu.be/…" autocomplete="off">
         <small class="lc-hint-inline" id="link-service"></small>
         <small class="lc-error" id="link-error" hidden></small>

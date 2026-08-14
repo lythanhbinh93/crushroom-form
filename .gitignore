@@ -96,3 +96,6 @@ worktrees/
 
 # Cloudflare Wrangler local cache + tmp
 .wrangler/
+
+# Local Google OAuth client for scripts/mint-drive-refresh-token.js — never commit
+.drive-oauth.json
