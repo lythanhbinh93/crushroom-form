@@ -242,15 +242,26 @@ document.addEventListener('DOMContentLoaded', function () {
   startDateInput.setAttribute('max', CR.todayInVN());
 
   /* ── URL param parse (staff prefill links keep working) ────────────────── */
+  // Same recipe as every other form: the order field stays hidden. A CS-sent
+  // link carries the real order id; a bare visit gets an AUTO code so the
+  // customer never has to know what an order code is.
+  function autoOrderCode() {
+    var d = new Date();
+    function p(n) { return String(n).length < 2 ? '0' + n : String(n); }
+    var stamp = String(d.getFullYear()).slice(2) + p(d.getMonth() + 1) + p(d.getDate())
+      + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+    return 'AUTO-' + stamp + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  }
+
+  var orderFromLink = false;
   (function initFromUrlParams() {
     var params = new URLSearchParams(window.location.search);
     var phone  = params.get('phone') || '';
     var order  = params.get('order') || '';
 
-    if (order) {
-      orderInput.value = order;
-      orderInput.setAttribute('readonly', 'readonly');
-    }
+    orderFromLink = !!order;
+    orderInput.value = order || autoOrderCode();
+    orderInput.setAttribute('readonly', 'readonly');
     if (phone) window._prefillPhone = phone;
   })();
 
@@ -403,6 +414,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!orderInput.value.trim()) showError(document.getElementById('order-error'), 'Vui lòng nhập mã đơn hàng');
       return;
     }
+    // An AUTO code is fresh by construction — nothing to hydrate, so skip the
+    // GAS round-trip. Resume-and-edit rides the CS-sent link's real order id.
+    if (!orderFromLink) { goStep(1); return; }
 
     var phone = iti ? iti.getNumber() : phoneInputEl.value.trim();
     var orderId = orderInput.value.trim();
