@@ -267,9 +267,12 @@ document.addEventListener('DOMContentLoaded', function () {
   function flagStepErrors() {
     var req = stepRequirement(sheet.step);
     if (req === 'link') {
-      showError(linkError, giftType === 'video'
-        ? 'Cần chọn video để tải lên, hoặc dán link video hợp lệ (https://)'
-        : 'Cần link YouTube, Spotify hoặc Google Drive hợp lệ (bắt đầu bằng https://)');
+      // The video form has no link field — its media step is upload-only.
+      if (giftType === 'video') {
+        showError(videoError, 'Vui lòng chọn video để tải lên trước khi tiếp tục');
+      } else {
+        showError(linkError, 'Cần link YouTube, Spotify hoặc Google Drive hợp lệ (bắt đầu bằng https://)');
+      }
     }
     if (req === 'photo') {
       showError(document.getElementById('image-error'), 'Vui lòng chọn ảnh — đây chính là món quà');
@@ -429,7 +432,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var check = sgVideoFileCheck(file);
     if (check.error) {
       showError(videoError, check.error === 'too big'
-        ? 'Video vượt quá 500MB — nén bớt hoặc dán link Google Drive/YouTube bên dưới.'
+        ? 'Video vượt quá 500MB — hãy nén bớt, hoặc gửi video cho CSKH của shop để được hỗ trợ.'
         : 'File không phải video. Vui lòng chọn file video (MP4, MOV…).');
       if (videoInput) videoInput.value = '';
       return;
@@ -526,7 +529,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         state.videoUploading = false;
         setVideoUI({ pct: state.videoNext / file.size, stalled: true });
-        showError(videoError, 'Không tải được video. Kiểm tra mạng rồi bấm "Thử lại" — hoặc dán link thay thế.');
+        showError(videoError, 'Không tải được video. Kiểm tra mạng rồi bấm "Thử lại".');
         paintPreview();
         checkFormValid();
       });

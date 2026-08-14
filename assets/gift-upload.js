@@ -35,7 +35,7 @@ var GIFT_TYPES = [
   {
     key: 'video', page: 'video-upload', icon: '🎬',
     title: 'Video kỷ niệm',
-    desc: 'Dán link video (Google Drive hoặc YouTube) — người nhận quét QR để xem ngay.'
+    desc: 'Tải video từ máy lên (tối đa 500MB) — người nhận quét QR để xem ngay.'
   }
 ];
 
