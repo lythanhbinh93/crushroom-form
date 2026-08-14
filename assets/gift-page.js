@@ -146,12 +146,14 @@ function gpEmbedUrl(link) {
     elText.textContent = msg;
     elText.hidden = !msg;
 
-    // Video rows with an uploaded (app-created) Drive file get the branded
+    // Rows whose media_link is an app-created Drive file get the branded
     // player: bytes stream through OUR worker, no Drive chrome, no source
-    // reveal. Everything else — YouTube/Spotify links, hand-pasted Drive
-    // files the stream route can't read — keeps the embed path.
+    // reveal. That covers video uploads AND link gifts where staff swapped a
+    // Drive file in for a link that would not embed. YouTube/Spotify links
+    // keep the embed path, and Drive files the stream route can't read fall
+    // back to it automatically via the player's error handler.
     var playerShown = false;
-    if (data.type === 'video' && data.media_link) {
+    if ((data.type === 'video' || data.type === 'link') && data.media_link) {
       var driveId = gpDriveFileIdFromLink(data.media_link);
       if (driveId) {
         gpMountPlayer(elEmbed, PROXY_URL + '/video/stream/' + driveId, function () {

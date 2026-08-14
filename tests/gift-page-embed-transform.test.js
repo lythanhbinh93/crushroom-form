@@ -120,6 +120,8 @@ ok('stream failure falls back to the embed so the gift is never blank',
 console.log('\n-- page render condition --');
 ok('link rows and non-streamable video rows use the embed path',
    /\(data\.type === 'link' \|\| data\.type === 'video'\)/.test(src));
+ok('video AND link rows both reach the branded-player gate',
+   /\(data\.type === 'video' \|\| data\.type === 'link'\) && data\.media_link/.test(src));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
