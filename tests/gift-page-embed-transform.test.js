@@ -136,7 +136,7 @@ ok('yt player embeds chromeless with the js api on the nocookie host',
    /youtube-nocookie\.com\/embed\//.test(ytSrc) &&
    /enablejsapi=1/.test(ytSrc) && /controls=0/.test(ytSrc) && /autoplay=1/.test(ytSrc));
 ok('iframe is created lazily on the first play tap (activation → sound)',
-   /if \(!iframe\) \{ createIframe\(\); return; \}/.test(ytSrc));
+   /if \(!iframe\) \{[\s\S]{0,400}createIframe\(\);[\s\S]{0,80}return;\s*\}/.test(ytSrc));
 ok('iframe carries the autoplay allow delegation', /allow', 'autoplay/.test(ytSrc));
 ok('messages from other windows are ignored',
    /e\.source !== iframe\.contentWindow/.test(ytSrc));
@@ -144,6 +144,15 @@ ok('youtube errors and silence both downgrade to the embed',
    /d\.event === 'onError'/.test(ytSrc) && /setTimeout\(function \(\) \{ chrome\.fail\(\); \}/.test(ytSrc));
 ok('pre-play frame is our own poster from the thumb host',
    /i\.ytimg\.com\/vi\//.test(ytSrc) && /gp-vp-poster/.test(ytSrc));
+
+console.log('\n-- auto fullscreen on first play --');
+ok('native: first play enters fullscreen once, inside the tap gesture',
+   /if \(!autoFsDone\) \{ autoFsDone = true; goFullscreen\(\); \}/.test(mountSrc) &&
+   /video\.play\(\)\.catch/.test(mountSrc));
+ok('native: iOS falls back to the video element fullscreen',
+   /webkitEnterFullscreen && !chrome\.wrap\.requestFullscreen/.test(mountSrc));
+ok('yt: fullscreen rides the same gesture that creates the iframe',
+   /requestFullscreen\(\);[\s\S]{0,80}createIframe\(\);/.test(ytSrc));
 
 console.log('\n-- page render condition --');
 ok('link rows and non-streamable video rows use the embed path',

@@ -376,24 +376,38 @@ function gpEmbedUrl(link) {
     });
     video.addEventListener('error', function () { chrome.fail(); });
 
+    // First play tap also enters fullscreen — the tap is the user gesture
+    // the fullscreen request needs. Once only: if the viewer exits, resume
+    // taps must not drag them back in.
+    var autoFsDone = false;
+    function goFullscreen() {
+      // iPhone Safari has no element fullscreen — use the native video one.
+      if (video.webkitEnterFullscreen && !chrome.wrap.requestFullscreen) {
+        try { video.webkitEnterFullscreen(); } catch (_) { /* not ready yet */ }
+        return;
+      }
+      if (chrome.wrap.requestFullscreen) {
+        var p = chrome.wrap.requestFullscreen();
+        if (p && p.catch) p.catch(function () {});
+      } else if (video.webkitEnterFullscreen) {
+        try { video.webkitEnterFullscreen(); } catch (_) {}
+      }
+    }
+
     chrome.attach({
       togglePlay: function () {
-        if (video.paused) { video.play().catch(function () {}); }
-        else { video.pause(); }
+        if (video.paused) {
+          if (!autoFsDone) { autoFsDone = true; goFullscreen(); }
+          video.play().catch(function () {});
+        } else { video.pause(); }
       },
       isPlaying: function () { return !video.paused; },
       seekToPct: function (pct) {
         if (isFinite(video.duration)) video.currentTime = pct * video.duration;
       },
-      enterFullscreen: function (wrap) {
-        // iPhone Safari has no element fullscreen — use the native video one.
-        if (video.webkitEnterFullscreen && !wrap.requestFullscreen) {
-          video.webkitEnterFullscreen();
-          return;
-        }
-        if (document.fullscreenElement) document.exitFullscreen();
-        else if (wrap.requestFullscreen) wrap.requestFullscreen();
-        else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+      enterFullscreen: function (w) {
+        if (document.fullscreenElement) { document.exitFullscreen(); return; }
+        goFullscreen();
       },
       clickEl: video
     });
@@ -495,7 +509,17 @@ function gpEmbedUrl(link) {
 
     chrome.attach({
       togglePlay: function () {
-        if (!iframe) { createIframe(); return; } // autoplay=1 starts playback
+        if (!iframe) {
+          // First play tap: enter fullscreen inside the same user gesture
+          // the iframe creation rides on. No element fullscreen (iPhone
+          // Safari) → the video simply plays inline, same as before.
+          if (chrome.wrap.requestFullscreen) {
+            var p = chrome.wrap.requestFullscreen();
+            if (p && p.catch) p.catch(function () {});
+          }
+          createIframe(); // autoplay=1 starts playback
+          return;
+        }
         if (lastState === 1 || lastState === 3) send('pauseVideo');
         else send('playVideo');
       },
