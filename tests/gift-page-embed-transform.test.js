@@ -49,6 +49,15 @@ ok('youtu.be with query', E('https://youtu.be/dQw4w9WgXcQ?si=share123').src === 
 ok('shorts', E('https://www.youtube.com/shorts/dQw4w9WgXcQ').src === yt);
 ok('music.youtube watch', E('https://music.youtube.com/watch?v=dQw4w9WgXcQ').src === yt);
 ok('mobile host', E('https://m.youtube.com/watch?v=dQw4w9WgXcQ').src === yt);
+ok('every youtube shape carries the bare id for the branded player', (() => {
+  const shapes = [
+    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    'https://youtu.be/dQw4w9WgXcQ?si=x',
+    'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+    'https://m.youtube.com/watch?v=dQw4w9WgXcQ'
+  ];
+  return shapes.every(u => E(u).id === 'dQw4w9WgXcQ');
+})());
 
 console.log('\n-- Spotify shapes --');
 ok('track', E('https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC').src ===
@@ -112,16 +121,37 @@ console.log('\n-- branded player: source-reveal pins --');
 ok('video rows stream through the worker, not Drive',
    /PROXY_URL \+ '\/video\/stream\/' \+ driveId/.test(src));
 const mountSrc = grab(/function gpMountPlayer\(container, src, onFail\) \{[\s\S]*?\n  \}/);
+const chromeSrc = grab(/function gpPlayerChrome\(container, mediaHtml, extraClass, onFail\) \{[\s\S]*?\n  \}/);
 ok('player markup never references drive.google.com',
-   mountSrc.indexOf('drive.google.com') === -1);
-ok('stream failure falls back to the embed so the gift is never blank',
-   /wrap\.remove\(\);\s*onFail\(\);/.test(mountSrc) && /mountEmbedFallback\(data\)/.test(src));
+   mountSrc.indexOf('drive.google.com') === -1 &&
+   chromeSrc.indexOf('drive.google.com') === -1);
+ok('media failure falls back to the embed so the gift is never blank',
+   /wrap\.remove\(\);\s*onFail\(\);/.test(chromeSrc) && /mountEmbedFallback\(data\)/.test(src));
+ok('fail is gated on started — a mid-play hiccup keeps the player',
+   /if \(chrome\.started\) return;/.test(chromeSrc));
+
+console.log('\n-- branded player: YouTube backend pins --');
+const ytSrc = grab(/function gpMountYtPlayer\(container, videoId, onFail\) \{[\s\S]*?\n  \}/);
+ok('yt player embeds chromeless with the js api on the nocookie host',
+   /youtube-nocookie\.com\/embed\//.test(ytSrc) &&
+   /enablejsapi=1/.test(ytSrc) && /controls=0/.test(ytSrc) && /autoplay=1/.test(ytSrc));
+ok('iframe is created lazily on the first play tap (activation → sound)',
+   /if \(!iframe\) \{ createIframe\(\); return; \}/.test(ytSrc));
+ok('iframe carries the autoplay allow delegation', /allow', 'autoplay/.test(ytSrc));
+ok('messages from other windows are ignored',
+   /e\.source !== iframe\.contentWindow/.test(ytSrc));
+ok('youtube errors and silence both downgrade to the embed',
+   /d\.event === 'onError'/.test(ytSrc) && /setTimeout\(function \(\) \{ chrome\.fail\(\); \}/.test(ytSrc));
+ok('pre-play frame is our own poster from the thumb host',
+   /i\.ytimg\.com\/vi\//.test(ytSrc) && /gp-vp-poster/.test(ytSrc));
 
 console.log('\n-- page render condition --');
 ok('link rows and non-streamable video rows use the embed path',
    /\(data\.type === 'link' \|\| data\.type === 'video'\)/.test(src));
 ok('video AND link rows both reach the branded-player gate',
    /\(data\.type === 'video' \|\| data\.type === 'link'\) && data\.media_link/.test(src));
+ok('youtube links route to the branded yt player, spotify stays on embed',
+   /emb\.kind === 'youtube' && emb\.id/.test(src) && /gpMountYtPlayer\(elEmbed, emb\.id/.test(src));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

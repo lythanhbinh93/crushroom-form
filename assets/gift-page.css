@@ -246,6 +246,41 @@
   background: #a78bfa;
 }
 
+/* YouTube-backed player: the iframe has no intrinsic ratio, so the box
+   commits to 16:9 and stacks its children absolutely (which also dodges the
+   iOS 16 aspect-ratio child-height bug). Stacking rides DOM order — iframe,
+   then poster, then hit layer — with the chrome above the whole box. */
+.gp-player-yt {
+  aspect-ratio: 16 / 9;
+  min-height: 0;
+}
+
+.gp-vp-ytbox {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.gp-vp-ytframe,
+.gp-vp-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.gp-vp-poster { object-fit: cover; }
+
+.gp-vp-hit { position: absolute; inset: 0; }
+
+/* Poster hides once playback has started, and returns at the end so
+   YouTube's related-videos end screen never shows. */
+.gp-vp-started .gp-vp-poster { display: none; }
+.gp-vp-ended .gp-vp-poster { display: block; }
+
+.gp-player-yt:fullscreen { aspect-ratio: auto; }
+
 @media (prefers-reduced-motion: reduce) {
   .gp-vp-big, .gp-vp-bar, .gp-vp-spin { transition: none; }
 }
