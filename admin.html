@@ -144,6 +144,11 @@
           <button class="voice-filter-btn" data-status="archived">Archived</button>
           <button class="voice-filter-btn" data-status="all">Tất cả</button>
         </div>
+        <div class="voice-search-box">
+          <input type="search" id="voice-search" inputmode="tel"
+                 placeholder="Tìm theo SĐT hoặc mã đơn…" autocomplete="off">
+          <button type="button" class="voice-search-clear" id="voice-search-clear" hidden aria-label="Xoá tìm kiếm">×</button>
+        </div>
         <button class="btn-voice-refresh" id="voice-backfill-btn" title="Decode legacy audio in browser to add waveform peaks">⚡ Backfill peaks</button>
         <button class="btn-voice-refresh" id="voice-refresh-btn">↺ Refresh</button>
       </div>

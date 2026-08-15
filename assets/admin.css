@@ -974,6 +974,58 @@ body {
   border-radius: 8px;
 }
 
+.voice-search-box {
+  position: relative;
+  flex: 1 1 180px;
+  max-width: 280px;
+}
+
+.voice-search-box input {
+  width: 100%;
+  padding: 8px 30px 8px 12px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 7px;
+  color: #fff;
+  font-size: 13px;
+  font-family: inherit; /* form controls don't inherit the page font */
+}
+
+.voice-search-box input::placeholder {
+  color: rgba(255,255,255,0.55);
+}
+
+.voice-search-box input:focus-visible {
+  outline: 2px solid rgba(255,255,255,0.6);
+  outline-offset: 1px;
+}
+
+/* Our explicit × replaces the inconsistent native one. */
+.voice-search-box input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.voice-search-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255,255,255,0.75);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.voice-search-clear:hover {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+
 .voice-filter-btn {
   padding: 7px 16px;
   background: transparent;

@@ -176,6 +176,9 @@
   // ----------------------------------------------------------------
 
   let currentFilter = localStorage.getItem(FILTER_KEY) || 'pending';
+  // Session-only on purpose: a persisted search that silently hides rows on
+  // the next visit is a support trap, unlike the sticky status filter.
+  let searchQuery = '';
   let rows = [];           // raw rows from last GAS response
   let qrSlug = '';         // slug shown in open QR modal
   let qrUrl = '';          // URL shown in open QR modal
@@ -193,6 +196,8 @@
   const $ = (id) => document.getElementById(id);
 
   const filterBar     = $('voice-filter-bar');
+  const searchInput   = $('voice-search');
+  const searchClear   = $('voice-search-clear');
   const refreshBtn    = $('voice-refresh-btn');
   const backfillBtn   = $('voice-backfill-btn');
   const listEl        = $('voice-list');
@@ -244,6 +249,22 @@
     // Restore saved filter button visual
     filterBar.querySelectorAll('.voice-filter-btn').forEach(function (b) {
       b.classList.toggle('active', b.dataset.status === currentFilter);
+    });
+
+    // Live search — pure client-side over the loaded rows; every existing
+    // renderVoiceList(rows) call re-applies it, so the query survives
+    // refreshes and status switches for free.
+    searchInput.addEventListener('input', function () {
+      searchQuery = searchInput.value;
+      searchClear.hidden = !searchQuery.trim();
+      renderVoiceList(rows);
+    });
+    searchClear.addEventListener('click', function () {
+      searchQuery = '';
+      searchInput.value = '';
+      searchClear.hidden = true;
+      renderVoiceList(rows);
+      searchInput.focus();
     });
 
     // Refresh button — explicit refresh means "show me the truth", so it
@@ -418,14 +439,24 @@
   function renderVoiceList(rowList) {
     listEl.innerHTML = '';
 
-    if (!rowList.length) {
+    const visible = filterVoiceRows(rowList, searchQuery);
+    if (!visible.length) {
+      // Distinguish "nothing in this filter" from "search matched nothing".
+      // The query is user input — textContent only, never markup.
+      emptyEl.querySelector('p').textContent =
+        rowList.length && searchQuery.trim()
+          ? 'Không có kết quả cho "' + searchQuery.trim() + '"'
+          : 'Không có voice page nào trong mục này.';
       emptyEl.style.display = 'block';
       return;
     }
+    // Re-renders triggered by typing never pass loadVoiceList, so the empty
+    // state must be cleared here, not only by the load path.
+    emptyEl.style.display = 'none';
 
     // Group by order_id
     const groupMap = new Map();
-    rowList.forEach(function (row) {
+    visible.forEach(function (row) {
       const key = row.order_id || '(no order)';
       if (!groupMap.has(key)) groupMap.set(key, []);
       groupMap.get(key).push(row);
@@ -1539,6 +1570,33 @@
    * Row type, mirroring the server's blank-means-voice rule so rows written
    * before the `type` column existed keep resolving correctly.
    */
+  /**
+   * Toolbar search over the loaded rows. Digit queries match phone
+   * substrings (partial digits work — CS often has only the last four);
+   * an 84-prefixed query also tries the stored local 0-form, since the
+   * sheet keeps phones server-normalized. Any query, digits included, also
+   * matches order_id (many order ids are numeric). Pure — extracted by the
+   * Node tests.
+   */
+  function filterVoiceRows(rowList, query) {
+    var q = String(query || '').trim();
+    if (!q) return rowList;
+    // Only a phone-shaped query (digits with formatting) searches phones —
+    // stray digits inside a text query like "p2-test" must not match every
+    // phone containing that digit.
+    var phoneLike = /^\+?[\d\s().-]+$/.test(q);
+    var digits = phoneLike ? q.replace(/\D/g, '') : '';
+    var qLower = q.toLowerCase();
+    var altDigits = /^84\d{8,}$/.test(digits) ? '0' + digits.slice(2) : '';
+    return rowList.filter(function (r) {
+      var phone = String((r && r.phone) || '').replace(/\D/g, '');
+      var order = String((r && r.order_id) || '').toLowerCase();
+      if (digits && (phone.indexOf(digits) !== -1 ||
+          (altDigits && phone.indexOf(altDigits) !== -1))) return true;
+      return order.indexOf(qLower) !== -1;
+    });
+  }
+
   function rowTypeOf(row) {
     const t = String(row && row.type ? row.type : '').trim().toLowerCase();
     return t || 'voice';
