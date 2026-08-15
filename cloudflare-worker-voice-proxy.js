@@ -55,11 +55,12 @@ export default {
     }
 
     // Metadata routes: /voice/<slug> (voice gifts), /gift/<slug> (link/image)
+    const metaFresh = url.searchParams.get('fresh') === '1';
     if (path.startsWith('/voice/')) {
-      return handleGasMeta(path.slice('/voice/'.length), 'getVoice', 'voice-meta2');
+      return handleGasMeta(path.slice('/voice/'.length), 'getVoice', 'voice-meta2', metaFresh);
     }
     if (path.startsWith('/gift/')) {
-      return handleGasMeta(path.slice('/gift/'.length), 'getGift', 'gift-meta1');
+      return handleGasMeta(path.slice('/gift/'.length), 'getGift', 'gift-meta1', metaFresh);
     }
 
     // Admin list route: /admin/list
@@ -225,8 +226,14 @@ async function fetchGasWithRetry(url, tries) {
  * before publish poisoned the edge (1h) and the phone (10min) with
  * not_found and the printed link looked dead. Bumping a namespace orphans
  * every old entry on deploy; good entries re-warm on first hit.
+ *
+ * fresh=true (admin's ?fresh=1, mirroring /admin/list) skips the cached
+ * copy, refetches GAS, and OVERWRITES the entry: a re-published row edit
+ * would otherwise stay stale behind the old entry for the full edge TTL —
+ * a plain warm GET is a HIT and refreshes nothing. Per-colo only (Cache
+ * API), so other colos age out on their own TTL.
  */
-async function handleGasMeta(slug, action, namespace) {
+async function handleGasMeta(slug, action, namespace, fresh) {
   if (!/^[\w-]{6,16}$/.test(slug)) {
     return new Response(JSON.stringify({ ok: false, error: 'bad slug' }), {
       status: 400,
@@ -239,7 +246,7 @@ async function handleGasMeta(slug, action, namespace) {
     method: 'GET',
   });
 
-  let cached = await cache.match(cacheKey);
+  let cached = fresh ? null : await cache.match(cacheKey);
   if (cached) {
     const headers = new Headers(cached.headers);
     headers.set('X-Cache', 'HIT');
@@ -272,9 +279,10 @@ async function handleGasMeta(slug, action, namespace) {
 
   const respHeaders = new Headers({
     'Content-Type': 'application/json',
-    'Cache-Control': okJson ? 'public, max-age=600, s-maxage=3600' : 'no-store',
+    // The fresh response itself is a maintenance read — never browser-cached.
+    'Cache-Control': okJson && !fresh ? 'public, max-age=600, s-maxage=3600' : 'no-store',
   });
-  respHeaders.set('X-Cache', 'MISS');
+  respHeaders.set('X-Cache', fresh ? 'REFRESH' : 'MISS');
   Object.entries(corsHeaders()).forEach(([k, v]) => respHeaders.set(k, v));
   return new Response(body, { status: upstream.status, headers: respHeaders });
 }

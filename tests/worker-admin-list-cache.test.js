@@ -84,11 +84,14 @@ ok('gas-meta caches only parsed ok:true JSON (not HTTP 200)',
    /okJson = JSON\.parse\(body\)\.ok === true/.test(metaHandler) &&
    /if \(okJson\) \{\s*await cache\.put/.test(metaHandler));
 ok('voice route uses the post-poisoning v2 namespace; gift has its own',
-   /handleGasMeta\([\s\S]{0,60}'getVoice', 'voice-meta2'\)/.test(workerSrc) &&
-   /handleGasMeta\([\s\S]{0,60}'getGift', 'gift-meta1'\)/.test(workerSrc) &&
+   /handleGasMeta\([\s\S]{0,60}'getVoice', 'voice-meta2', metaFresh\)/.test(workerSrc) &&
+   /handleGasMeta\([\s\S]{0,60}'getGift', 'gift-meta1', metaFresh\)/.test(workerSrc) &&
    workerSrc.indexOf('__cache__/voice-meta/') === -1);
-ok('gas-meta errors reach the browser as no-store',
-   /okJson \? 'public, max-age=600, s-maxage=3600' : 'no-store'/.test(metaHandler));
+ok('gas-meta errors and fresh reads reach the browser as no-store',
+   /okJson && !fresh \? 'public, max-age=600, s-maxage=3600' : 'no-store'/.test(metaHandler));
+ok('fresh=1 skips the cached copy but still overwrites the entry',
+   /fresh \? null : await cache\.match\(cacheKey\)/.test(metaHandler) &&
+   /const metaFresh = url\.searchParams\.get\('fresh'\) === '1'/.test(workerSrc));
 
 console.log('\n-- admin tab source pins --');
 const fetchListSrc = grab(tabSrc, /function fetchList\(statusFilter, fresh\) \{[\s\S]*?\n  \}/, 'fetchList');
@@ -100,6 +103,12 @@ ok('archive reloads fresh', /'Đã archive'\);[\s\S]{0,200}loadVoiceList\(\{ fre
 ok('publish busts the list caches', /row\.url = data\.url;\s*bustListCache\(\);/.test(tabSrc));
 ok('media replacement busts the list caches',
    /renderMediaButtons\(row\);\s*bustListCache\(\);/.test(tabSrc));
+const refreshSrc = grab(tabSrc, /function refreshMetaCache\(row\) \{[\s\S]*?\n  \}/, 'refreshMetaCache');
+ok('meta refresh hits the worker with fresh=1 and skips counter rows',
+   /\?fresh=1/.test(refreshSrc) && /'counter'/.test(refreshSrc));
+ok('publish, edit and media mutations all refresh the meta cache',
+   /bustListCache\(\);[\s\S]{0,400}refreshMetaCache\(row\);/.test(tabSrc) &&
+   (tabSrc.match(/refreshMetaCache\(row\);/g) || []).length >= 4);
 const loadSrc = grab(tabSrc, /function loadVoiceList\(opts\) \{[\s\S]*?\n  \}/, 'loadVoiceList');
 ok('cached instant paint keeps data over the error screen, with a stale toast',
    /if \(painted\) showToast\('Không làm mới được/.test(loadSrc));

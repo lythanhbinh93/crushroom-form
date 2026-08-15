@@ -645,6 +645,23 @@
   // GAS actions
   // ----------------------------------------------------------------
 
+  /**
+   * Overwrite the worker's per-slug metadata cache entry after a mutation.
+   * fresh=1 makes the worker refetch GAS and re-put — a plain warm GET is a
+   * cache HIT and leaves a re-published/edited row stale for the full edge
+   * TTL (~60min). Counter rows are skipped: counter.html reads GAS directly.
+   * Fire-and-forget: the sheet is already correct, other colos age out.
+   */
+  function refreshMetaCache(row) {
+    if (!row || !row.slug) return;
+    const t = rowTypeOf(row);
+    if (t === 'counter') return;
+    const base = t === 'voice' ? '/voice/' : '/gift/';
+    fetch(VOICE_AUDIO_PROXY_URL + base + encodeURIComponent(row.slug) + '?fresh=1', {
+      method: 'GET'
+    }).catch(function () { /* ignore */ });
+  }
+
   function publishRow(row, btn) {
     btn.disabled = true;
     btn.textContent = '...';
@@ -670,15 +687,12 @@
         row.slug = data.slug;
         row.url = data.url;
         bustListCache();
-        // Pre-warm CF edge caches so the first recipient hits hot caches for both
-        // metadata JSON and audio bytes. Fire-and-forget: failure is non-fatal.
-        // The /voice/ route is the voice page's metadata cache; a counter slug
-        // does not belong in it, and counter.html reads GAS directly.
-        if (data.slug && rowTypeOf(row) === 'voice') {
-          fetch(VOICE_AUDIO_PROXY_URL + '/voice/' + encodeURIComponent(data.slug), {
-            method: 'GET'
-          }).catch(function () { /* ignore */ });
-        }
+        // Refresh the edge metadata cache so the recipient sees the
+        // just-published data: on a re-publish the entry already exists, so
+        // this must be the fresh=1 overwrite — a plain warm GET would HIT
+        // and change nothing. Doubles as the first-publish warm for every
+        // proxied type (audio bytes warm separately below).
+        refreshMetaCache(row);
         if (row.audio_file_id) {
           fetch(VOICE_AUDIO_PROXY_URL + '/' + encodeURIComponent(row.audio_file_id), {
             method: 'GET',
@@ -910,11 +924,13 @@
         });
         rerenderCardPreview(row);
         bustListCache();
+        refreshMetaCache(row);
         editSaving = false;
         closeEditModal();
-        // Voice AND gift pages read through the worker's edge cache (≤60min).
+        // fresh=1 overwrote this colo's edge entry; a phone that loaded the
+        // page in the last 10 minutes may still hold the browser copy.
         showToast(type !== 'counter' && row.status === 'published'
-          ? 'Đã lưu — trang public cập nhật sau tối đa ~60 phút (cache)'
+          ? 'Đã lưu — trang public cập nhật ngay (F5 nếu vừa mở trong ~10 phút)'
           : 'Đã lưu');
       })
       .catch(function (err) {
@@ -1129,6 +1145,7 @@
       .then(function (data) {
         if (!data.ok) throw new Error(data.error || 'replaceMedia failed');
         applyMediaResult(row, ctx.slot, ctx.spec, data, extra);
+        refreshMetaCache(row);
         showToast('Đã thay ' + ctx.spec.label.toLowerCase().replace('đổi ', '') + ' — ' + (data.file_id ? 'file mới đã lưu' : 'đã xoá'));
       })
       .catch(function (err) {
@@ -1166,6 +1183,7 @@
       .then(function (data) {
         if (!data.ok) throw new Error(data.error || 'replaceMedia failed');
         applyMediaResult(row, slot, spec, data, null);
+        refreshMetaCache(row);
         showToast('Đã xoá ' + noun);
       })
       .catch(function (err) {
