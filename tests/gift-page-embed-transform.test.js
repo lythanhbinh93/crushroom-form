@@ -61,9 +61,9 @@ ok('every youtube shape carries the bare id for the branded player', (() => {
 
 console.log('\n-- Spotify shapes --');
 ok('track', E('https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC').src ===
-   'https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC');
+   'https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC?utm_source=generator');
 ok('intl locale prefix stripped', E('https://open.spotify.com/intl-vi/track/4uLU6hMCjMI75M1A2tKUQC').src ===
-   'https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC');
+   'https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC?utm_source=generator');
 ok('album', E('https://open.spotify.com/album/2up3OPMp9Tb4dAKM2erWXQ').kind === 'spotify');
 ok('playlist with query', E('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=x').kind === 'spotify');
 

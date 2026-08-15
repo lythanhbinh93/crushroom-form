@@ -98,7 +98,12 @@ function gpEmbedUrl(link) {
     if (parts[0] && /^intl-/i.test(parts[0])) parts.shift();
     var kinds = ['track', 'album', 'playlist', 'episode', 'show', 'artist'];
     if (kinds.indexOf(parts[0]) !== -1 && /^[A-Za-z0-9]{10,30}$/.test(parts[1] || '')) {
-      return { kind: 'spotify', src: 'https://open.spotify.com/embed/' + parts[0] + '/' + parts[1] };
+      // utm_source=generator matches Spotify's own embed-generator snippet —
+      // it serves the full themed card player.
+      return {
+        kind: 'spotify',
+        src: 'https://open.spotify.com/embed/' + parts[0] + '/' + parts[1] + '?utm_source=generator'
+      };
     }
     return null;
   }
