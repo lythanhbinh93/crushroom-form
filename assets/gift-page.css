@@ -281,21 +281,18 @@
 
 .gp-player-yt:fullscreen { aspect-ratio: auto; }
 
-/* Pseudo-fullscreen for iPhone Safari (no element fullscreen): the player
-   covers the visual viewport; the embed letterboxes itself inside. */
-.gp-player.gp-vp-fakefs {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  margin: 0;
-  aspect-ratio: auto;
-  min-height: 0;
-  height: 100dvh;
+/* iPhone branch: playback happens in iOS's native fullscreen player (the
+   embed is not playsinline there), so once the iframe exists our chrome
+   retires and YouTube's own controls take over. */
+.gp-vp-yt-native .gp-vp-poster,
+.gp-vp-yt-native .gp-vp-big,
+.gp-vp-yt-native .gp-vp-bar,
+.gp-vp-yt-native .gp-vp-spin {
+  display: none;
 }
 
-.gp-fakefs-lock,
-.gp-fakefs-lock body {
-  overflow: hidden;
+.gp-vp-yt-native .gp-vp-hit {
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

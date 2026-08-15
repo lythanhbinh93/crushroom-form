@@ -424,13 +424,11 @@ function gpEmbedUrl(link) {
    * embed, which shows YouTube's own message plus the raw link.
    */
   function gpMountYtPlayer(container, videoId, onFail) {
-    // Failing while in pseudo-fullscreen must release the scroll lock, or
-    // the fallback embed appears on a page that can no longer scroll.
     var chrome = gpPlayerChrome(container,
       '<div class="gp-vp-ytbox">' +
         '<img class="gp-vp-poster" alt="" src="https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg">' +
         '<div class="gp-vp-hit"></div>' +
-      '</div>', 'gp-player-yt', function () { setFakeFs(false); onFail(); });
+      '</div>', 'gp-player-yt', onFail);
     var box = chrome.wrap.querySelector('.gp-vp-ytbox');
     var poster = chrome.wrap.querySelector('.gp-vp-poster');
     var iframe = null;
@@ -440,16 +438,16 @@ function gpEmbedUrl(link) {
 
     chrome.ready(); // the poster paints immediately; duration arrives later
 
-    // iPhone Safari has no element fullscreen and no native <video> to hand
-    // off to — fake it: the player expands over the whole viewport instead.
-    // Real fullscreen everywhere it exists.
-    var fakeFs = !chrome.wrap.requestFullscreen;
-    function setFakeFs(on) {
-      chrome.wrap.classList.toggle('gp-vp-fakefs', on);
-      document.documentElement.classList.toggle('gp-fakefs-lock', on);
-    }
+    // iPhone Safari has no element fullscreen and no reachable inner video.
+    // The ONLY true-fullscreen mechanism there is iOS's native video
+    // presentation, which engages when the embed is NOT playsinline. On that
+    // branch the embed keeps YouTube's own controls (re-entering fullscreen
+    // after an exit needs them) and our chrome retires once the iframe
+    // exists. Everywhere else: chromeless embed + real element fullscreen.
+    var iosNativeFs = !chrome.wrap.requestFullscreen;
+    if (iosNativeFs) chrome.fsBtn.hidden = true;
     function goFullscreen() {
-      if (fakeFs) { setFakeFs(true); return; }
+      if (iosNativeFs) return; // fullscreen comes from the video itself
       var p = chrome.wrap.requestFullscreen();
       if (p && p.catch) p.catch(function () {});
     }
@@ -469,8 +467,15 @@ function gpEmbedUrl(link) {
       iframe.setAttribute('allowfullscreen', '');
       iframe.setAttribute('title', '');
       iframe.src = 'https://www.youtube-nocookie.com/embed/' + videoId +
-        '?enablejsapi=1&autoplay=1&playsinline=1&controls=0&rel=0&iv_load_policy=3&disablekb=1' +
+        '?enablejsapi=1&autoplay=1&rel=0&iv_load_policy=3' +
+        (iosNativeFs
+          ? '&controls=1' // no playsinline → playback opens iOS native fullscreen
+          : '&playsinline=1&controls=0&disablekb=1') +
         '&origin=' + encodeURIComponent(location.origin);
+      // Our chrome retires on the iOS branch: taps must reach YouTube's own
+      // player (its red button when autoplay is refused, its fullscreen
+      // button after an exit), and our poster must not mask it.
+      if (iosNativeFs) chrome.wrap.classList.add('gp-vp-yt-native');
       iframe.addEventListener('load', function () {
         iframe.contentWindow.postMessage(JSON.stringify({
           event: 'listening', id: 1, channel: 'widget'
@@ -536,10 +541,8 @@ function gpEmbedUrl(link) {
         if (iframe && dur > 0) send('seekTo', [pct * dur, true]);
       },
       enterFullscreen: function () {
-        if (fakeFs) {
-          setFakeFs(!chrome.wrap.classList.contains('gp-vp-fakefs'));
-          return;
-        }
+        // Hidden on the iOS branch — fullscreen belongs to the native
+        // player there, not this button.
         if (document.fullscreenElement) document.exitFullscreen();
         else goFullscreen();
       },

@@ -132,9 +132,13 @@ ok('fail is gated on started — a mid-play hiccup keeps the player',
 
 console.log('\n-- branded player: YouTube backend pins --');
 const ytSrc = grab(/function gpMountYtPlayer\(container, videoId, onFail\) \{[\s\S]*?\n  \}/);
-ok('yt player embeds chromeless with the js api on the nocookie host',
+ok('yt player embeds with the js api on the nocookie host',
    /youtube-nocookie\.com\/embed\//.test(ytSrc) &&
-   /enablejsapi=1/.test(ytSrc) && /controls=0/.test(ytSrc) && /autoplay=1/.test(ytSrc));
+   /enablejsapi=1/.test(ytSrc) && /autoplay=1/.test(ytSrc));
+ok('non-iOS stays chromeless inline; iPhone branch trades chrome for iOS native fullscreen',
+   /&playsinline=1&controls=0&disablekb=1/.test(ytSrc) &&
+   /\? '&controls=1'/.test(ytSrc) &&
+   /iosNativeFs = !chrome\.wrap\.requestFullscreen/.test(ytSrc));
 ok('iframe is created lazily on the first play tap (activation → sound)',
    /if \(!iframe\) \{[\s\S]{0,400}createIframe\(\);[\s\S]{0,80}return;\s*\}/.test(ytSrc));
 ok('iframe carries the autoplay allow delegation', /allow', 'autoplay/.test(ytSrc));
@@ -153,13 +157,9 @@ ok('native: iOS falls back to the video element fullscreen',
    /webkitEnterFullscreen && !chrome\.wrap\.requestFullscreen/.test(mountSrc));
 ok('yt: fullscreen rides the same gesture that creates the iframe',
    /goFullscreen\(\);\s*createIframe\(\);/.test(ytSrc));
-ok('yt: iPhone gets pseudo-fullscreen instead of a dead control',
-   /fakeFs = !chrome\.wrap\.requestFullscreen/.test(ytSrc) &&
-   /gp-vp-fakefs/.test(ytSrc) &&
-   /gp-fakefs-lock/.test(ytSrc) &&
-   ytSrc.indexOf('fsBtn.hidden') === -1);
-ok('yt: a failing player releases the pseudo-fullscreen scroll lock',
-   /function \(\) \{ setFakeFs\(false\); onFail\(\); \}/.test(ytSrc));
+ok('yt: iPhone retires our chrome when the iframe exists (taps reach YT)',
+   /gp-vp-yt-native/.test(ytSrc) &&
+   /if \(iosNativeFs\) chrome\.wrap\.classList\.add/.test(ytSrc));
 
 console.log('\n-- page render condition --');
 ok('link rows and non-streamable video rows use the embed path',
