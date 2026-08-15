@@ -57,10 +57,10 @@ export default {
     // Metadata routes: /voice/<slug> (voice gifts), /gift/<slug> (link/image)
     const metaFresh = url.searchParams.get('fresh') === '1';
     if (path.startsWith('/voice/')) {
-      return handleGasMeta(path.slice('/voice/'.length), 'getVoice', 'voice-meta2', metaFresh);
+      return handleGasMeta(path.slice('/voice/'.length), 'getVoice', 'voice-meta2', metaFresh, ctx);
     }
     if (path.startsWith('/gift/')) {
-      return handleGasMeta(path.slice('/gift/'.length), 'getGift', 'gift-meta1', metaFresh);
+      return handleGasMeta(path.slice('/gift/'.length), 'getGift', 'gift-meta1', metaFresh, ctx);
     }
 
     // Admin list route: /admin/list
@@ -232,8 +232,17 @@ async function fetchGasWithRetry(url, tries) {
  * would otherwise stay stale behind the old entry for the full edge TTL —
  * a plain warm GET is a HIT and refreshes nothing. Per-colo only (Cache
  * API), so other colos age out on their own TTL.
+ *
+ * Belt to that suspender: a HIT older than META_REVALIDATE_AGE_S also
+ * background-refetches on waitUntil (the /admin/list recipe), so an edited
+ * row converges within ~2 minutes on ANY colo that gets traffic even when
+ * no admin client fires fresh=1 — a stale admin tab running pre-refresh JS
+ * proved that dependency fragile. Parallel HITs may each spawn a refresh
+ * until the first cache.put lands; harmless, same as /admin/list.
  */
-async function handleGasMeta(slug, action, namespace, fresh) {
+const META_REVALIDATE_AGE_S = 120;
+
+async function handleGasMeta(slug, action, namespace, fresh, ctx) {
   if (!/^[\w-]{6,16}$/.test(slug)) {
     return new Response(JSON.stringify({ ok: false, error: 'bad slug' }), {
       status: 400,
@@ -246,45 +255,57 @@ async function handleGasMeta(slug, action, namespace, fresh) {
     method: 'GET',
   });
 
-  let cached = fresh ? null : await cache.match(cacheKey);
+  // Fetch GAS and overwrite the cache entry on a parseable {ok:true} body.
+  // Caching ONLY ok:true is load-bearing: GAS answers HTTP 200 even for
+  // {ok:false,"not_found"}, and errors must stay uncached so publish → scan
+  // works the moment the row goes live.
+  const refetch = async () => {
+    const upstream = await fetchGasWithRetry(
+      `${GAS_VOICE_URL}?action=${action}&id=${encodeURIComponent(slug)}`, 3);
+    const body = upstream.body;
+    let okJson = false;
+    if (upstream.status === 200) {
+      try { okJson = JSON.parse(body).ok === true; } catch (_) { /* not JSON */ }
+    }
+    if (okJson) {
+      await cache.put(cacheKey, new Response(body, {
+        status: 200,
+        headers: new Headers({
+          'Content-Type': 'application/json',
+          'X-Cached-At': String(Date.now()),
+          // Edge cache 1h (hard expiry; revalidation usually wins first).
+          // Browser cache 1min — a phone that just watched CS fix the link
+          // should not pin the old row for long.
+          'Cache-Control': 'public, max-age=60, s-maxage=3600',
+        }),
+      }));
+    }
+    return { status: upstream.status, body, okJson };
+  };
+
+  const cached = fresh ? null : await cache.match(cacheKey);
   if (cached) {
+    // Entries from older workers carry no X-Cached-At → age computes huge →
+    // they refresh on first touch.
+    const ageS = (Date.now() - Number(cached.headers.get('X-Cached-At') || 0)) / 1000;
+    if (ageS > META_REVALIDATE_AGE_S && ctx) {
+      ctx.waitUntil(refetch().catch(() => {}));
+    }
     const headers = new Headers(cached.headers);
     headers.set('X-Cache', 'HIT');
     Object.entries(corsHeaders()).forEach(([k, v]) => headers.set(k, v));
     return new Response(cached.body, { status: cached.status, headers });
   }
 
-  const upstream = await fetchGasWithRetry(
-    `${GAS_VOICE_URL}?action=${action}&id=${encodeURIComponent(slug)}`, 3);
-  const body = upstream.body;
-
-  // Cache ONLY a parseable {ok:true} payload. HTTP status is useless as a
-  // gate here (see namespace note above), and errors must stay uncached so
-  // publish → scan works the moment the row goes live.
-  let okJson = false;
-  if (upstream.status === 200) {
-    try { okJson = JSON.parse(body).ok === true; } catch (_) { /* not JSON */ }
-  }
-
-  if (okJson) {
-    await cache.put(cacheKey, new Response(body, {
-      status: 200,
-      headers: new Headers({
-        'Content-Type': 'application/json',
-        // Edge cache 1h. Browser cache 10min — repeat visits skip even the edge.
-        'Cache-Control': 'public, max-age=600, s-maxage=3600',
-      }),
-    }));
-  }
-
+  const result = await refetch();
   const respHeaders = new Headers({
     'Content-Type': 'application/json',
     // The fresh response itself is a maintenance read — never browser-cached.
-    'Cache-Control': okJson && !fresh ? 'public, max-age=600, s-maxage=3600' : 'no-store',
+    'Cache-Control': result.okJson && !fresh ? 'public, max-age=60, s-maxage=3600' : 'no-store',
   });
   respHeaders.set('X-Cache', fresh ? 'REFRESH' : 'MISS');
   Object.entries(corsHeaders()).forEach(([k, v]) => respHeaders.set(k, v));
-  return new Response(body, { status: upstream.status, headers: respHeaders });
+  return new Response(result.body, { status: result.status, headers: respHeaders });
 }
 
 async function handleAudio(req, fileId) {

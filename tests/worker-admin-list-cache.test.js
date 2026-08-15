@@ -84,14 +84,18 @@ ok('gas-meta caches only parsed ok:true JSON (not HTTP 200)',
    /okJson = JSON\.parse\(body\)\.ok === true/.test(metaHandler) &&
    /if \(okJson\) \{\s*await cache\.put/.test(metaHandler));
 ok('voice route uses the post-poisoning v2 namespace; gift has its own',
-   /handleGasMeta\([\s\S]{0,60}'getVoice', 'voice-meta2', metaFresh\)/.test(workerSrc) &&
-   /handleGasMeta\([\s\S]{0,60}'getGift', 'gift-meta1', metaFresh\)/.test(workerSrc) &&
+   /handleGasMeta\([\s\S]{0,60}'getVoice', 'voice-meta2', metaFresh, ctx\)/.test(workerSrc) &&
+   /handleGasMeta\([\s\S]{0,60}'getGift', 'gift-meta1', metaFresh, ctx\)/.test(workerSrc) &&
    workerSrc.indexOf('__cache__/voice-meta/') === -1);
 ok('gas-meta errors and fresh reads reach the browser as no-store',
-   /okJson && !fresh \? 'public, max-age=600, s-maxage=3600' : 'no-store'/.test(metaHandler));
+   /result\.okJson && !fresh \? 'public, max-age=60, s-maxage=3600' : 'no-store'/.test(metaHandler));
 ok('fresh=1 skips the cached copy but still overwrites the entry',
    /fresh \? null : await cache\.match\(cacheKey\)/.test(metaHandler) &&
    /const metaFresh = url\.searchParams\.get\('fresh'\) === '1'/.test(workerSrc));
+ok('stale gas-meta hits background-revalidate on waitUntil, keyed by X-Cached-At',
+   /ageS > META_REVALIDATE_AGE_S && ctx/.test(metaHandler) &&
+   /ctx\.waitUntil\(refetch\(\)\.catch/.test(metaHandler) &&
+   /'X-Cached-At': String\(Date\.now\(\)\)/.test(metaHandler));
 
 console.log('\n-- admin tab source pins --');
 const fetchListSrc = grab(tabSrc, /function fetchList\(statusFilter, fresh\) \{[\s\S]*?\n  \}/, 'fetchList');
