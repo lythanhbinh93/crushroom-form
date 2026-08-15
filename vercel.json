@@ -2,6 +2,12 @@
   "cleanUrls": true,
   "redirects": [
     {
+      "source": "/voice",
+      "has": [{ "type": "query", "key": "id", "value": "95bd5385f9" }],
+      "destination": "/gift?id=bbb7e35682",
+      "permanent": false
+    },
+    {
       "source": "/((?!counter|voice|voice-upload|love-counter-upload|gift-upload|link-upload|image-upload|video-upload|gift|qr-404|assets/|favicon).*)",
       "has": [{ "type": "host", "value": "qr.crushroom.vn" }],
       "destination": "/qr-404",
