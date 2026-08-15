@@ -152,7 +152,14 @@ ok('native: first play enters fullscreen once, inside the tap gesture',
 ok('native: iOS falls back to the video element fullscreen',
    /webkitEnterFullscreen && !chrome\.wrap\.requestFullscreen/.test(mountSrc));
 ok('yt: fullscreen rides the same gesture that creates the iframe',
-   /requestFullscreen\(\);[\s\S]{0,80}createIframe\(\);/.test(ytSrc));
+   /goFullscreen\(\);\s*createIframe\(\);/.test(ytSrc));
+ok('yt: iPhone gets pseudo-fullscreen instead of a dead control',
+   /fakeFs = !chrome\.wrap\.requestFullscreen/.test(ytSrc) &&
+   /gp-vp-fakefs/.test(ytSrc) &&
+   /gp-fakefs-lock/.test(ytSrc) &&
+   ytSrc.indexOf('fsBtn.hidden') === -1);
+ok('yt: a failing player releases the pseudo-fullscreen scroll lock',
+   /function \(\) \{ setFakeFs\(false\); onFail\(\); \}/.test(ytSrc));
 
 console.log('\n-- page render condition --');
 ok('link rows and non-streamable video rows use the embed path',

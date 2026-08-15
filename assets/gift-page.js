@@ -424,11 +424,13 @@ function gpEmbedUrl(link) {
    * embed, which shows YouTube's own message plus the raw link.
    */
   function gpMountYtPlayer(container, videoId, onFail) {
+    // Failing while in pseudo-fullscreen must release the scroll lock, or
+    // the fallback embed appears on a page that can no longer scroll.
     var chrome = gpPlayerChrome(container,
       '<div class="gp-vp-ytbox">' +
         '<img class="gp-vp-poster" alt="" src="https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg">' +
         '<div class="gp-vp-hit"></div>' +
-      '</div>', 'gp-player-yt', onFail);
+      '</div>', 'gp-player-yt', function () { setFakeFs(false); onFail(); });
     var box = chrome.wrap.querySelector('.gp-vp-ytbox');
     var poster = chrome.wrap.querySelector('.gp-vp-poster');
     var iframe = null;
@@ -438,9 +440,19 @@ function gpEmbedUrl(link) {
 
     chrome.ready(); // the poster paints immediately; duration arrives later
 
-    // No element fullscreen (iPhone Safari) and no native <video> to hand
-    // off to — hide the button rather than ship a dead control.
-    if (!chrome.wrap.requestFullscreen) chrome.fsBtn.hidden = true;
+    // iPhone Safari has no element fullscreen and no native <video> to hand
+    // off to — fake it: the player expands over the whole viewport instead.
+    // Real fullscreen everywhere it exists.
+    var fakeFs = !chrome.wrap.requestFullscreen;
+    function setFakeFs(on) {
+      chrome.wrap.classList.toggle('gp-vp-fakefs', on);
+      document.documentElement.classList.toggle('gp-fakefs-lock', on);
+    }
+    function goFullscreen() {
+      if (fakeFs) { setFakeFs(true); return; }
+      var p = chrome.wrap.requestFullscreen();
+      if (p && p.catch) p.catch(function () {});
+    }
 
     function send(func, args) {
       if (!iframe || !iframe.contentWindow) return;
@@ -510,13 +522,9 @@ function gpEmbedUrl(link) {
     chrome.attach({
       togglePlay: function () {
         if (!iframe) {
-          // First play tap: enter fullscreen inside the same user gesture
-          // the iframe creation rides on. No element fullscreen (iPhone
-          // Safari) → the video simply plays inline, same as before.
-          if (chrome.wrap.requestFullscreen) {
-            var p = chrome.wrap.requestFullscreen();
-            if (p && p.catch) p.catch(function () {});
-          }
+          // First play tap: enter fullscreen (real or faked) inside the
+          // same user gesture the iframe creation rides on.
+          goFullscreen();
           createIframe(); // autoplay=1 starts playback
           return;
         }
@@ -527,9 +535,13 @@ function gpEmbedUrl(link) {
       seekToPct: function (pct) {
         if (iframe && dur > 0) send('seekTo', [pct * dur, true]);
       },
-      enterFullscreen: function (wrap) {
+      enterFullscreen: function () {
+        if (fakeFs) {
+          setFakeFs(!chrome.wrap.classList.contains('gp-vp-fakefs'));
+          return;
+        }
         if (document.fullscreenElement) document.exitFullscreen();
-        else if (wrap.requestFullscreen) wrap.requestFullscreen();
+        else goFullscreen();
       },
       clickEl: chrome.wrap.querySelector('.gp-vp-hit')
     });
