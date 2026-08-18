@@ -101,8 +101,10 @@ function renderGift(data) {
     elImage.hidden = false;
   }
 
-  // Text — textContent prevents XSS from customer input
-  var msg = (data.text_message || '').trim();
+  // Text — textContent prevents XSS from customer input. String() first: a
+  // digits-only message ("1314") arrives from the sheet as a Number, which
+  // has no .trim.
+  var msg = String(data.text_message == null ? '' : data.text_message).trim();
   elText.textContent = msg;
 
   // Date

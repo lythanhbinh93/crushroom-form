@@ -50,6 +50,16 @@
     return minutes + ':' + (secs < 10 ? '0' : '') + secs;
   }
 
+  /**
+   * Sheet cell → display string. A field the customer filled with digits only
+   * ("1314", a love number) is stored by Sheets as a NUMBER and arrives from
+   * GAS as one — Number has no .trim, so every text field must go through
+   * here or a valid page dies with a TypeError.
+   */
+  function cellText(v) {
+    return String(v == null ? '' : v).trim();
+  }
+
   /** Drive share URL → thumbnail endpoint, the one Drive serves reliably to <img>. */
   function normalizeThumbUrl(url, size) {
     if (!url) return '';
@@ -110,15 +120,15 @@
     }
 
     // All customer strings land via textContent — never innerHTML.
-    els.title.textContent = (data.title || '').trim() || DEFAULT_TITLE;
-    els.heartText.textContent = (data.heart_text || '').trim();
-    els.maleName.textContent = (data.male_name || '').trim();
-    els.femaleName.textContent = (data.female_name || '').trim();
+    els.title.textContent = cellText(data.title) || DEFAULT_TITLE;
+    els.heartText.textContent = cellText(data.heart_text);
+    els.maleName.textContent = cellText(data.male_name);
+    els.femaleName.textContent = cellText(data.female_name);
 
     setAvatar(els.maleImg, data.male_image_url);
     setAvatar(els.femaleImg, data.female_image_url);
 
-    var msg = (data.text_message || '').trim();
+    var msg = cellText(data.text_message);
     els.message.textContent = msg;
     els.message.hidden = !msg;
   }
@@ -128,6 +138,7 @@
     todayInVN: todayInVN,
     loveDays: loveDays,
     formatTime: formatTime,
+    cellText: cellText,
     normalizeThumbUrl: normalizeThumbUrl,
     extractDriveFileId: extractDriveFileId,
     isDriveThumbUrl: isDriveThumbUrl,

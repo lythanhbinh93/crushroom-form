@@ -131,7 +131,7 @@ function loadAudio(data) {
   // No audio on a counter is a normal state, not an error — the block stays hidden.
   if (!audioFileId) return;
 
-  var title = (data.audio_title || '').trim();
+  var title = CR.cellText(data.audio_title);
   if (title) {
     elAudioTitle.textContent = title;
     elAudioTitle.hidden = false;
