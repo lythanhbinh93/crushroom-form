@@ -324,7 +324,7 @@ Recipient audio playback and metadata go through a Cloudflare Worker that proxie
 
 **Routes**:
 - `GET /voice/<slug>` → cached JSON proxy of GAS `getVoice` (1 h edge TTL, 10 min browser TTL)
-- `GET /<driveFileId>` → streaming Drive audio with CORS + Range support (24 h immutable cache)
+- `GET /<driveFileId>` → streaming Drive audio with CORS + Range support (24 h immutable cache). Drive labels only MP3 as `audio/mpeg` and serves every other upload (m4a, QuickTime, wav) as `application/octet-stream`; iOS Safari refuses to play an untyped stream on this extension-less URL, so the route recovers the real media type from the file's magic bytes (one extra edge-cached 12-byte fetch, only for opaque labels). Regression test: `node tests/worker-audio-content-type.test.js`.
 
 **Setup (one-time)**:
 1. `npm i -g wrangler` (global install, no project package.json needed)

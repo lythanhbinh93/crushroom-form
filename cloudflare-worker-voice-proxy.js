@@ -331,18 +331,113 @@ async function handleAudio(req, fileId) {
   });
 
   const headers = new Headers();
-  for (const k of ['content-type', 'content-length', 'content-range', 'etag', 'last-modified', 'accept-ranges']) {
+  for (const k of ['content-length', 'content-range', 'etag', 'last-modified', 'accept-ranges']) {
     const v = upstream.headers.get(k);
     if (v) headers.set(k, v);
   }
   if (!headers.has('accept-ranges')) headers.set('Accept-Ranges', 'bytes');
-  if (!headers.has('content-type')) headers.set('Content-Type', 'audio/mpeg');
+  headers.set('Content-Type', await resolveAudioContentType(driveUrl, fileId, upstream));
   headers.set('Content-Disposition', 'inline');
   // File ID maps 1:1 to immutable content → safe to cache aggressively.
   headers.set('Cache-Control', 'public, max-age=86400, immutable');
   Object.entries(corsHeaders()).forEach(([k, v]) => headers.set(k, v));
 
   return new Response(upstream.body, { status: upstream.status, headers });
+}
+
+// Drive's uc?export=media labels only MP3 as audio/mpeg; any other upload
+// (m4a, a QuickTime clip picked as "audio" on an iPhone, wav) comes back as
+// application/octet-stream with nosniff. Chromium's demuxer ignores the label
+// and probes the container, so the page plays on desktop/Android — but iOS
+// AVFoundation trusts the label, and with no extension in /<fileId> it refuses
+// to open the stream at all. Recover the media type from the file's magic bytes.
+const AUDIO_SNIFF_BYTES = 12;
+
+/** True when the upstream label carries no media type to trust. */
+function isOpaqueContentType(contentType) {
+  const t = String(contentType || '').toLowerCase().split(';')[0].trim();
+  return !t || t === 'application/octet-stream' || t === 'application/binary';
+}
+
+/**
+ * Media type for an audio stream from its leading bytes. Pure — the Node test
+ * suite extracts and runs it. Keeps a trustworthy upstream label untouched;
+ * for an opaque one it reads the container signature, defaulting to
+ * audio/mpeg (the pre-sniff fallback) when nothing matches.
+ */
+function audioContentTypeFromBytes(bytes, upstreamType) {
+  if (!isOpaqueContentType(upstreamType)) return upstreamType;
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || 0);
+  const ascii = (off, len) => String.fromCharCode.apply(null, Array.from(b.subarray(off, off + len)));
+  if (b.length >= 12 && ascii(4, 4) === 'ftyp') {
+    const brand = ascii(8, 4);
+    if (brand === 'qt  ') return 'video/quicktime';
+    if (brand === 'M4A ' || brand === 'M4B ') return 'audio/mp4';
+    return 'video/mp4';
+  }
+  // QuickTime allows omitting ftyp; older writers open with one of these atoms.
+  if (b.length >= 8 && ['moov', 'mdat', 'wide', 'free', 'skip'].indexOf(ascii(4, 4)) !== -1) return 'video/quicktime';
+  if (b.length >= 3 && ascii(0, 3) === 'ID3') return 'audio/mpeg';
+  // Raw MPEG audio frame: 11-bit sync word, layer bits not both zero.
+  if (b.length >= 2 && b[0] === 0xff && (b[1] & 0xe0) === 0xe0 && (b[1] & 0x06) !== 0) return 'audio/mpeg';
+  if (b.length >= 12 && ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WAVE') return 'audio/wav';
+  if (b.length >= 4 && ascii(0, 4) === 'OggS') return 'audio/ogg';
+  if (b.length >= 4 && ascii(0, 4) === 'fLaC') return 'audio/flac';
+  if (b.length >= 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return 'audio/webm';
+  if (b.length >= 4 && ascii(0, 4) === 'caff') return 'audio/x-caf';
+  if (b.length >= 12 && ascii(0, 4) === 'FORM' && (ascii(8, 4) === 'AIFF' || ascii(8, 4) === 'AIFC')) return 'audio/aiff';
+  return 'audio/mpeg';
+}
+
+/**
+ * Content-Type for the audio response. MP3 rows (the compressed happy path)
+ * never pay for this: Drive labels them correctly and the label is returned
+ * as-is. Only an opaque label triggers one extra edge-cached fetch of the
+ * file's first bytes — the request's own body can't be used because Safari's
+ * opening probe is `Range: bytes=0-1`, too short to hold a signature.
+ */
+async function resolveAudioContentType(driveUrl, fileId, upstream) {
+  const upstreamType = upstream.headers.get('content-type');
+  if (!upstream.ok || !isOpaqueContentType(upstreamType)) {
+    return upstreamType || 'audio/mpeg';
+  }
+  const sniffRange = 'bytes=0-' + (AUDIO_SNIFF_BYTES - 1);
+  let head = new Uint8Array(0);
+  try {
+    const r = await fetch(driveUrl, {
+      headers: { Range: sniffRange },
+      redirect: 'follow',
+      // Own key space: the client's Range-keyed entries at the same offset may
+      // be HEAD (bodyless) and must never feed the sniff.
+      cf: { cacheTtl: 86400, cacheEverything: true, cacheKey: `voice-proxy:sniff:${fileId}` },
+    });
+    if (r.ok && r.body) head = await readLeadingBytes(r.body, AUDIO_SNIFF_BYTES);
+  } catch (_) {
+    // Sniff failure degrades to the pre-sniff behaviour, never to a 5xx.
+  }
+  return audioContentTypeFromBytes(head, upstreamType);
+}
+
+/**
+ * First `limit` bytes of a stream, then cancel it. Bounded on purpose: if
+ * Drive ignores the Range and answers 200, this must not buffer the file.
+ */
+async function readLeadingBytes(stream, limit) {
+  const reader = stream.getReader();
+  const out = new Uint8Array(limit);
+  let filled = 0;
+  try {
+    while (filled < limit) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const take = Math.min(value.length, limit - filled);
+      out.set(value.subarray(0, take), filled);
+      filled += take;
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+  return out.subarray(0, filled);
 }
 
 // ------------------------------------------------------------------
