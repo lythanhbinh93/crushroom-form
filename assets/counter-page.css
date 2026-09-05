@@ -271,13 +271,6 @@ body {
 .voice-bar:nth-child(11n) { height: 55%; }
 
 /* ── Footer ────────────────────────────────────────────────────────────── */
-.counter-footer {
-  margin-top: auto;
-  padding-top: 30px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-}
-
 /* Slightly smaller heart on very narrow screens so avatars keep room */
 @media (max-width: 360px) {
   .svg-heart-container { width: 190px; height: 190px; }

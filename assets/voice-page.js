@@ -25,7 +25,6 @@ var elError     = document.getElementById('gift-404');
 var elRoot      = document.getElementById('gift-root');
 var elImage     = document.getElementById('gift-image');
 var elText      = document.getElementById('gift-text');
-var elDate      = document.getElementById('gift-date');
 var elAudioLoad = document.getElementById('gift-audio-loading');
 var elPlayer    = document.getElementById('player-container');
 var elPlayBtn   = document.getElementById('playPauseButton');
@@ -60,15 +59,6 @@ function extractDriveFileId(url) {
     if (m2) return m2[0];
   }
   return '';
-}
-
-function formatDate(iso) {
-  if (!iso) return '';
-  try {
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
-  } catch (_) { return ''; }
 }
 
 function formatTime(seconds) {
@@ -106,10 +96,6 @@ function renderGift(data) {
   // has no .trim.
   var msg = String(data.text_message == null ? '' : data.text_message).trim();
   elText.textContent = msg;
-
-  // Date
-  var dateStr = formatDate(data.published_at);
-  if (dateStr) elDate.textContent = '· ' + dateStr;
 
   // Reveal card (audio loads async underneath)
   elLoading.hidden = true;

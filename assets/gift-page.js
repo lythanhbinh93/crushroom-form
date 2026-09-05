@@ -124,18 +124,11 @@ function gpEmbedUrl(link) {
   var elImage = document.getElementById('gp-image');
   var elText = document.getElementById('gp-text');
   var elEmbed = document.getElementById('gp-embed');
-  var elDate = document.getElementById('gp-date');
 
   function showError() {
     elLoading.hidden = true;
     elRoot.hidden = true;
     elError.hidden = false;
-  }
-
-  function formatDate(iso) {
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
   }
 
   function render(data) {
@@ -174,9 +167,6 @@ function gpEmbedUrl(link) {
       if (playerShown) elEmbed.hidden = false;
     }
     if (!playerShown) mountEmbedFallback(data);
-
-    var dateStr = formatDate(data.published_at);
-    if (dateStr) elDate.textContent = '· ' + dateStr;
 
     elLoading.hidden = true;
     elError.hidden = true;
