@@ -46,7 +46,7 @@ function normalizeThumbUrl(url, size) {
   var s = String(url).trim();
   var m = s.match(/[-\w]{25,}/);
   if (!m || s.indexOf('drive.google.com') === -1) return s;
-  return 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + (size || 800);
+  return 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + (size || 1200);
 }
 
 function extractDriveFileId(url) {
@@ -83,7 +83,10 @@ function showLoading() {
 
 function renderGift(data) {
   // Image
-  var imgSrc = normalizeThumbUrl(data.image_url || '', 800);
+  // w1200 matches the crop master in voice-upload.js. Drive serves
+  // min(requested, stored) and never upscales, so asking for less than the
+  // master silently re-softens the photo the customer uploaded.
+  var imgSrc = normalizeThumbUrl(data.image_url || '', 1200);
   var imgIsDrive = imgSrc && imgSrc.indexOf('drive.google.com') !== -1;
   if (imgSrc && imgIsDrive) {
     elImage.src = imgSrc;

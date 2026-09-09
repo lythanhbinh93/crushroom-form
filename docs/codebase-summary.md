@@ -208,7 +208,7 @@ crushroom-form/
 **Customer Upload** (`voice-upload.html` + `assets/voice-upload.{js,css}`):
 - Phone + order_id (optional prefills from URL params)
 - File input: MP3/M4A/AAC (validation, 35 MB client-side cap)
-- Image upload: auto-crop to 400×400 JPEG
+- Image upload: auto-crop to 1200×1200 JPEG q0.85 — the stored crop is the only copy, and the gift pages request `sz=w1200` to match (Drive never upscales)
 - Text message: max 1000 chars
 - Single POST base64 to GAS finishUpload
 

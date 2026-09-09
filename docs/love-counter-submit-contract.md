@@ -80,7 +80,7 @@ can only create). CS sweeps that folder monthly: anything whose
 `<phone>_<order>` prefix has no published video row can go.
 
 For `image`: `imgData` (base64 JPEG,
-400×400 q0.85 crop) or `keepImage=1`. Optional both: `text_message` (≤1000),
+1200×1200 q0.85 crop) or `keepImage=1`. Optional both: `text_message` (≤1000),
 `imgData`/`keepImage` on link/video gifts (decoration). Same rules as every submit
 handler: publish-lock, keep-flags fail closed via `resolveKeptSlot_`, fresh
 data wins, slug + published_at kept, canonical Drive names, csvSafe_/apostrophe
@@ -229,7 +229,7 @@ Identity (all required): `phone`, `order_id`, `type` — same strictness as
 
 | type | slot | columns written | notes |
 |---|---|---|---|
-| voice | `image` | `image_file_id`, `image_url` | 400×400 JPEG q0.85, square crop (matches voice-upload.js) |
+| voice | `image` | `image_file_id`, `image_url` | 1200×1200 JPEG q0.85, square crop (matches voice-upload.js) |
 | voice | `audio` | `audio_file_id`, `audio_url`, `peaks`, `audio_duration` | ≤35MB; compressed client-side best-effort |
 | counter | `male` | `male_image_file_id/_url` **+ `image_file_id/_url`** | thumbnail mirror, same as submitCounter |
 | counter | `female` | `female_image_file_id/_url` | 400×400 JPEG q0.85 circular crop |

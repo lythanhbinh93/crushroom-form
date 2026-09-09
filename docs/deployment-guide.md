@@ -352,7 +352,7 @@ Recipient audio playback and metadata go through a Cloudflare Worker that proxie
 
 **Drive Folders**:
 - Audio folder: monitor size quarterly (50 MB MP3 uploads add up)
-- Image folder: 400×400 JPEG, ~80 KB each — negligible
+- Image folder: 1200×1200 JPEG, ~150–400 KB each — negligible (rows before 2026-09-09 are 400×400, ~25–80 KB)
 
 ## Monitoring & Alerts
 

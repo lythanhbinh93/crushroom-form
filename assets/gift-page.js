@@ -133,8 +133,11 @@ function gpEmbedUrl(link) {
 
   function render(data) {
     if (data.image_file_id) {
+      // w1200 matches the crop master in simple-gift-upload.js. Drive serves
+      // min(requested, stored) and never upscales, so asking for less than the
+      // master silently re-softens the photo the customer uploaded.
       elImage.src = 'https://drive.google.com/thumbnail?id=' +
-        encodeURIComponent(data.image_file_id) + '&sz=w800';
+        encodeURIComponent(data.image_file_id) + '&sz=w1200';
       elImage.onerror = function () { elImage.hidden = true; };
       elImage.hidden = false;
     }

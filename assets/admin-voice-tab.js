@@ -115,7 +115,7 @@
         label: 'Đổi ảnh', kind: 'image',
         viewport: { width: 280, height: 280, type: 'square' },
         boundary: { width: 300, height: 380 },
-        output: { width: 400, height: 400 }, quality: 0.85
+        output: { width: 1200, height: 1200 }, quality: 0.85
       },
       audio: { label: 'Đổi audio', kind: 'audio' }
     },
@@ -147,7 +147,7 @@
         label: 'Đổi ảnh', kind: 'image', removable: true,
         viewport: { width: 280, height: 280, type: 'square' },
         boundary: { width: 300, height: 380 },
-        output: { width: 400, height: 400 }, quality: 0.85
+        output: { width: 1200, height: 1200 }, quality: 0.85
       }
     },
     image: {
@@ -155,7 +155,7 @@
         label: 'Đổi ảnh', kind: 'image',
         viewport: { width: 280, height: 280, type: 'square' },
         boundary: { width: 300, height: 380 },
-        output: { width: 400, height: 400 }, quality: 0.85
+        output: { width: 1200, height: 1200 }, quality: 0.85
       }
     },
     video: {
@@ -163,7 +163,7 @@
         label: 'Đổi ảnh', kind: 'image', removable: true,
         viewport: { width: 280, height: 280, type: 'square' },
         boundary: { width: 300, height: 380 },
-        output: { width: 400, height: 400 }, quality: 0.85
+        output: { width: 1200, height: 1200 }, quality: 0.85
       }
     }
   });

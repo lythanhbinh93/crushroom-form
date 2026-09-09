@@ -127,9 +127,16 @@ ok('hydration is skipped for a locked submission (source pin)',
    /sgIsLocked\(resp\.submission\)[\s\S]{0,80}else hydrateFromSubmission/.test(src));
 ok('server published_locked maps to the locked panel (source pin)',
    /published_locked'\) \{[\s\S]{0,120}showLockedPanel\(\)/.test(src));
+// This claims parity with the voice form, so it READS the voice form. Pinning
+// the numbers here instead let both forms be wrong together: they shipped
+// matching 400x400 masters that were too small for either recipient page.
+const voiceSrc = fs.readFileSync(path.join(__dirname, '..', 'assets', 'voice-upload.js'), 'utf8');
+const cropOf = (s) => (s.match(/size: \{ width: (\d+), height: (\d+) \},\s*format: 'jpeg',\s*quality: ([\d.]+)/) || []).slice(1).join('x');
 ok('crop geometry matches the voice form (admin mirrors depend on it)',
    /viewport: \{ width: 280, height: 280, type: 'square' \}/.test(src) &&
-   /size: \{ width: 400, height: 400 \},\s*format: 'jpeg',\s*quality: 0\.85/.test(src));
+   /viewport: \{ width: 280, height: 280, type: 'square' \}/.test(voiceSrc) &&
+   !!cropOf(src) && cropOf(src) === cropOf(voiceSrc),
+   cropOf(src) + ' vs voice ' + cropOf(voiceSrc));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

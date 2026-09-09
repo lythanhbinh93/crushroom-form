@@ -671,10 +671,21 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     reader.readAsDataURL(file);
 
+    /**
+     * Crop to a 1200x1200 JPEG master (square).
+     *
+     * These bytes are the ONLY copy of the photo that is ever stored: the
+     * backend writes the crop to Drive unchanged and keeps no original. The
+     * recipient page renders it up to ~600 CSS px on 2-3x phone screens
+     * (~1200-1800 device px), and Drive's `thumbnail?sz=w...` endpoint serves
+     * min(requested, stored) - it NEVER upscales - so a 400 px master could
+     * only ever be displayed soft. Keep this >= the sz=w value the gift pages
+     * request (voice-page.js and gift-page.js).
+     */
     function doCrop() {
       return croppie.result({
         type: 'blob',
-        size: { width: 400, height: 400 },
+        size: { width: 1200, height: 1200 },
         format: 'jpeg',
         quality: 0.85
       }).then(function (blob) {

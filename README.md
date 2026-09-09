@@ -80,7 +80,7 @@ https://script.google.com/macros/s/AKfycbwSPtGU4upgxTUT8XJM6rqZlyUWyJ3U40KXvM0Ga
 
 **Giới hạn file**:
 - Audio: tối đa 35MB (base64 ~47MB, trong ngưỡng GAS 50MB). File >20MB sẽ hiển thị cảnh báo.
-- Ảnh: crop 400×400 JPEG, giới hạn thực tế ~5MB trước crop.
+- Ảnh: crop 1200×1200 JPEG q0.85 (~150–400KB; bản 400×400 cũ hiển thị mờ trên màn hình 2–3×), giới hạn thực tế ~5MB trước crop.
 - Lời nhắn: tối đa 1000 ký tự.
 
 **Audio proxy**: Drive trả về `CORP: same-site` blocking browser audio từ origins khác. GAS `audioProxy` endpoint đọc file bằng DriveApp (script-owner) và trả base64 → browser decode → Blob URL → WaveSurfer.
